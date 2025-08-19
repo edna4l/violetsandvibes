@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    visualizer({ open: true }) // optional bundle analysis
+    visualizer({ open: "development" }) // optional bundle analysis
   ].filter(Boolean),
   resolve: {
     alias: {
