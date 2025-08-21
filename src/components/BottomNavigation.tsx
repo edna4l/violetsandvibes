@@ -9,37 +9,36 @@ import {
   Users
 } from 'lucide-react';
 
+// TODO: Replace with your actual user logic
+const user = null; // e.g. useAuthContext() or prop
+
 const BottomNavigation: React.FC = () => {
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  
+
   const navItems = [
     { path: '/', icon: Compass, label: 'Discover' },
     { path: '/matches', icon: Heart, label: 'Matches' },
     { path: '/chat', icon: MessageCircle, label: 'Chat' },
     { path: '/social', icon: Users, label: 'Social' },
     { path: '/events', icon: Calendar, label: 'Events' },
-    { path: '/profile', icon: User, label: 'Profile' }
+    { path: '/profile', icon: User, label: 'Profile' },
+    // Add Sign In only if not signed in
+    ...(!user ? [{ path: '/signin', icon: User, label: 'Sign In' }] : []),
   ];
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
       if (currentScrollY < lastScrollY) {
-        // Scrolling up
         setIsVisible(true);
       } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        // Scrolling down and past 100px
         setIsVisible(false);
       }
-      
       setLastScrollY(currentScrollY);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
-    
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
