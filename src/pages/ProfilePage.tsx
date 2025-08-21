@@ -1,182 +1,208 @@
-import React from 'react';
-import GlobalNavigation from '@/components/GlobalNavigation';
-import ScrollableLayout from '@/components/ScrollableLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Edit, MapPin, Camera, UserPlus, Star, Loader2 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useProfile } from '@/hooks/useProfile';
-import { useAuth } from '@/hooks/useAuth';
-import MessageButton from '@/components/MessageButton';
-import ProfileMenu from '@/components/ProfileMenu';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const ProfilePage: React.FC = () => {
+import { useProfile } from "../hooks/useProfile";
+import { useUserLikes } from "../hooks/useUserLikes";
+import { useAuth } from "../hooks/useAuth";
+
+import { Card, CardContent } from "../components/ui/card";
+import MatchNotification from "../components/MatchNotification";
+import EnhancedProfileCard from "../components/EnhancedProfileCard";
+import EnhancedProfileDetailModal from "../components/EnhancedProfileDetailModal";
+import VirtualGiftModal from "../components/VirtualGiftModal";
+import GameSelectionModal from "../components/GameSelectionModal";
+import EnhancedInteractiveGame from "../components/EnhancedInteractiveGame";
+
+const UserProfilesListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
   const { user } = useAuth();
-  const { profile, loading, error } = useProfile(id);
-  
-  const isOwnProfile = !id || (user && profile?.user_id === user.id);
+  const { profiles, loading } = useProfile();
+  const { toggleLike, isLiked } = useUserLikes();
+
+  const [matchNotification, setMatchNotification] = useState<{ isOpen: boolean; matchedUser: any }>({
+    isOpen: false,
+    matchedUser: null,
+  });
+
+  const [profileDetail, setProfileDetail] = useState<{ isOpen: boolean; profile: any }>({
+    isOpen: false,
+    profile: null,
+  });
+
+  const [giftModal, setGiftModal] = useState<{ isOpen: boolean; profile: any }>({
+    isOpen: false,
+    profile: null,
+  });
+
+  const [gameModal, setGameModal] = useState<{ isOpen: boolean; profile: any }>({
+    isOpen: false,
+    profile: null,
+  });
+
+  const [activeGame, setActiveGame] = useState<any>(null);
+
+  const handleLike = async (profile: any) => {
+    const result = await toggleLike(profile.user_id);
+    if (result.isMatch && result.matchedProfile) {
+      setMatchNotification({ isOpen: true, matchedUser: result.matchedProfile });
+    }
+  };
+
+  const handleMessage = (profile: any) => {
+    navigate("/messages", { state: { selectedProfile: profile } });
+  };
+
+  const handleSendGift = (profile: any) => setGiftModal({ isOpen: true, profile });
+  const handlePlayGame = (profile: any) => setGameModal({ isOpen: true, profile });
+  const handleViewProfile = (profile: any) => setProfileDetail({ isOpen: true, profile });
+
+  const handleStartChat = () => {
+    setMatchNotification({ isOpen: false, matchedUser: null });
+    if (matchNotification.matchedUser) {
+      handleMessage(matchNotification.matchedUser);
+    }
+  };
+
+  const onSendGift = (giftData: any) => {
+    console.log("Sending gift:", giftData);
+    // TODO: Implement gift sending logic
+  };
+
+  const onStartGame = (gameData: any) => {
+    console.log("Starting game:", gameData);
+    setActiveGame(gameData);
+  };
+
+  const getGameType = (gameName: string) => {
+    if (!gameName) return "icebreaker";
+    const name = gameName.toLowerCase();
+    if (name.includes("trivia") || name.includes("quiz")) return "trivia";
+    if (name.includes("icebreaker") || name.includes("conversation")) return "icebreaker";
+    if (name.includes("compatibility") || name.includes("match") || name.includes("love")) return "compatibility";
+    if (name.includes("puzzle") || name.includes("riddle") || name.includes("challenge")) return "puzzle";
+    if (name.includes("word") || name.includes("text")) return "wordgame";
+    if (name.includes("memory") || name.includes("remember")) return "memory";
+    if (name.includes("speed") || name.includes("quick") || name.includes("fast")) return "speed";
+    if (name.includes("creative") || name.includes("expression") || name.includes("art")) return "creative";
+    return "icebreaker";
+  };
+
+  const canViewPrivateContent = (profile: any) => {
+    if (!profile.privacy_settings) return true;
+    if (isLiked(profile.user_id) && profile.likes_current_user) return true;
+    switch (profile.privacy_settings.profile_visibility) {
+      case "public":
+        return true;
+      case "matches_only":
+        return isLiked(profile.user_id) && profile.likes_current_user;
+      case "private":
+        return false;
+      default:
+        return true;
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen page-gradient flex items-center justify-center">
-        <div className="max-w-md mx-auto glass-pride backdrop-blur-xl rounded-lg p-8">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin gradient-text-pride" />
-            <p className="text-black font-bold">Loading your profile...</p>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-3xl font-bold text-center mb-8">Discover Profiles</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="w-full h-80 bg-gray-200 rounded-lg mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </div>
     );
   }
-
-  if (error || !profile) {
-    return (
-      <div className="min-h-screen page-gradient">
-        <div className="max-w-md mx-auto glass-pride min-h-screen backdrop-blur-xl">
-          <GlobalNavigation showBackButton={true} title="My Profile" />
-          <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
-            <Card className="card-pride border-0 shadow-xl w-full">
-              <CardContent className="pt-6 text-center">
-                <h3 className="text-xl font-bold gradient-text-pride mb-4">
-                  No Profile Found
-                </h3>
-                <p className="text-black font-bold mb-6">
-                  It looks like you haven't created a profile yet. Let's get you started!
-                </p>
-                <Button 
-                  className="w-full btn-pride text-white font-bold py-3"
-                  onClick={() => navigate('/create-new-profile')}
-                >
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  Create Your Profile
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const getInitials = (name: string) => {
-    return (name || '').split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
-  const profilePhoto = profile.photos && profile.photos.length > 0 
-    ? profile.photos[0] 
-    : `https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face`;
 
   return (
-    <div className="p-4 space-y-6">
-      <Card className="card-pride border-0 shadow-xl">
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative">
-              <Avatar className="w-28 h-28 border-4 border-white/30 shadow-2xl animate-bounce" style={{animationDuration: '3s'}}>
-                <AvatarImage src={profilePhoto} />
-                <AvatarFallback className="lesbian-gradient text-white text-xl font-bold">
-                  {getInitials(profile.name)}
-                </AvatarFallback>
-              </Avatar>
-              <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-10 h-10 p-0 btn-pride shadow-lg hover:scale-110 transition-all animate-pulse" style={{animationDuration: '4s'}}>
-                <Camera className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            <div className="text-center">
-              <h2 className="text-3xl font-bold gradient-text-pride animate-pulse" style={{animationDuration: '4s'}}>
-                {profile.name}, {profile.age}
-              </h2>
-              {profile.location && (
-                <div className="flex items-center justify-center gap-1 text-black font-bold mt-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{profile.location}</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex gap-2 flex-wrap justify-center">
-              {profile.lgbtq_status && (
-                <Badge className="lesbian-gradient text-white border-0 shadow-md animate-pulse" style={{animationDuration: '3s'}}>
-                  {profile.lgbtq_status}
-                </Badge>
-              )}
-              {profile.interests && profile.interests.map((interest, index) => (
-                <Badge 
-                  key={index}
-                  className="bi-gradient text-white border-0 shadow-md animate-pulse" 
-                  style={{animationDuration: `${4 + index}s`}}
-                >
-                  {interest}
-                </Badge>
-              ))}
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-8">Discover Profiles</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {profiles.map((profile) => (
+            <EnhancedProfileCard
+              key={profile.user_id}
+              profile={profile}
+              onLike={handleLike}
+              onMessage={handleMessage}
+              onVideoCall={() => {}}
+              onSendGift={handleSendGift}
+              onPlayGame={handlePlayGame}
+              onViewProfile={handleViewProfile}
+              isLiked={isLiked(profile.user_id)}
+              showPrivateContent={canViewPrivateContent(profile)}
+            />
+          ))}
+        </div>
+
+        {profiles.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No profiles found.</p>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="card-pride border-0 shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gradient-text-pride animate-pulse" style={{animationDuration: '4s'}}>
-            About Me
-            <div className="flex items-center gap-2">
-              {isOwnProfile ? (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="hover:bg-white/20 rounded-full"
-                  onClick={() => navigate('/edit-profile')}
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
-              ) : (
-                <ProfileMenu userId={profile.user_id} userName={profile.name} />
-              )}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-black font-bold leading-relaxed">
-            {profile.bio || "Tell us about yourself! Click edit to add your bio."}
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3 pb-6">
-        {isOwnProfile ? (
-          <>
-            <Button 
-              className="w-full btn-pride text-white font-bold py-3 shadow-xl hover:scale-105 transition-all animate-pulse"
-              style={{animationDuration: '4s'}}
-              onClick={() => navigate('/edit-profile')}
-            >
-              <Edit className="w-5 h-5 mr-2" />
-              Edit My Profile
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full border-2 border-yellow-300 hover:bg-gradient-to-r hover:from-yellow-100 hover:to-orange-100 py-3 font-bold shadow-lg hover:scale-105 transition-all animate-pulse" 
-              style={{animationDuration: '6s'}}
-              onClick={() => navigate('/subscription')}
-            >
-              <Star className="w-5 h-5 mr-2 text-yellow-500" />
-              Upgrade to Premium
-            </Button>
-          </>
-        ) : (
-          <MessageButton 
-            userId={profile.user_id} 
-            userName={profile.name}
-            className="w-full btn-pride text-white font-bold py-3"
-          />
         )}
       </div>
+
+      {/* Modals */}
+      <MatchNotification
+        isOpen={matchNotification.isOpen}
+        onClose={() => setMatchNotification({ isOpen: false, matchedUser: null })}
+        matchedUser={matchNotification.matchedUser}
+        onStartChat={handleStartChat}
+      />
+
+      <EnhancedProfileDetailModal
+        isOpen={profileDetail.isOpen}
+        onClose={() => setProfileDetail({ isOpen: false, profile: null })}
+        profile={profileDetail.profile}
+        onLike={handleLike}
+        onMessage={handleMessage}
+        onVideoCall={() => {}}
+        onSendGift={handleSendGift}
+        onPlayGame={handlePlayGame}
+        isLiked={profileDetail.profile ? isLiked(profileDetail.profile.user_id) : false}
+        showPrivateContent={profileDetail.profile ? canViewPrivateContent(profileDetail.profile) : false}
+      />
+
+      <VirtualGiftModal
+        isOpen={giftModal.isOpen}
+        onClose={() => setGiftModal({ isOpen: false, profile: null })}
+        recipientName={giftModal.profile?.full_name || ""}
+        onSendGift={onSendGift}
+      />
+
+      <GameSelectionModal
+        isOpen={gameModal.isOpen}
+        onClose={() => setGameModal({ isOpen: false, profile: null })}
+        partnerName={gameModal.profile?.full_name || ""}
+        onStartGame={onStartGame}
+      />
+
+      {/* Active Game Modal */}
+      {activeGame && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="w-full max-w-md">
+            <EnhancedInteractiveGame
+              onClose={() => setActiveGame(null)}
+              gameType={getGameType(activeGame.name)}
+              isMultiplayer={activeGame.isMultiplayer || false}
+              partnerId={gameModal.profile?.user_id}
+              partnerName={gameModal.profile?.full_name}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default ProfilePage;
+export default UserProfilesListPage;
