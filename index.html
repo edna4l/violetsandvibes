@@ -25,6 +25,23 @@
 
   <body>
     <div id="root"></div>
+      <!-- Your HTML... -->
+<button id="google-sign-in-btn">Sign in with Google</button>
+
+<script>
+async function signInWithGoogle() {
+  try {
+    const response = await fetch('/functions/v1/google-auth/login');
+    const { url } = await response.json();
+    window.location.href = url;
+  } catch (error) {
+    console.error('Error starting Google OAuth flow:', error);
+  }
+}
+
+document.getElementById('google-sign-in-btn').addEventListener('click', signInWithGoogle);
+</script>
+</body>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
