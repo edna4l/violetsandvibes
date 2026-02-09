@@ -215,7 +215,7 @@
     var(--bisexual-blue)
   );
   background-size: 400% 400%;
-  animation: slowPrideGradient 8s ease-in-out infinite;
+  animation: slowPrideGradient 24s ease-in-out infinite;
 }
 .rainbow-header-static {
   background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #ff0080, #9370db, #ff1493);
@@ -231,7 +231,7 @@
     var(--pansexual-blue)
   );
   background-size: 400% 400%;
-  animation: slowPrideGradient 8s ease-in-out infinite;
+  animation: slowPrideGradient 24s ease-in-out infinite;
 }
 
 .transgender-gradient {
@@ -243,7 +243,7 @@
     var(--transgender-blue)
   );
   background-size: 400% 400%;
-  animation: slowPrideGradient 8s ease-in-out infinite;
+  animation: slowPrideGradient 24s ease-in-out infinite;
 }
 
 .rainbow-gradient {
@@ -256,7 +256,7 @@
     var(--rainbow-purple)
   );
   background-size: 400% 400%;
-  animation: slowPrideGradient 8s ease-in-out infinite;
+  animation: slowPrideGradient 24s ease-in-out infinite;
 }
 
 @keyframes slowPrideGradient {
@@ -287,7 +287,7 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
-  animation: rainbowFade 3s ease-in-out infinite;
+  animation: rainbowFade 10s ease-in-out infinite;
 }
 
 /* Wedding Font Heading Styles */
@@ -367,8 +367,12 @@
   
   /* Pride Buttons & Cards */
   .btn-pride {
-    @apply bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
-  }
+  @apply bg-violet-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-violet-700 transition-colors duration-200;
+}
+
+.btn-pride-celebrate {
+  @apply bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-semibold py-2 px-4 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300;
+}
   
   .card-pride {
     @apply glass-pride border-pink-200/50 hover:border-purple-300/50 transition-all duration-300;
@@ -384,9 +388,9 @@
   }
   
   .page-gradient::before {
-    content: '';
-    @apply absolute inset-0 bg-white/5 backdrop-blur-sm;
-  }
+  content: '';
+  @apply absolute inset-0 bg-black/20 backdrop-blur-md;
+ }
 }
 
 /* Responsive Layout Utilities */
@@ -400,4 +404,17 @@
 
 .responsive-flex {
   @apply flex flex-col sm:flex-row gap-4 sm:gap-6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesbian-gradient,
+  .bisexual-gradient,
+  .pansexual-gradient,
+  .transgender-gradient,
+  .rainbow-gradient,
+  .gradient-text-pride,
+  .bi-gradient,
+  .rainbow-header {
+    animation: none !important;
+  }
 }
