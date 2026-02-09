@@ -51,8 +51,7 @@ export const authService = {
   async signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    // Redirect to sign-in page after logout
-    window.location.href = '/signin';
+    // Keep navigation in the router to avoid full page reloads.
   },
 
   async getCurrentUser(): Promise<AuthUser | null> {
