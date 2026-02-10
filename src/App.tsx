@@ -97,7 +97,17 @@ const App = () => (
               }
             />
             <Route path="/edit-profile" element={<GlobalLayout><ProfileEditPage /></GlobalLayout>} />
-            <Route path="/admin" element={<GlobalLayout><AdminPage /></GlobalLayout>} />
+           <Route
+  path="/admin"
+  element={
+    <AdminRoute>
+      <GlobalLayout>
+        <AdminPage />
+      </GlobalLayout>
+    </AdminRoute>
+  }
+/>
+
             <Route path="/subscription" element={<GlobalLayout><SubscriptionPage /></GlobalLayout>} />
             <Route path="/settings" element={<ProtectedRoute><GlobalLayout><SettingsPage /></GlobalLayout></ProtectedRoute>} />
             <Route path="*" element={<GlobalLayout><NotFound /></GlobalLayout>} />
