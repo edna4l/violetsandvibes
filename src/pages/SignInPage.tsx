@@ -47,7 +47,7 @@ const SignInPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="page-gradient min-h-screen flex items-center justify-center">
+      <div className="page-calm min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500 mx-auto mb-4"></div>
           <p className="text-white">Loading...</p>
@@ -58,7 +58,7 @@ const SignInPage: React.FC = () => {
 
   if (user) {
     return (
-      <div className="page-gradient min-h-screen">
+      <div className="page-calm min-h-screen">
         <div className="container mx-auto px-4 py-4">
           <Link to="/heroes" className="inline-flex items-center text-white hover:text-pink-200 transition-colors">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -81,7 +81,7 @@ const SignInPage: React.FC = () => {
   }
 
   return (
-    <div className="page-gradient min-h-screen flex flex-col relative">
+    <div className="page-calm min-h-screen flex flex-col relative">
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-pink-400/20 rounded-full floating-orb blur-xl"></div>

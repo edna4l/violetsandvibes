@@ -5,7 +5,7 @@ import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 
 const FiltersPage: React.FC = () => {
   return (
-    <div className="page-gradient min-h-screen flex flex-col relative">
+    <div className="page-calm min-h-screen flex flex-col relative">
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative z-10">
         <ResponsiveWrapper maxWidth="2xl" className="h-full">
