@@ -11,9 +11,11 @@ import { PrivacyStep } from './PrivacyStep';
 import { SafetyStep } from './SafetyStep';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from "react-router-dom";
 
 const ProfileCreationFlow: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [profile, setProfile] = useState({
     name: '',
@@ -108,7 +110,7 @@ const ProfileCreationFlow: React.FC = () => {
       
       // Navigate to main app or show success
       console.log('Profile saved successfully');
-      window.location.href = '/profile';
+      navigate("/profile", { replace: true });
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
@@ -136,9 +138,9 @@ const ProfileCreationFlow: React.FC = () => {
   const isValid = validateStep(currentStep);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
+    <div className="page-calm p-4">
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="glass-card p-6">
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <Badge variant="outline">{currentStep + 1} of {steps.length}</Badge>

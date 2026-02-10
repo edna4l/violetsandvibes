@@ -5,12 +5,15 @@ import { Label } from '@/components/ui/label';
 import { authService, LoginData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { SocialLoginButtons } from '@/components/SocialLoginButtons';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface LoginFormProps {
   onForgotPassword: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState<LoginData>({
     email: '',
     password: '',
@@ -35,8 +38,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
         title: "Success!",
         description: "You have been logged in successfully.",
       });
-      // Redirect to main app or dashboard
-      window.location.href = '/social';
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect');
+      const target = redirect && redirect.startsWith('/') ? redirect : '/social';
+      navigate(target, { replace: true });
     } catch (error: any) {
       toast({
         title: "Login Failed",
