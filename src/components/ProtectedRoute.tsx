@@ -1,77 +1,60 @@
-import { useEffect, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react';
 
-type Props = {
-  children: React.ReactNode;
+interface ProtectedRouteProps {
+  children: JSX.Element;
   requireProfile?: boolean;
-};
+}
 
-export default function ProtectedRoute({ children, requireProfile = false }: Props) {
+export const ProtectedRoute = ({
+  children,
+  requireProfile = false,
+}: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
   const location = useLocation();
-  const [status, setStatus] = useState<"loading" | "authed" | "noauth" | "noprofile">("loading");
+  const [checkingProfile, setCheckingProfile] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!user || !requireProfile) return;
 
-    async function run() {
-      // 1) Auth check
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData.session;
+    const checkProfile = async () => {
+      setCheckingProfile(true);
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
 
-      if (!session?.user) {
-        if (!cancelled) setStatus("noauth");
-        return;
-      }
-
-      // 2) Profile check (optional)
-      if (requireProfile) {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, profile_completed")
-          .eq("id", session.user.id)
-          .maybeSingle();
-
-        if (error) {
-          // If table doesn't exist yet or RLS blocks, treat as missing profile for now
-          if (!cancelled) setStatus("noprofile");
-          return;
-        }
-
-        if (!data || !data.profile_completed) {
-          if (!cancelled) setStatus("noprofile");
-          return;
-        }
-      }
-
-      if (!cancelled) setStatus("authed");
-    }
-
-    run();
-    return () => {
-      cancelled = true;
+      setHasProfile(!!data);
+      setCheckingProfile(false);
     };
-  }, [requireProfile]);
 
-  if (status === "loading") {
+    checkProfile();
+  }, [user, requireProfile]);
+
+  if (loading || checkingProfile) {
     return (
-      <div className="page-calm flex items-center justify-center">
-        <div className="glass-card p-6 text-center">
-          <div className="text-lg font-semibold">Checking session...</div>
-          <div className="text-sm text-white/70 mt-1">One sec 💜</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center text-white">
+        Checking session…
       </div>
     );
   }
 
-  if (status === "noauth") {
-    const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/signin?redirect=${redirect}`} replace />;
+  if (!user) {
+    return (
+      <Navigate
+        to={`/signin?redirect=${encodeURIComponent(location.pathname)}`}
+        replace
+      />
+    );
   }
 
-  if (status === "noprofile") {
+  if (requireProfile && !hasProfile) {
     return <Navigate to="/create-new-profile" replace />;
   }
 
-  return <>{children}</>;
-}
+  return children;
+};

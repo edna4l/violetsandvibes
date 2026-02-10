@@ -63,3 +63,6 @@ jspm_packages/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
