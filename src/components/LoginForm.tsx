@@ -65,7 +65,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
         
@@ -78,7 +78,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
         

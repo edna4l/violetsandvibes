@@ -92,7 +92,7 @@ const CreateAccountForm: React.FC = () => {
             value={formData.name}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
         
@@ -105,7 +105,7 @@ const CreateAccountForm: React.FC = () => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
         
@@ -118,7 +118,7 @@ const CreateAccountForm: React.FC = () => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
             minLength={6}
           />
         </div>
@@ -132,7 +132,7 @@ const CreateAccountForm: React.FC = () => {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
-            className="w-full"
+            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
         
