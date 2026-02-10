@@ -22,7 +22,7 @@ const ProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen page-gradient flex items-center justify-center">
+      <div className="min-h-screen page-calm flex items-center justify-center">
         <div className="max-w-md mx-auto glass-pride backdrop-blur-xl rounded-lg p-8">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="w-8 h-8 animate-spin gradient-text-pride" />
@@ -35,7 +35,7 @@ const ProfilePage: React.FC = () => {
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen page-gradient">
+      <div className="min-h-screen page-calm">
         <div className="max-w-md mx-auto glass-pride min-h-screen backdrop-blur-xl">
           <GlobalNavigation showBackButton={true} title="My Profile" />
           <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
