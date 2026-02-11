@@ -70,6 +70,11 @@ function computeBirthdateISO(ageStr: string): string | null {
   return d.toISOString().split("T")[0];
 }
 
+function isMissingBirthdateColumnError(error: unknown): boolean {
+  const message = (error as { message?: string })?.message ?? "";
+  return message.includes("Could not find the 'birthdate' column") || message.includes('Could not find the "birthdate" column');
+}
+
 const ProfileCreationFlow: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -242,7 +247,14 @@ const ProfileCreationFlow: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("profiles").upsert(profileData);
+      let { error } = await supabase.from("profiles").upsert(profileData);
+
+      if (error && isMissingBirthdateColumnError(error)) {
+        const { birthdate: _birthdate, ...fallbackProfileData } = profileData;
+        const retry = await supabase.from("profiles").upsert(fallbackProfileData);
+        error = retry.error;
+      }
+
       if (error) throw error;
 
       clearLocalDraft();
@@ -290,7 +302,14 @@ const ProfileCreationFlow: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("profiles").upsert(profileData);
+      let { error } = await supabase.from("profiles").upsert(profileData);
+
+      if (error && isMissingBirthdateColumnError(error)) {
+        const { birthdate: _birthdate, ...fallbackProfileData } = profileData;
+        const retry = await supabase.from("profiles").upsert(fallbackProfileData);
+        error = retry.error;
+      }
+
       if (error) throw error;
 
       setFinishMessage("Saved 💜 You can finish anytime.");

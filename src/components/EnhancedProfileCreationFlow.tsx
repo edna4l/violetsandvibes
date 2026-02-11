@@ -25,6 +25,11 @@ interface EnhancedProfileCreationFlowProps {
   onDataChange?: () => void;
 }
 
+function isMissingBirthdateColumnError(error: unknown): boolean {
+  const message = (error as { message?: string })?.message ?? '';
+  return message.includes("Could not find the 'birthdate' column") || message.includes('Could not find the "birthdate" column');
+}
+
 const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = ({ 
   onComplete, 
   onCancel,
@@ -187,9 +192,17 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('profiles')
         .upsert(profileData);
+
+      if (error && isMissingBirthdateColumnError(error)) {
+        const { birthdate: _birthdate, ...fallbackProfileData } = profileData;
+        const retry = await supabase
+          .from('profiles')
+          .upsert(fallbackProfileData);
+        error = retry.error;
+      }
 
       if (error) throw error;
       
