@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -15,6 +16,7 @@ interface Notification {
 }
 
 const NotificationCenter: React.FC = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
@@ -85,7 +87,7 @@ const NotificationCenter: React.FC = () => {
         <Button 
           variant="ghost" 
           size="sm"
-          onClick={() => window.location.href = '/profile'}
+          onClick={() => navigate('/profile')}
         >
           <Settings className="w-4 h-4" />
         </Button>
