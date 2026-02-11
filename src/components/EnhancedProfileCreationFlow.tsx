@@ -291,7 +291,14 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
 
         <ProfileValidation profile={profile} currentStep={currentStep} />
         
-        <CurrentStepComponent profile={profile} onUpdate={updateProfile} />
+        {currentStep === 2 ? (
+          <InterestsSelector
+            selectedInterests={profile.interests}
+            onSelectionChange={(interests) => updateProfile({ interests })}
+          />
+        ) : (
+          <CurrentStepComponent profile={profile} onUpdate={updateProfile} />
+        )}
 
         <div className="flex justify-between mt-8">
           <Button

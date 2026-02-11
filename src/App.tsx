@@ -23,6 +23,7 @@ import VerificationPage from "./pages/VerificationPage";
 import FiltersPage from "./pages/FiltersPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import ProfileCreationFlow from "@/components/ProfileCreationFlow";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -159,7 +160,7 @@ const App = () => (
               path="/create-new-profile"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><ProfileEditPage /></GlobalLayout>
+                  <ProfileCreationFlow />
                 </ProtectedRoute>
               }
             />
