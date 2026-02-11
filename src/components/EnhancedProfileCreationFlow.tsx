@@ -30,6 +30,11 @@ function isMissingBirthdateColumnError(error: unknown): boolean {
   return message.includes("Could not find the 'birthdate' column") || message.includes('Could not find the "birthdate" column');
 }
 
+function isMissingFullNameColumnError(error: unknown): boolean {
+  const message = (error as { message?: string })?.message ?? '';
+  return message.includes("Could not find the 'full_name' column") || message.includes('Could not find the "full_name" column');
+}
+
 const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = ({ 
   onComplete, 
   onCancel,
@@ -196,8 +201,8 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
         .from('profiles')
         .upsert(profileData);
 
-      if (error && isMissingBirthdateColumnError(error)) {
-        const { birthdate: _birthdate, ...fallbackProfileData } = profileData;
+      if (error && (isMissingBirthdateColumnError(error) || isMissingFullNameColumnError(error))) {
+        const { birthdate: _birthdate, full_name: _full_name, ...fallbackProfileData } = profileData;
         const retry = await supabase
           .from('profiles')
           .upsert(fallbackProfileData);
