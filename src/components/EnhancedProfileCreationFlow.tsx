@@ -182,6 +182,7 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
       const profileData = {
         id: user.id,
         full_name: profile.name,
+        display_name: profile.name || user.user_metadata?.name || user.email || 'Member',
         bio: profile.bio,
         location: profile.location,
         occupation: profile.occupation,

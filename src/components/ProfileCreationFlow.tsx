@@ -237,6 +237,7 @@ const ProfileCreationFlow: React.FC = () => {
       const profileData = {
         id: user.id,
         full_name: profile.name || null,
+        display_name: profile.name || user.user_metadata?.name || user.email || "Member",
         bio: profile.bio || null,
         location: profile.location || null,
         occupation: profile.occupation || null,
@@ -292,6 +293,7 @@ const ProfileCreationFlow: React.FC = () => {
       const profileData = {
         id: user.id,
         full_name: profile.name || null,
+        display_name: profile.name || user.user_metadata?.name || user.email || "Member",
         bio: profile.bio || null,
         location: profile.location || null,
         occupation: profile.occupation || null,
