@@ -57,7 +57,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="text-white/90">Email</Label>
           <Input
             id="email"
             name="email"
@@ -70,7 +70,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="text-white/90">Password</Label>
           <Input
             id="password"
             name="password"
@@ -86,7 +86,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
           <Button
             type="button"
             variant="link"
-            className="p-0 h-auto text-sm"
+            className="p-0 h-auto text-sm text-white/80 hover:text-white"
             onClick={onForgotPassword}
           >
             Forgot password?

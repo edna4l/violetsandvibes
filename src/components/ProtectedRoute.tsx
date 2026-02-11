@@ -1,60 +1,27 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
-interface ProtectedRouteProps {
-  children: JSX.Element;
-  requireProfile?: boolean;
-}
+type Props = {
+  children: React.ReactNode;
+};
 
-export const ProtectedRoute = ({
-  children,
-  requireProfile = false,
-}: ProtectedRouteProps) => {
+export const ProtectedRoute: React.FC<Props> = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [checkingProfile, setCheckingProfile] = useState(false);
-  const [hasProfile, setHasProfile] = useState(false);
 
-  useEffect(() => {
-    if (!user || !requireProfile) return;
-
-    const checkProfile = async () => {
-      setCheckingProfile(true);
-      const { data } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      setHasProfile(!!data);
-      setCheckingProfile(false);
-    };
-
-    checkProfile();
-  }, [user, requireProfile]);
-
-  if (loading || checkingProfile) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Checking session…
+      <div className="page-calm min-h-screen flex items-center justify-center">
+        <div className="text-white/80">Checking session…</div>
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <Navigate
-        to={`/signin?redirect=${encodeURIComponent(location.pathname)}`}
-        replace
-      />
-    );
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/signin?redirect=${redirect}`} replace />;
   }
 
-  if (requireProfile && !hasProfile) {
-    return <Navigate to="/create-new-profile" replace />;
-  }
-
-  return children;
+  return <>{children}</>;
 };

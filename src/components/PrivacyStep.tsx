@@ -34,7 +34,7 @@ const PrivacyStep: React.FC<PrivacyStepProps> = ({ profile, onUpdate }) => {
             value={profile.privacy?.profileVisibility || 'public'}
             onValueChange={(value) => updatePrivacySetting('profileVisibility', value)}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 bg-white text-black">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -84,7 +84,7 @@ const CreateAccountForm: React.FC = () => {
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="name" className="text-white/90">Full Name</Label>
           <Input
             id="name"
             name="name"
@@ -97,7 +97,7 @@ const CreateAccountForm: React.FC = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="text-white/90">Email</Label>
           <Input
             id="email"
             name="email"
@@ -110,7 +110,7 @@ const CreateAccountForm: React.FC = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="text-white/90">Password</Label>
           <Input
             id="password"
             name="password"
@@ -124,7 +124,7 @@ const CreateAccountForm: React.FC = () => {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirmPassword" className="text-white/90">Confirm Password</Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"

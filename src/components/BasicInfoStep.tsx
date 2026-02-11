@@ -22,6 +22,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({ profile, onUpdate }) => {
             placeholder="Your name"
             value={profile.name}
             onChange={(e) => onUpdate({ name: e.target.value })}
+            className="bg-white text-black placeholder:text-gray-500"
           />
         </div>
         <div>
@@ -31,6 +32,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({ profile, onUpdate }) => {
             type="number"
             value={profile.age}
             onChange={(e) => onUpdate({ age: e.target.value })}
+            className="bg-white text-black placeholder:text-gray-500"
           />
         </div>
       </div>
@@ -45,6 +47,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({ profile, onUpdate }) => {
             placeholder="City, State"
             value={profile.location}
             onChange={(e) => onUpdate({ location: e.target.value })}
+            className="bg-white text-black placeholder:text-gray-500"
           />
         </div>
         <div>
@@ -56,6 +59,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({ profile, onUpdate }) => {
             placeholder="Your job"
             value={profile.occupation}
             onChange={(e) => onUpdate({ occupation: e.target.value })}
+            className="bg-white text-black placeholder:text-gray-500"
           />
         </div>
       </div>
@@ -67,6 +71,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({ profile, onUpdate }) => {
           value={profile.bio}
           onChange={(e) => onUpdate({ bio: e.target.value })}
           rows={4}
+          className="bg-white text-black placeholder:text-gray-500"
         />
       </div>
     </div>

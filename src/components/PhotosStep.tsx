@@ -16,7 +16,7 @@ const PhotosStep: React.FC<PhotosStepProps> = ({ profile, onUpdate }) => {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-2">Profile Photos</h2>
-        <p className="text-gray-600">Add photos that show your personality</p>
+        <p className="text-white/70">Add photos that show your personality</p>
       </div>
 
       <AlternativePhotoUpload 
@@ -25,8 +25,8 @@ const PhotosStep: React.FC<PhotosStepProps> = ({ profile, onUpdate }) => {
         maxPhotos={6}
       />
 
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="font-semibold mb-2 flex items-center gap-2">
+      <div className="bg-blue-50 p-4 rounded-lg text-slate-700">
+        <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
           <Camera className="w-4 h-4" />
           Photo Guidelines
         </h3>
