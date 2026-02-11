@@ -127,10 +127,9 @@ const SocialFeed: React.FC = () => {
       const authorIds = Array.from(new Set(basePosts.map((p) => p.author_id)));
 
       // 2) Load author names from profiles
-      // Assumes your profiles table uses id = auth.uid() and has full_name
       const { data: profileRows, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("*")
         .in("id", authorIds);
 
       if (profilesError) {
@@ -140,7 +139,7 @@ const SocialFeed: React.FC = () => {
 
       const nameById = new Map<string, string>();
       (profileRows ?? []).forEach((r: any) => {
-        nameById.set(r.id, r.full_name || "Member");
+        nameById.set(r.id, r.full_name || r.name || r.username || "Member");
       });
 
       // 3) Likes count per post
