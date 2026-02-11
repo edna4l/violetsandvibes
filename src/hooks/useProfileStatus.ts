@@ -36,7 +36,8 @@ export function useProfileStatus() {
         const complete = !!data?.profile_completed;
         setStatus(complete ? "complete" : "incomplete");
       } catch (e) {
-        if (!cancelled) setStatus("error");
+        console.warn("Profile status check failed; treating as incomplete:", e);
+        if (!cancelled) setStatus("incomplete");
       }
     }
 
