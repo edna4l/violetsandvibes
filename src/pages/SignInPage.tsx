@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Heart, Shield, Users, MessageCircle, ArrowLeft } from 'lucide-react';
+import { Heart, Shield, Users, MessageCircle } from 'lucide-react';
 import LoginForm from '@/components/LoginForm';
 import CreateAccountForm from '@/components/CreateAccountForm';
 import { PasswordResetForm } from '@/components/PasswordResetForm';
-import { UserProfile } from '@/components/UserProfile';
 import { authService, AuthUser } from '@/lib/auth';
-import { Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
+import { useProfileStatus } from '@/hooks/useProfileStatus';
 
 const SignInPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('login');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { status } = useProfileStatus();
 
   useEffect(() => {
     const checkUser = async () => {
@@ -40,11 +41,6 @@ const SignInPage: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleSignOut = () => {
-    setUser(null);
-    setActiveTab('login');
-  };
-
   if (isLoading) {
     return (
       <div className="page-calm min-h-screen flex items-center justify-center">
@@ -57,27 +53,19 @@ const SignInPage: React.FC = () => {
   }
 
   if (user) {
-    return (
-      <div className="page-calm min-h-screen">
-        <div className="container mx-auto px-4 py-4">
-          <Link to="/heroes" className="inline-flex items-center text-white hover:text-pink-200 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Heroes
-          </Link>
+    if (status === "loading") {
+      return (
+        <div className="page-calm min-h-screen flex items-center justify-center">
+          <div className="text-white/80">Checking your profile…</div>
         </div>
-        <ResponsiveWrapper maxWidth="2xl" className="py-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4 rainbow-header wedding-title">
-              Welcome back, {user.name || user.email}!
-            </h1>
-            <p className="text-lg text-white/90">
-              Manage your profile and account settings
-            </p>
-          </div>
-          <UserProfile user={user} onSignOut={handleSignOut} />
-        </ResponsiveWrapper>
-      </div>
-    );
+      );
+    }
+
+    if (status === "incomplete") {
+      return <Navigate to="/create-new-profile" replace />;
+    }
+
+    return <Navigate to="/social" replace />;
   }
 
   return (

@@ -82,7 +82,7 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
 
       <div>
         <h3 className="font-semibold mb-3">Pride Pins & Community Labels</h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-white/70 mb-4">
           Select pins that represent your identity, community, and what you're looking for. These help you connect with like-minded people!
         </p>
         <div className="grid grid-cols-2 gap-2">

@@ -251,8 +251,11 @@ const ProfileCreationFlow: React.FC = () => {
       setShowFinish(true);
 
       window.setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get("redirect");
+        const target = redirect && redirect.startsWith("/") ? redirect : "/social";
         setShowFinish(false);
-        navigate("/profile", { replace: true });
+        navigate(target, { replace: true });
       }, 1200);
     } catch (error: any) {
       console.error("Error saving profile:", error);
@@ -294,8 +297,11 @@ const ProfileCreationFlow: React.FC = () => {
       setShowFinish(true);
 
       window.setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get("redirect");
+        const target = redirect && redirect.startsWith("/") ? redirect : "/social";
         setShowFinish(false);
-        navigate("/profile", { replace: true });
+        navigate(target, { replace: true });
       }, 1200);
     } catch (e: any) {
       console.error(e);

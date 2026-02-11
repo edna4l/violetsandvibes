@@ -98,7 +98,7 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-2">Lifestyle & Values</h2>
-        <p className="text-sm text-gray-600">Share what matters to you and how you like to spend your time</p>
+        <p className="text-sm text-white/70">Share what matters to you and how you like to spend your time</p>
       </div>
 
       {lifestyleCategories.map((category) => (
