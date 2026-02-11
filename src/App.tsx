@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalLayout } from "@/components/GlobalLayout";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthGate } from "@/components/AuthGate";
 import Index from "./pages/Index";
 import HeroesPage from "./pages/HeroesPage";
 import SignInPage from "./pages/SignInPage";
@@ -60,46 +60,46 @@ const App = () => (
             <Route
               path="/matches"
               element={
-                <ProtectedRoute requireProfile>
+                <AuthGate>
                   <GlobalLayout><MatchesPage /></GlobalLayout>
-                </ProtectedRoute>
+                </AuthGate>
               }
             />
-            <Route path="/social" element={<ProtectedRoute requireProfile><GlobalLayout><SocialPage /></GlobalLayout></ProtectedRoute>} />
+            <Route path="/social" element={<AuthGate><GlobalLayout><SocialPage /></GlobalLayout></AuthGate>} />
             <Route
               path="/chat"
               element={
-                <ProtectedRoute requireProfile>
+                <AuthGate>
                   <GlobalLayout><ChatPage /></GlobalLayout>
-                </ProtectedRoute>
+                </AuthGate>
               }
             />
-            <Route path="/video" element={<ProtectedRoute><GlobalLayout><VideoPage /></GlobalLayout></ProtectedRoute>} />
-            <Route path="/events" element={<ProtectedRoute><GlobalLayout><EventsPage /></GlobalLayout></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><GlobalLayout><NotificationsPage /></GlobalLayout></ProtectedRoute>} />
-            <Route path="/verification" element={<ProtectedRoute><GlobalLayout><VerificationPage /></GlobalLayout></ProtectedRoute>} />
-            <Route path="/filters" element={<ProtectedRoute><GlobalLayout><FiltersPage /></GlobalLayout></ProtectedRoute>} />
+            <Route path="/video" element={<AuthGate><GlobalLayout><VideoPage /></GlobalLayout></AuthGate>} />
+            <Route path="/events" element={<AuthGate><GlobalLayout><EventsPage /></GlobalLayout></AuthGate>} />
+            <Route path="/notifications" element={<AuthGate><GlobalLayout><NotificationsPage /></GlobalLayout></AuthGate>} />
+            <Route path="/verification" element={<AuthGate><GlobalLayout><VerificationPage /></GlobalLayout></AuthGate>} />
+            <Route path="/filters" element={<AuthGate><GlobalLayout><FiltersPage /></GlobalLayout></AuthGate>} />
             <Route
               path="/profile"
               element={
-                <ProtectedRoute>
+                <AuthGate>
                   <GlobalLayout><ProfilePage /></GlobalLayout>
-                </ProtectedRoute>
+                </AuthGate>
               }
             />
-            <Route path="/profile/:id" element={<GlobalLayout><ProfilePage /></GlobalLayout>} />
+            <Route path="/profile/:id" element={<AuthGate><GlobalLayout><ProfilePage /></GlobalLayout></AuthGate>} />
             <Route
               path="/create-new-profile"
               element={
-                <ProtectedRoute>
+                <AuthGate>
                   <ProfileCreationFlow />
-                </ProtectedRoute>
+                </AuthGate>
               }
             />
-            <Route path="/edit-profile" element={<GlobalLayout><ProfileEditPage /></GlobalLayout>} />
-            <Route path="/admin" element={<GlobalLayout><AdminPage /></GlobalLayout>} />
-            <Route path="/subscription" element={<GlobalLayout><SubscriptionPage /></GlobalLayout>} />
-            <Route path="/settings" element={<ProtectedRoute><GlobalLayout><SettingsPage /></GlobalLayout></ProtectedRoute>} />
+            <Route path="/edit-profile" element={<AuthGate><GlobalLayout><ProfileEditPage /></GlobalLayout></AuthGate>} />
+            <Route path="/admin" element={<AuthGate><GlobalLayout><AdminPage /></GlobalLayout></AuthGate>} />
+            <Route path="/subscription" element={<AuthGate><GlobalLayout><SubscriptionPage /></GlobalLayout></AuthGate>} />
+            <Route path="/settings" element={<AuthGate><GlobalLayout><SettingsPage /></GlobalLayout></AuthGate>} />
             <Route path="*" element={<GlobalLayout><NotFound /></GlobalLayout>} />
           </Routes>
         </BrowserRouter>
