@@ -287,28 +287,34 @@ const SocialFeed: React.FC = () => {
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="feed" className="wedding-heading">
+        <TabsList className="grid w-full grid-cols-2 mb-6 bg-violet-900/70 border border-violet-400/30">
+          <TabsTrigger
+            value="feed"
+            className="wedding-heading text-white data-[state=active]:bg-violet-700 data-[state=active]:text-white"
+          >
             Community Feed
           </TabsTrigger>
-          <TabsTrigger value="events" className="wedding-heading">
+          <TabsTrigger
+            value="events"
+            className="wedding-heading text-white data-[state=active]:bg-violet-700 data-[state=active]:text-white"
+          >
             Events
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="feed" className="space-y-4">
           {/* Create Post */}
-          <Card className="bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200">
+          <Card className="bg-violet-950/80 border-violet-400/40 text-white backdrop-blur-sm">
             <CardContent className="p-4">
               <Textarea
                 placeholder="Share something with the community..."
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
-                className="mb-3 border-pink-200 focus:border-pink-400"
+                className="mb-3 bg-violet-900/70 border-violet-500/50 text-white placeholder:text-white/70 focus-visible:border-violet-300"
                 maxLength={1000}
               />
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-white/80">
                   {newPost.trim().length}/1000
                 </div>
                 <Button
@@ -320,7 +326,7 @@ const SocialFeed: React.FC = () => {
                 </Button>
               </div>
               {error && (
-                <div className="text-sm text-red-600 mt-2">{error}</div>
+                <div className="text-sm text-red-300 mt-2">{error}</div>
               )}
             </CardContent>
           </Card>
@@ -334,7 +340,7 @@ const SocialFeed: React.FC = () => {
             </div>
           ) : (
             posts.map((post) => (
-              <Card key={post.id} className="border-pink-200">
+              <Card key={post.id} className="bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm">
                 <CardHeader className="pb-2">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
@@ -343,24 +349,24 @@ const SocialFeed: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-white">
                         {post.authorName}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-white/70">
                         {timeAgo(post.created_at)}
                       </p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-gray-700 mb-3 whitespace-pre-wrap">
+                  <p className="text-white/90 mb-3 whitespace-pre-wrap">
                     {post.content}
                   </p>
 
-                  <div className="flex space-x-4 text-sm text-gray-500">
+                  <div className="flex space-x-4 text-sm text-white/80">
                     <button
-                      className={`hover:text-pink-500 ${
-                        post.likedByMe ? "text-pink-600" : ""
+                      className={`hover:text-pink-300 ${
+                        post.likedByMe ? "text-pink-300" : ""
                       }`}
                       onClick={() => toggleLike(post.id, post.likedByMe)}
                       type="button"
@@ -369,7 +375,7 @@ const SocialFeed: React.FC = () => {
                     </button>
 
                     <button
-                      className="hover:text-pink-500"
+                      className="hover:text-pink-300"
                       type="button"
                       onClick={() => {
                         // next step: open comments UI
