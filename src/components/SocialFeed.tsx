@@ -22,6 +22,7 @@ type FeedPost = PostRow & {
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
+  _optimistic?: boolean;
 };
 
 function timeAgo(iso: string) {
@@ -201,37 +202,83 @@ const SocialFeed: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const handleCreatePost = async () => {
-    if (!user) return;
+const handleCreatePost = async () => {
+  if (!user) return;
 
-    const body = newPost.trim();
-    if (!body) return;
+  const body = newPost.trim();
+  if (!body) return;
 
-    setPosting(true);
-    setError(null);
+  // Build title/body to match your DB schema
+  const title =
+    body.split("\n").find((line) => line.trim().length > 0)?.slice(0, 80) ||
+    "Post";
 
-    try {
-      const title =
-        body.split("\n").find((line) => line.trim().length > 0)?.slice(0, 80) ||
-        "Post";
+  setPosting(true);
+  setError(null);
 
-      const { error: insertError } = await supabase.from("posts").insert({
+  // 1) Create an optimistic post (shows immediately)
+  const tempId = `temp_${Date.now()}`;
+  const optimisticPost: any = {
+    id: tempId,
+    author_id: user.id,
+    title,
+    body,
+    created_at: new Date().toISOString(),
+    authorName: "You",
+    likeCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    _optimistic: true, // optional flag for UI styling
+  };
+
+  // Show instantly
+  setPosts((prev: any[]) => [optimisticPost, ...prev]);
+  setNewPost("");
+
+  try {
+    // 2) Insert into Supabase and return the created row
+    const { data, error: insertError } = await supabase
+      .from("posts")
+      .insert({
         author_id: user.id,
         title,
         body,
-      });
+      })
+      .select("id, author_id, title, body, created_at")
+      .single();
 
-      if (insertError) throw insertError;
+    if (insertError) throw insertError;
 
-      setNewPost("");
-      await loadFeed();
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Could not post. Try again.");
-    } finally {
-      setPosting(false);
-    }
-  };
+    // 3) Replace optimistic post with the real one (no flicker)
+    setPosts((prev: any[]) =>
+      prev.map((p) =>
+        p.id === tempId
+          ? {
+              ...p,
+              ...data,
+              _optimistic: false,
+            }
+          : p
+      )
+    );
+
+    // 4) Optional: refresh hydration (names/likes/comments) so it’s consistent
+    // This keeps your author-name/likes/comment-count logic authoritative.
+    await loadFeed();
+  } catch (e: any) {
+    console.error(e);
+
+    // Remove the optimistic post if insert fails
+    setPosts((prev: any[]) => prev.filter((p) => p.id !== tempId));
+
+    setError(e?.message || "Could not post. Try again.");
+    // Put text back so they don’t lose it
+    setNewPost(body);
+  } finally {
+    setPosting(false);
+  }
+};
+
 
   const toggleLike = async (postId: string, likedByMe: boolean) => {
     if (!user) return;
@@ -347,7 +394,12 @@ const SocialFeed: React.FC = () => {
             </div>
           ) : (
             posts.map((post) => (
-              <Card key={post.id} className="bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm">
+              <Card
+                key={post.id}
+                className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm ${
+                  post._optimistic ? "opacity-70" : ""
+                }`}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
