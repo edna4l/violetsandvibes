@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 type PostRow = {
   id: string;
   author_id: string;
-  content: string;
+  title: string | null;
+  body: string;
   created_at: string;
 };
 
@@ -116,7 +117,7 @@ const SocialFeed: React.FC = () => {
       // 1) Load posts
       const { data: postRows, error: postsError } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at")
+        .select("id, author_id, title, body, created_at")
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -201,22 +202,38 @@ const SocialFeed: React.FC = () => {
   }, [user?.id]);
 
   const handleCreatePost = async () => {
-    if (!user) return;
-    const content = newPost.trim();
-    if (!content) return;
+    if (!user) {
+      setError("Please sign in to post.");
+      return;
+    }
+
+    const body = newPost.trim();
+    if (!body) return;
 
     setPosting(true);
     setError(null);
 
     try {
-      const { error: insertError } = await supabase.from("posts").insert({
-        author_id: user.id,
-        content,
-      });
+      // First try: insert with body (+ title fallback)
+      const { data, error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          author_id: user.id,
+          body,
+          // If your DB allows null title, this is fine.
+          // If title is NOT NULL, this prevents the constraint error.
+          title: "Community post",
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
       setNewPost("");
+
+      // Optional: optimistic update if you keep posts in state
+      // setPosts((prev) => [data, ...prev]);
+
       await loadFeed();
     } catch (e: any) {
       console.error(e);
@@ -360,7 +377,7 @@ const SocialFeed: React.FC = () => {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <p className="text-white/90 mb-3 whitespace-pre-wrap">
-                    {post.content}
+                    {post.body}
                   </p>
 
                   <div className="flex space-x-4 text-sm text-white/80">
