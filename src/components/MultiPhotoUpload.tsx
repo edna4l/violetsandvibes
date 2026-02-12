@@ -134,7 +134,7 @@ export const MultiPhotoUpload: React.FC<MultiPhotoUploadProps> = ({
         ))}
         
         {photos.length < maxPhotos && (
-          <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 transition-colors">
+          <label className="aspect-square border-2 border-dashed border-white/40 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-pink-300 transition-colors">
             <input
               type="file"
               multiple
@@ -147,8 +147,8 @@ export const MultiPhotoUpload: React.FC<MultiPhotoUploadProps> = ({
               <div className="animate-spin w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full" />
             ) : (
               <>
-                <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">
+                <Plus className="w-8 h-8 text-white/70 mb-2" />
+                <span className="text-sm text-white/80">
                   {user ? 'Add Photo' : 'Login Required'}
                 </span>
               </>
@@ -163,7 +163,7 @@ export const MultiPhotoUpload: React.FC<MultiPhotoUploadProps> = ({
         </div>
       </div>
 
-      <div className="text-xs text-gray-500 text-center">
+      <div className="text-xs text-white/70 text-center">
         Max file size: 5MB • Supported formats: JPG, PNG, GIF
       </div>
     </div>
