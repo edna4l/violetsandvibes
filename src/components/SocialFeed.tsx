@@ -25,6 +25,12 @@ type FeedPost = PostRow & {
   _optimistic?: boolean;
 };
 
+function incMap(map: Map<string, number>, key: string, delta: number) {
+  const next = new Map(map);
+  next.set(key, Math.max(0, (next.get(key) ?? 0) + delta));
+  return next;
+}
+
 function timeAgo(iso: string) {
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
@@ -202,82 +208,172 @@ const SocialFeed: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-const handleCreatePost = async () => {
-  if (!user) return;
+  useEffect(() => {
+    if (!user) return;
 
-  const body = newPost.trim();
-  if (!body) return;
-
-  // Build title/body to match your DB schema
-  const title =
-    body.split("\n").find((line) => line.trim().length > 0)?.slice(0, 80) ||
-    "Post";
-
-  setPosting(true);
-  setError(null);
-
-  // 1) Create an optimistic post (shows immediately)
-  const tempId = `temp_${Date.now()}`;
-  const optimisticPost: any = {
-    id: tempId,
-    author_id: user.id,
-    title,
-    body,
-    created_at: new Date().toISOString(),
-    authorName: "You",
-    likeCount: 0,
-    commentCount: 0,
-    likedByMe: false,
-    _optimistic: true, // optional flag for UI styling
-  };
-
-  // Show instantly
-  setPosts((prev: any[]) => [optimisticPost, ...prev]);
-  setNewPost("");
-
-  try {
-    // 2) Insert into Supabase and return the created row
-    const { data, error: insertError } = await supabase
-      .from("posts")
-      .insert({
-        author_id: user.id,
-        title,
-        body,
-      })
-      .select("id, author_id, title, body, created_at")
-      .single();
-
-    if (insertError) throw insertError;
-
-    // 3) Replace optimistic post with the real one (no flicker)
-    setPosts((prev: any[]) =>
-      prev.map((p) =>
-        p.id === tempId
-          ? {
-              ...p,
-              ...data,
-              _optimistic: false,
-            }
-          : p
+    // Subscribe to realtime changes for posts, likes, comments
+    const channel = supabase
+      .channel("vv-social-feed")
+      // POSTS
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        async () => {
+          // Keep it simple + correct: reload the feed for posts changes.
+          // (We can optimize later if you want.)
+          await loadFeed();
+        }
       )
-    );
+      // LIKES
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_likes" },
+        (payload) => {
+          const event = payload.eventType;
+          const rowNew: any = (payload as any).new;
+          const rowOld: any = (payload as any).old;
 
-    // 4) Optional: refresh hydration (names/likes/comments) so it’s consistent
-    // This keeps your author-name/likes/comment-count logic authoritative.
-    await loadFeed();
-  } catch (e: any) {
-    console.error(e);
+          const postId = (rowNew?.post_id ?? rowOld?.post_id) as string | undefined;
+          const userId = (rowNew?.user_id ?? rowOld?.user_id) as string | undefined;
+          if (!postId) return;
 
-    // Remove the optimistic post if insert fails
-    setPosts((prev: any[]) => prev.filter((p) => p.id !== tempId));
+          setPosts((prev) =>
+            prev.map((p) => {
+              if (p.id !== postId) return p;
 
-    setError(e?.message || "Could not post. Try again.");
-    // Put text back so they don’t lose it
-    setNewPost(body);
-  } finally {
-    setPosting(false);
-  }
-};
+              // Determine delta
+              const delta = event === "INSERT" ? 1 : event === "DELETE" ? -1 : 0;
+
+              // Keep "likedByMe" accurate if this like belongs to current user
+              const likedByMe =
+                userId === user.id
+                  ? event === "INSERT"
+                    ? true
+                    : event === "DELETE"
+                      ? false
+                      : p.likedByMe
+                  : p.likedByMe;
+
+              return {
+                ...p,
+                likeCount: Math.max(0, p.likeCount + delta),
+                likedByMe,
+              };
+            })
+          );
+        }
+      )
+      // COMMENTS
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_comments" },
+        (payload) => {
+          const event = payload.eventType;
+          const rowNew: any = (payload as any).new;
+          const rowOld: any = (payload as any).old;
+
+          const postId = (rowNew?.post_id ?? rowOld?.post_id) as string | undefined;
+          if (!postId) return;
+
+          const delta = event === "INSERT" ? 1 : event === "DELETE" ? -1 : 0;
+
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === postId
+                ? { ...p, commentCount: Math.max(0, p.commentCount + delta) }
+                : p
+            )
+          );
+        }
+      )
+      .subscribe(() => {
+        // Optional: helpful when debugging
+        // console.log("realtime status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // IMPORTANT: loadFeed is defined in-component; keep deps minimal to avoid resubscribing constantly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleCreatePost = async () => {
+    if (!user) return;
+
+    const body = newPost.trim();
+    if (!body) return;
+
+    const title =
+      body
+        .split("\n")
+        .find((line) => line.trim().length > 0)
+        ?.slice(0, 80) || "Post";
+
+    setPosting(true);
+    setError(null);
+
+    const tempId = `temp_${Date.now()}`;
+
+    const optimisticPost: FeedPost = {
+      id: tempId,
+      author_id: user.id,
+      title,
+      body,
+      created_at: new Date().toISOString(),
+      authorName: "You",
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      _optimistic: true,
+    };
+
+    // Show instantly
+    setPosts((prev) => [optimisticPost, ...prev]);
+    setNewPost("");
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from("posts")
+        .insert({
+          author_id: user.id,
+          title,
+          body,
+        })
+        .select("id, author_id, title, body, created_at")
+        .single();
+
+      if (insertError) throw insertError;
+      if (!data) throw new Error("Post insert returned no data.");
+
+      // Replace the optimistic post with the real row
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === tempId
+            ? {
+                ...p,
+                ...data,
+                title: data.title ?? title, // keep a string fallback
+                _optimistic: false,
+              }
+            : p
+        )
+      );
+
+      // Refresh “truth” (names/likes/comments)
+      await loadFeed();
+    } catch (e: any) {
+      console.error(e);
+
+      // Remove optimistic post
+      setPosts((prev) => prev.filter((p) => p.id !== tempId));
+
+      setError(e?.message || "Could not post. Try again.");
+      setNewPost(body); // restore text
+    } finally {
+      setPosting(false);
+    }
+  };
 
 
   const toggleLike = async (postId: string, likedByMe: boolean) => {
@@ -401,20 +497,24 @@ const handleCreatePost = async () => {
                 }`}
               >
                 <CardHeader className="pb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold">
-                        {(post.authorName || "M")[0]}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold">
+                          {(post.authorName || "M")[0]}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-white">{post.authorName}</p>
+                        <p className="text-sm text-white/70">{timeAgo(post.created_at)}</p>
+                      </div>
+                    </div>
+
+                    {post._optimistic && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/80">
+                        Posting…
                       </span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white">
-                        {post.authorName}
-                      </p>
-                      <p className="text-sm text-white/70">
-                        {timeAgo(post.created_at)}
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -424,7 +524,8 @@ const handleCreatePost = async () => {
 
                   <div className="flex space-x-4 text-sm text-white/80">
                     <button
-                      className={`hover:text-pink-300 ${
+                      disabled={post._optimistic}
+                      className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                         post.likedByMe ? "text-pink-300" : ""
                       }`}
                       onClick={() => toggleLike(post.id, post.likedByMe)}
@@ -434,7 +535,8 @@ const handleCreatePost = async () => {
                     </button>
 
                     <button
-                      className="hover:text-pink-300"
+                      disabled={post._optimistic}
+                      className="hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       type="button"
                       onClick={() => {
                         // next step: open comments UI
