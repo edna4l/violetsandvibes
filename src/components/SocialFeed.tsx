@@ -202,10 +202,7 @@ const SocialFeed: React.FC = () => {
   }, [user?.id]);
 
   const handleCreatePost = async () => {
-    if (!user) {
-      setError("Please sign in to post.");
-      return;
-    }
+    if (!user) return;
 
     const body = newPost.trim();
     if (!body) return;
@@ -214,26 +211,19 @@ const SocialFeed: React.FC = () => {
     setError(null);
 
     try {
-      // First try: insert with body (+ title fallback)
-      const { data, error: insertError } = await supabase
-        .from("posts")
-        .insert({
-          author_id: user.id,
-          body,
-          // If your DB allows null title, this is fine.
-          // If title is NOT NULL, this prevents the constraint error.
-          title: "Community post",
-        })
-        .select()
-        .single();
+      const title =
+        body.split("\n").find((line) => line.trim().length > 0)?.slice(0, 80) ||
+        "Post";
+
+      const { error: insertError } = await supabase.from("posts").insert({
+        author_id: user.id,
+        title,
+        body,
+      });
 
       if (insertError) throw insertError;
 
       setNewPost("");
-
-      // Optional: optimistic update if you keep posts in state
-      // setPosts((prev) => [data, ...prev]);
-
       await loadFeed();
     } catch (e: any) {
       console.error(e);
