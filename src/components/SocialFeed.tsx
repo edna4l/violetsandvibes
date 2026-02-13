@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,18 @@ type FeedPost = PostRow & {
   commentCount: number;
   likedByMe: boolean;
   _optimistic?: boolean;
+};
+
+type CommentRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+};
+
+type HydratedComment = CommentRow & {
+  authorName: string;
 };
 
 function incMap(map: Map<string, number>, key: string, delta: number) {
@@ -54,6 +66,11 @@ const SocialFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, HydratedComment[]>>({});
+  const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
+  const [commentDraftByPost, setCommentDraftByPost] = useState<Record<string, string>>({});
+  const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
 
   // Events (still mock for now)
   const [showCreateEvent, setShowCreateEvent] = useState(false);
@@ -114,7 +131,7 @@ const SocialFeed: React.FC = () => {
     []
   );
 
-  const loadFeed = async () => {
+  const loadFeed = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -200,31 +217,86 @@ const SocialFeed: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, [user?.id]);
+
+  const loadComments = async (postId: string) => {
+    if (!user) return;
+
+    setCommentsLoadingByPost((prev) => ({ ...prev, [postId]: true }));
+    setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
+
+    try {
+      const { data: rows, error } = await supabase
+        .from("post_comments")
+        .select("id, post_id, user_id, body, created_at")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true })
+        .limit(50);
+
+      if (error) throw error;
+
+      const base = (rows ?? []) as CommentRow[];
+      const authorIds = Array.from(new Set(base.map((c) => c.user_id)));
+
+      // Pull names from profiles (best effort)
+      const { data: profileRows, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name, name, username")
+        .in("id", authorIds);
+
+      if (profilesError) {
+        console.warn("comment profiles lookup failed:", profilesError.message);
+      }
+
+      const nameById = new Map<string, string>();
+      (profileRows ?? []).forEach((r: any) => {
+        nameById.set(r.id, r.full_name || r.name || r.username || "Member");
+      });
+
+      const hydrated: HydratedComment[] = base.map((c) => ({
+        ...c,
+        authorName: c.user_id === user.id ? "You" : nameById.get(c.user_id) || "Member",
+      }));
+
+      setCommentsByPost((prev) => ({ ...prev, [postId]: hydrated }));
+    } catch (e: any) {
+      console.error(e);
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postId]: e?.message || "Failed to load comments",
+      }));
+    } finally {
+      setCommentsLoadingByPost((prev) => ({ ...prev, [postId]: false }));
+    }
   };
 
   useEffect(() => {
     if (!user) return;
     loadFeed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, loadFeed]);
 
   useEffect(() => {
     if (!user) return;
+    const myId = user?.id;
+    let reloadTimer: number | null = null;
 
-    // Subscribe to realtime changes for posts, likes, comments
+    const scheduleReload = () => {
+      if (reloadTimer) return;
+      reloadTimer = window.setTimeout(async () => {
+        reloadTimer = null;
+        await loadFeed();
+      }, 400);
+    };
+
     const channel = supabase
       .channel("vv-social-feed")
-      // POSTS
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "posts" },
-        async () => {
-          // Keep it simple + correct: reload the feed for posts changes.
-          // (We can optimize later if you want.)
-          await loadFeed();
+        () => {
+          scheduleReload();
         }
       )
-      // LIKES
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "post_likes" },
@@ -241,12 +313,10 @@ const SocialFeed: React.FC = () => {
             prev.map((p) => {
               if (p.id !== postId) return p;
 
-              // Determine delta
               const delta = event === "INSERT" ? 1 : event === "DELETE" ? -1 : 0;
 
-              // Keep "likedByMe" accurate if this like belongs to current user
               const likedByMe =
-                userId === user.id
+                myId && userId === myId
                   ? event === "INSERT"
                     ? true
                     : event === "DELETE"
@@ -263,7 +333,6 @@ const SocialFeed: React.FC = () => {
           );
         }
       )
-      // COMMENTS
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "post_comments" },
@@ -286,17 +355,18 @@ const SocialFeed: React.FC = () => {
           );
         }
       )
-      .subscribe(() => {
-        // Optional: helpful when debugging
-        // console.log("realtime status:", status);
+      .subscribe((status) => {
+        console.log("vv-social-feed status:", status);
       });
 
     return () => {
+      if (reloadTimer) {
+        window.clearTimeout(reloadTimer);
+        reloadTimer = null;
+      }
       supabase.removeChannel(channel);
     };
-    // IMPORTANT: loadFeed is defined in-component; keep deps minimal to avoid resubscribing constantly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, loadFeed]);
 
   const handleCreatePost = async () => {
     if (!user) return;
@@ -372,6 +442,85 @@ const SocialFeed: React.FC = () => {
       setNewPost(body); // restore text
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleCreateComment = async (postId: string) => {
+    if (!user) return;
+
+    const body = (commentDraftByPost[postId] || "").trim();
+    if (!body) return;
+
+    setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
+
+    // optimistic comment
+    const tempId = `temp_c_${Date.now()}`;
+    const optimistic: HydratedComment = {
+      id: tempId,
+      post_id: postId,
+      user_id: user.id,
+      body,
+      created_at: new Date().toISOString(),
+      authorName: "You",
+    };
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postId]: [...(prev[postId] || []), optimistic],
+    }));
+
+    setCommentDraftByPost((prev) => ({ ...prev, [postId]: "" }));
+
+    // optimistic commentCount bump on the post card
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, commentCount: (p.commentCount ?? 0) + 1 } : p
+      )
+    );
+
+    try {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          body,
+        })
+        .select("id, post_id, user_id, body, created_at")
+        .single();
+
+      if (error) throw error;
+
+      // replace optimistic with real row
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] || []).map((c) =>
+          c.id === tempId ? { ...c, ...data, authorName: "You" } : c
+        ),
+      }));
+    } catch (e: any) {
+      console.error(e);
+
+      // remove optimistic comment
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] || []).filter((c) => c.id !== tempId),
+      }));
+
+      // revert count
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount ?? 0) - 1) } : p
+        )
+      );
+
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postId]: e?.message || "Could not comment. Try again.",
+      }));
+
+      // restore draft so they don’t lose it
+      setCommentDraftByPost((prev) => ({ ...prev, [postId]: body }));
     }
   };
 
@@ -538,14 +687,66 @@ const SocialFeed: React.FC = () => {
                       disabled={post._optimistic}
                       className="hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       type="button"
-                      onClick={() => {
-                        // next step: open comments UI
-                        alert("Comments UI is next 💬");
+                      onClick={async () => {
+                        const next = openCommentsFor === post.id ? null : post.id;
+                        setOpenCommentsFor(next);
+
+                        if (next && !commentsByPost[next]) {
+                          await loadComments(next);
+                        }
                       }}
                     >
                       💬 {post.commentCount}
                     </button>
                   </div>
+
+                  {openCommentsFor === post.id && (
+                    <div className="mt-4 border-t border-white/10 pt-3 space-y-3">
+                      {/* Composer */}
+                      <div className="flex gap-2">
+                        <Input
+                          value={commentDraftByPost[post.id] || ""}
+                          onChange={(e) =>
+                            setCommentDraftByPost((prev) => ({ ...prev, [post.id]: e.target.value }))
+                          }
+                          placeholder="Write a comment…"
+                          className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => handleCreateComment(post.id)}
+                          disabled={!(commentDraftByPost[post.id] || "").trim()}
+                          className="bg-pink-500 hover:bg-pink-600"
+                        >
+                          Post
+                        </Button>
+                      </div>
+
+                      {/* Errors */}
+                      {commentErrorByPost[post.id] && (
+                        <div className="text-sm text-pink-200">{commentErrorByPost[post.id]}</div>
+                      )}
+
+                      {/* List */}
+                      {commentsLoadingByPost[post.id] ? (
+                        <div className="text-sm text-white/70">Loading comments…</div>
+                      ) : (commentsByPost[post.id] || []).length === 0 ? (
+                        <div className="text-sm text-white/70">No comments yet. Start the conversation 💜</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {(commentsByPost[post.id] || []).map((c) => (
+                            <div key={c.id} className="rounded-lg bg-white/5 border border-white/10 p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="text-sm font-semibold text-white">{c.authorName}</div>
+                                <div className="text-xs text-white/60">{timeAgo(c.created_at)}</div>
+                              </div>
+                              <div className="text-sm text-white/90 mt-1 whitespace-pre-wrap">{c.body}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
