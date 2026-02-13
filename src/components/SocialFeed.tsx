@@ -278,6 +278,7 @@ const SocialFeed: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    void supabase.removeAllChannels();
     const myId = user?.id;
     let reloadTimer: number | null = null;
 
@@ -361,10 +362,6 @@ const SocialFeed: React.FC = () => {
       });
 
     return () => {
-      if (reloadTimer) {
-        window.clearTimeout(reloadTimer);
-        reloadTimer = null;
-      }
       supabase.removeChannel(channel);
     };
   }, [user?.id, loadFeed]);
@@ -731,12 +728,14 @@ const SocialFeed: React.FC = () => {
                           }
                           className="bg-violet-900/50 border-violet-400/40 text-white"
                         />
-                        <Button
-                          size="sm"
-                          disabled={!commentInputs[post.id]?.trim()}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            console.log("Reply clicked", post.id);
+                          }}
                         >
                           Reply
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   )}
