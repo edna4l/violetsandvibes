@@ -839,10 +839,11 @@ const SocialFeed: React.FC = () => {
                                   className="text-xs text-white/70 hover:text-pink-300 shrink-0"
                                   onClick={() => {
                                     console.log("Reply clicked", post.id, c.id);
-                                    setReplyToByPost((prev) => ({
-                                      ...prev,
-                                      [post.id]: prev[post.id] === c.id ? null : c.id,
-                                    }));
+                                    setReplyToByPost((prev) => {
+                                      const next = { ...prev, [post.id]: prev[post.id] === c.id ? null : c.id };
+                                      console.log("replyToByPost next:", next[post.id], "expected:", c.id);
+                                      return next;
+                                    });
                                   }}
                                 >
                                   Reply
