@@ -190,21 +190,90 @@ const SocialFeed: React.FC = () => {
         if (r.user_id === user.id) likedByMeSet.add(r.post_id);
       });
 
-      // 4) Comments count per post (optional but nice)
-      const { data: commentRows, error: commentsError } = await supabase
-        .from("post_comments")
-        .select("post_id")
-        .in("post_id", postIds);
-
-      if (commentsError) throw commentsError;
-
+      // 4) Load comments + replies for loaded posts
       const commentCountByPost = new Map<string, number>();
-      (commentRows ?? []).forEach((r: any) => {
-        commentCountByPost.set(
-          r.post_id,
-          (commentCountByPost.get(r.post_id) ?? 0) + 1
+      const nextCommentsByPost: Record<string, HydratedComment[]> = {};
+      const nextRepliesByParentId: Record<string, HydratedComment[]> = {};
+
+      if (postIds.length > 0) {
+        const { data: rawComments, error: commentsListError } = await supabase
+          .from("post_comments")
+          .select("id, post_id, user_id, body, created_at, parent_comment_id")
+          .in("post_id", postIds)
+          .order("created_at", { ascending: true });
+
+        if (commentsListError) throw commentsListError;
+
+        const comments = (rawComments ?? []) as CommentRow[];
+        const commenterIds = Array.from(new Set(comments.map((c) => c.user_id)));
+
+        let commenterProfiles: any[] = [];
+        if (commenterIds.length > 0) {
+          const { data, error: commenterProfilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, name, username")
+            .in("id", commenterIds);
+
+          if (commenterProfilesError) {
+            console.warn(
+              "commenter profiles lookup failed:",
+              commenterProfilesError.message
+            );
+          } else {
+            commenterProfiles = data ?? [];
+          }
+        }
+
+        const commenterNameById = new Map<string, string>();
+        commenterProfiles.forEach((r: any) => {
+          commenterNameById.set(r.id, r.full_name || r.name || r.username || "Member");
+        });
+
+        comments.forEach((c) => {
+          const hydrated: HydratedComment = {
+            ...c,
+            authorName:
+              c.user_id === user.id
+                ? "You"
+                : commenterNameById.get(c.user_id) || "Member",
+          };
+
+          commentCountByPost.set(
+            hydrated.post_id,
+            (commentCountByPost.get(hydrated.post_id) ?? 0) + 1
+          );
+
+          if (hydrated.parent_comment_id) {
+            const key = hydrated.parent_comment_id;
+            nextRepliesByParentId[key] = [
+              ...(nextRepliesByParentId[key] ?? []),
+              hydrated,
+            ];
+          } else {
+            const key = hydrated.post_id;
+            nextCommentsByPost[key] = [
+              ...(nextCommentsByPost[key] ?? []),
+              hydrated,
+            ];
+          }
+        });
+
+        Object.values(nextCommentsByPost).forEach((arr) =>
+          arr.sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )
         );
-      });
+        Object.values(nextRepliesByParentId).forEach((arr) =>
+          arr.sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )
+        );
+      }
+
+      setCommentsByPost(nextCommentsByPost);
+      setRepliesByParentId(nextRepliesByParentId);
 
       const hydrated: FeedPost[] = basePosts.map((p) => ({
         ...p,
