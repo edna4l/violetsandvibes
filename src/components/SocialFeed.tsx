@@ -66,10 +66,11 @@ const SocialFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, HydratedComment[]>>({});
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, any[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [commenting, setCommenting] = useState<Record<string, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
-  const [commentDraftByPost, setCommentDraftByPost] = useState<Record<string, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
 
   // Events (still mock for now)
@@ -448,10 +449,11 @@ const SocialFeed: React.FC = () => {
   const handleCreateComment = async (postId: string) => {
     if (!user) return;
 
-    const body = (commentDraftByPost[postId] || "").trim();
+    const body = (commentInputs[postId] || "").trim();
     if (!body) return;
 
     setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
+    setCommenting((prev) => ({ ...prev, [postId]: true }));
 
     // optimistic comment
     const tempId = `temp_c_${Date.now()}`;
@@ -469,7 +471,7 @@ const SocialFeed: React.FC = () => {
       [postId]: [...(prev[postId] || []), optimistic],
     }));
 
-    setCommentDraftByPost((prev) => ({ ...prev, [postId]: "" }));
+    setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
 
     // optimistic commentCount bump on the post card
     setPosts((prev) =>
@@ -520,7 +522,9 @@ const SocialFeed: React.FC = () => {
       }));
 
       // restore draft so they don’t lose it
-      setCommentDraftByPost((prev) => ({ ...prev, [postId]: body }));
+      setCommentInputs((prev) => ({ ...prev, [postId]: body }));
+    } finally {
+      setCommenting((prev) => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -684,67 +688,56 @@ const SocialFeed: React.FC = () => {
                     </button>
 
                     <button
-                      disabled={post._optimistic}
-                      className="hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="hover:text-pink-300"
                       type="button"
-                      onClick={async () => {
-                        const next = openCommentsFor === post.id ? null : post.id;
-                        setOpenCommentsFor(next);
-
-                        if (next && !commentsByPost[next]) {
-                          await loadComments(next);
-                        }
-                      }}
+                      onClick={() =>
+                        setExpandedPostId((prev) =>
+                          prev === post.id ? null : post.id
+                        )
+                      }
                     >
                       💬 {post.commentCount}
                     </button>
                   </div>
 
-                  {openCommentsFor === post.id && (
-                    <div className="mt-4 border-t border-white/10 pt-3 space-y-3">
-                      {/* Composer */}
+                  {expandedPostId === post.id && (
+                    <div className="mt-4 border-t border-white/20 pt-3 space-y-3">
+                      {/* Existing Comments */}
+                      {(commentsByPost[post.id] ?? []).length === 0 ? (
+                        <div className="text-sm text-white/60">
+                          No comments yet.
+                        </div>
+                      ) : (
+                        commentsByPost[post.id].map((c) => (
+                          <div key={c.id} className="text-sm text-white/90">
+                            <span className="font-semibold">
+                              {c.authorName || "Member"}
+                            </span>{" "}
+                            {c.body}
+                          </div>
+                        ))
+                      )}
+
+                      {/* Add Comment */}
                       <div className="flex gap-2">
                         <Input
-                          value={commentDraftByPost[post.id] || ""}
-                          onChange={(e) =>
-                            setCommentDraftByPost((prev) => ({ ...prev, [post.id]: e.target.value }))
-                          }
                           placeholder="Write a comment…"
-                          className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                          value={commentInputs[post.id] || ""}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({
+                              ...prev,
+                              [post.id]: e.target.value,
+                            }))
+                          }
+                          className="bg-violet-900/50 border-violet-400/40 text-white"
                         />
                         <Button
-                          type="button"
-                          onClick={() => handleCreateComment(post.id)}
-                          disabled={!(commentDraftByPost[post.id] || "").trim()}
-                          className="bg-pink-500 hover:bg-pink-600"
+                          size="sm"
+                          disabled={!commentInputs[post.id]?.trim()}
                         >
-                          Post
+                          Reply
                         </Button>
                       </div>
-
-                      {/* Errors */}
-                      {commentErrorByPost[post.id] && (
-                        <div className="text-sm text-pink-200">{commentErrorByPost[post.id]}</div>
-                      )}
-
-                      {/* List */}
-                      {commentsLoadingByPost[post.id] ? (
-                        <div className="text-sm text-white/70">Loading comments…</div>
-                      ) : (commentsByPost[post.id] || []).length === 0 ? (
-                        <div className="text-sm text-white/70">No comments yet. Start the conversation 💜</div>
-                      ) : (
-                        <div className="space-y-2">
-                          {(commentsByPost[post.id] || []).map((c) => (
-                            <div key={c.id} className="rounded-lg bg-white/5 border border-white/10 p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-semibold text-white">{c.authorName}</div>
-                                <div className="text-xs text-white/60">{timeAgo(c.created_at)}</div>
-                              </div>
-                              <div className="text-sm text-white/90 mt-1 whitespace-pre-wrap">{c.body}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </CardContent>
