@@ -31,16 +31,45 @@ type CommentRow = {
   user_id: string;
   body: string;
   created_at: string;
+  parent_comment_id: string | null;
 };
 
 type HydratedComment = CommentRow & {
   authorName: string;
+  _optimistic?: boolean;
+};
+
+type ThreadComment = HydratedComment & {
+  replies: HydratedComment[];
 };
 
 function incMap(map: Map<string, number>, key: string, delta: number) {
   const next = new Map(map);
   next.set(key, Math.max(0, (next.get(key) ?? 0) + delta));
   return next;
+}
+
+function buildCommentThreads(comments: HydratedComment[]): ThreadComment[] {
+  const byId = new Map<string, ThreadComment>();
+  const roots: ThreadComment[] = [];
+
+  comments.forEach((comment) => {
+    byId.set(comment.id, { ...comment, replies: [] });
+  });
+
+  comments.forEach((comment) => {
+    const node = byId.get(comment.id);
+    if (!node) return;
+
+    if (comment.parent_comment_id && byId.has(comment.parent_comment_id)) {
+      byId.get(comment.parent_comment_id)?.replies.push(node);
+      return;
+    }
+
+    roots.push(node);
+  });
+
+  return roots;
 }
 
 function timeAgo(iso: string) {
@@ -67,8 +96,10 @@ const SocialFeed: React.FC = () => {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, any[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, ThreadComment[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [replyToByPost, setReplyToByPost] = useState<Record<string, string | null>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [commenting, setCommenting] = useState<Record<string, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
@@ -227,26 +258,52 @@ const SocialFeed: React.FC = () => {
     setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
 
     try {
-      const { data: rows, error } = await supabase
+      const { data: rowsWithParent, error: withParentError } = await supabase
         .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
+        .select("id, post_id, user_id, body, created_at, parent_comment_id")
         .eq("post_id", postId)
         .order("created_at", { ascending: true })
         .limit(50);
 
-      if (error) throw error;
+      let base: CommentRow[] = [];
 
-      const base = (rows ?? []) as CommentRow[];
+      if (withParentError) {
+        const missingParentColumn = /parent_comment_id/i.test(withParentError.message || "");
+
+        if (!missingParentColumn) throw withParentError;
+
+        const { data: rowsFallback, error: fallbackError } = await supabase
+          .from("post_comments")
+          .select("id, post_id, user_id, body, created_at")
+          .eq("post_id", postId)
+          .order("created_at", { ascending: true })
+          .limit(50);
+
+        if (fallbackError) throw fallbackError;
+
+        base = ((rowsFallback ?? []) as Omit<CommentRow, "parent_comment_id">[]).map((row) => ({
+          ...row,
+          parent_comment_id: null,
+        }));
+      } else {
+        base = (rowsWithParent ?? []) as CommentRow[];
+      }
+
       const authorIds = Array.from(new Set(base.map((c) => c.user_id)));
 
       // Pull names from profiles (best effort)
-      const { data: profileRows, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, name, username")
-        .in("id", authorIds);
+      let profileRows: any[] = [];
+      if (authorIds.length > 0) {
+        const { data, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, name, username")
+          .in("id", authorIds);
 
-      if (profilesError) {
-        console.warn("comment profiles lookup failed:", profilesError.message);
+        if (profilesError) {
+          console.warn("comment profiles lookup failed:", profilesError.message);
+        } else {
+          profileRows = data ?? [];
+        }
       }
 
       const nameById = new Map<string, string>();
@@ -259,7 +316,7 @@ const SocialFeed: React.FC = () => {
         authorName: c.user_id === user.id ? "You" : nameById.get(c.user_id) || "Member",
       }));
 
-      setCommentsByPost((prev) => ({ ...prev, [postId]: hydrated }));
+      setCommentsByPost((prev) => ({ ...prev, [postId]: buildCommentThreads(hydrated) }));
     } catch (e: any) {
       console.error(e);
       setCommentErrorByPost((prev) => ({
@@ -443,7 +500,7 @@ const SocialFeed: React.FC = () => {
     }
   };
 
-  const handleCreateComment = async (postId: string) => {
+  const sendComment = async (postId: string) => {
     if (!user) return;
 
     const body = (commentInputs[postId] || "").trim();
@@ -460,12 +517,13 @@ const SocialFeed: React.FC = () => {
       user_id: user.id,
       body,
       created_at: new Date().toISOString(),
+      parent_comment_id: null,
       authorName: "You",
     };
 
     setCommentsByPost((prev) => ({
       ...prev,
-      [postId]: [...(prev[postId] || []), optimistic],
+      [postId]: [...(prev[postId] || []), { ...optimistic, replies: [] }],
     }));
 
     setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
@@ -489,12 +547,20 @@ const SocialFeed: React.FC = () => {
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Comment insert returned no data.");
 
       // replace optimistic with real row
       setCommentsByPost((prev) => ({
         ...prev,
         [postId]: (prev[postId] || []).map((c) =>
-          c.id === tempId ? { ...c, ...data, authorName: "You" } : c
+          c.id === tempId
+            ? {
+                ...c,
+                ...data,
+                parent_comment_id: null,
+                authorName: "You",
+              }
+            : c
         ),
       }));
     } catch (e: any) {
@@ -522,6 +588,98 @@ const SocialFeed: React.FC = () => {
       setCommentInputs((prev) => ({ ...prev, [postId]: body }));
     } finally {
       setCommenting((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const sendReply = async (postId: string, parentCommentId: string) => {
+    if (!user) return;
+
+    const key = `${postId}:${parentCommentId}`;
+    const body = (replyInputs[key] || "").trim();
+    if (!body) return;
+
+    setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
+
+    const tempId = `temp_r_${Date.now()}`;
+    const optimisticReply: HydratedComment = {
+      id: tempId,
+      post_id: postId,
+      user_id: user.id,
+      body,
+      created_at: new Date().toISOString(),
+      parent_comment_id: parentCommentId,
+      authorName: "You",
+      _optimistic: true,
+    };
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postId]: (prev[postId] || []).map((thread) =>
+        thread.id === parentCommentId
+          ? { ...thread, replies: [...thread.replies, optimisticReply] }
+          : thread
+      ),
+    }));
+
+    setReplyInputs((prev) => ({ ...prev, [key]: "" }));
+
+    try {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          body,
+          parent_comment_id: parentCommentId,
+        })
+        .select("id, post_id, user_id, body, created_at")
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Reply insert returned no data.");
+
+      const savedReply: HydratedComment = {
+        ...data,
+        parent_comment_id: parentCommentId,
+        authorName: "You",
+      };
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] || []).map((thread) =>
+          thread.id === parentCommentId
+            ? {
+                ...thread,
+                replies: thread.replies.map((reply) =>
+                  reply.id === tempId ? savedReply : reply
+                ),
+              }
+            : thread
+        ),
+      }));
+
+      setReplyToByPost((prev) => ({ ...prev, [postId]: null }));
+    } catch (e: any) {
+      console.error(e);
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] || []).map((thread) =>
+          thread.id === parentCommentId
+            ? {
+                ...thread,
+                replies: thread.replies.filter((reply) => reply.id !== tempId),
+              }
+            : thread
+        ),
+      }));
+
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postId]: e?.message || "Could not reply. Try again.",
+      }));
+
+      setReplyInputs((prev) => ({ ...prev, [key]: body }));
     }
   };
 
@@ -687,11 +845,14 @@ const SocialFeed: React.FC = () => {
                     <button
                       className="hover:text-pink-300"
                       type="button"
-                      onClick={() =>
-                        setExpandedPostId((prev) =>
-                          prev === post.id ? null : post.id
-                        )
-                      }
+                      onClick={async () => {
+                        const nextPostId = expandedPostId === post.id ? null : post.id;
+                        setExpandedPostId(nextPostId);
+
+                        if (nextPostId === post.id && !commentsByPost[post.id]) {
+                          await loadComments(post.id);
+                        }
+                      }}
                     >
                       💬 {post.commentCount}
                     </button>
@@ -705,14 +866,86 @@ const SocialFeed: React.FC = () => {
                           No comments yet.
                         </div>
                       ) : (
-                        commentsByPost[post.id].map((c) => (
-                          <div key={c.id} className="text-sm text-white/90">
-                            <span className="font-semibold">
-                              {c.authorName || "Member"}
-                            </span>{" "}
-                            {c.body}
-                          </div>
-                        ))
+                        commentsByPost[post.id].map((comment) => {
+                          const isReplying = replyToByPost[post.id] === comment.id;
+
+                          return (
+                            <div key={comment.id} className="text-sm text-white/90">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <span className="font-semibold">{comment.authorName || "Member"}</span>{" "}
+                                  {comment.body}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="text-xs text-white/70 hover:text-pink-300 shrink-0"
+                                  onClick={() => {
+                                    console.log("Reply clicked", post.id, comment.id);
+                                    setReplyToByPost((prev) => ({
+                                      ...prev,
+                                      [post.id]: prev[post.id] === comment.id ? null : comment.id,
+                                    }));
+                                  }}
+                                >
+                                  Reply
+                                </button>
+                              </div>
+
+                              {comment.replies.length > 0 && (
+                                <div className="ml-4 mt-2 space-y-2 border-l border-white/20 pl-3">
+                                  {comment.replies.map((reply) => (
+                                    <div
+                                      key={reply.id}
+                                      className={`text-sm ${
+                                        reply._optimistic ? "opacity-70" : "opacity-100"
+                                      }`}
+                                    >
+                                      <span className="font-semibold">
+                                        {reply.authorName || "Member"}
+                                      </span>{" "}
+                                      {reply.body}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {isReplying && (
+                                <div className="mt-2 ml-4 flex gap-2">
+                                  <Input
+                                    placeholder={`Reply to ${comment.authorName || "Member"}…`}
+                                    value={replyInputs[`${post.id}:${comment.id}`] || ""}
+                                    onChange={(e) =>
+                                      setReplyInputs((prev) => ({
+                                        ...prev,
+                                        [`${post.id}:${comment.id}`]: e.target.value,
+                                      }))
+                                    }
+                                    className="bg-violet-900/50 border-violet-400/40 text-white"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => sendReply(post.id, comment.id)}
+                                    disabled={!((replyInputs[`${post.id}:${comment.id}`] || "").trim())}
+                                  >
+                                    Send
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setReplyToByPost((prev) => ({ ...prev, [post.id]: null }))
+                                    }
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
 
                       {/* Add Comment */}
@@ -728,14 +961,9 @@ const SocialFeed: React.FC = () => {
                           }
                           className="bg-violet-900/50 border-violet-400/40 text-white"
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            console.log("Reply clicked", post.id);
-                          }}
-                        >
-                          Reply
-                        </button>
+                        <Button type="button" onClick={() => sendComment(post.id)}>
+                          Comment
+                        </Button>
                       </div>
                     </div>
                   )}
