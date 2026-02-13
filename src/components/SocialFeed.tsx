@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,8 @@ function timeAgo(iso: string) {
   return `${days}d ago`;
 }
 
+const EXPANDED_KEY = "vv_expanded_post_v1";
+
 const SocialFeed: React.FC = () => {
   const { user } = useAuth();
 
@@ -69,7 +71,13 @@ const SocialFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(EXPANDED_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [commentsByPost, setCommentsByPost] = useState<Record<string, HydratedComment[]>>({});
   const [repliesByParentId, setRepliesByParentId] = useState<Record<string, HydratedComment[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
@@ -78,6 +86,9 @@ const SocialFeed: React.FC = () => {
   const [commenting, setCommenting] = useState<Record<string, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
+  const expandedPostIdRef = useRef<string | null>(expandedPostId);
+  const loadFeedRef = useRef<() => Promise<void>>(async () => {});
+  const loadCommentsRef = useRef<(postId: string) => Promise<void>>(async () => {});
 
   // Events (still mock for now)
   const [showCreateEvent, setShowCreateEvent] = useState(false);
@@ -137,6 +148,20 @@ const SocialFeed: React.FC = () => {
     ],
     []
   );
+
+  // Persist whenever it changes
+  useEffect(() => {
+    try {
+      if (expandedPostId) sessionStorage.setItem(EXPANDED_KEY, expandedPostId);
+      else sessionStorage.removeItem(EXPANDED_KEY);
+    } catch {
+      // ignore
+    }
+  }, [expandedPostId]);
+
+  useEffect(() => {
+    expandedPostIdRef.current = expandedPostId;
+  }, [expandedPostId]);
 
   const loadFeed = useCallback(async () => {
     if (!user) return;
@@ -287,6 +312,11 @@ const SocialFeed: React.FC = () => {
       }));
 
       setPosts(hydrated);
+
+      // If user is currently viewing comments, keep them in sync
+      if (expandedPostIdRef.current) {
+        await loadCommentsRef.current(expandedPostIdRef.current);
+      }
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Failed to load feed");
@@ -357,8 +387,23 @@ const SocialFeed: React.FC = () => {
         )
       );
 
+      const parentIdsForThisPost = new Set<string>();
+      hydratedRows.forEach((c) => {
+        if (!c.parent_comment_id) parentIdsForThisPost.add(c.id);
+      });
+
       setCommentsByPost((prev) => ({ ...prev, [postId]: topLevel }));
-      setRepliesByParentId((prev) => ({ ...prev, ...Object.fromEntries(repliesByParent) }));
+      setRepliesByParentId((prev) => {
+        const next = { ...prev };
+
+        // clear existing reply buckets for this post’s parent comments
+        parentIdsForThisPost.forEach((parentId) => {
+          delete next[parentId];
+        });
+
+        // set fresh reply buckets
+        return { ...next, ...Object.fromEntries(repliesByParent) };
+      });
     } catch (e: any) {
       console.error(e);
       setCommentErrorByPost((prev) => ({
@@ -371,21 +416,40 @@ const SocialFeed: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
-    loadFeed();
-  }, [user?.id, loadFeed]);
+    loadFeedRef.current = loadFeed;
+  }, [loadFeed]);
+
+  useEffect(() => {
+    loadCommentsRef.current = loadComments;
+  }, [loadComments]);
 
   useEffect(() => {
     if (!user) return;
-    void supabase.removeAllChannels();
-    const myId = user?.id;
+    if (!expandedPostId) return;
+
+    // If we don't have comments cached (or if you want always-fresh), load them.
+    if (!commentsByPost[expandedPostId]) {
+      loadComments(expandedPostId);
+    }
+    // If you want it to always reload whenever expandedPostId changes, remove the if.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedPostId, user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadFeedRef.current();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const myId = user.id;
     let reloadTimer: number | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) return;
       reloadTimer = window.setTimeout(async () => {
         reloadTimer = null;
-        await loadFeed();
+        await loadFeedRef.current();
       }, 400);
     };
 
@@ -437,7 +501,7 @@ const SocialFeed: React.FC = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "post_comments" },
-        (payload) => {
+        async (payload) => {
           const event = payload.eventType;
           const rowNew: any = (payload as any).new;
           const rowOld: any = (payload as any).old;
@@ -447,13 +511,19 @@ const SocialFeed: React.FC = () => {
 
           const delta = event === "INSERT" ? 1 : event === "DELETE" ? -1 : 0;
 
+          // 1) Keep counter in sync
           setPosts((prev) =>
             prev.map((p) =>
               p.id === postId
-                ? { ...p, commentCount: Math.max(0, p.commentCount + delta) }
+                ? { ...p, commentCount: Math.max(0, (p.commentCount ?? 0) + delta) }
                 : p
             )
           );
+
+          // 2) If that post’s comments are open, refresh the thread
+          if (expandedPostIdRef.current === postId) {
+            await loadCommentsRef.current(postId);
+          }
         }
       )
       .subscribe((status) => {
@@ -461,9 +531,10 @@ const SocialFeed: React.FC = () => {
       });
 
     return () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, loadFeed]);
+  }, [user?.id]);
 
   const handleCreatePost = async () => {
     if (!user) return;
@@ -605,6 +676,8 @@ const SocialFeed: React.FC = () => {
             : c
         ),
       }));
+
+      await loadComments(postId);
     } catch (e: any) {
       console.error(e);
 
@@ -641,6 +714,7 @@ const SocialFeed: React.FC = () => {
     if (!body) return;
 
     setCommentErrorByPost((prev) => ({ ...prev, [postId]: null }));
+    setCommenting((prev) => ({ ...prev, [postId]: true }));
 
     const tempId = `temp_r_${Date.now()}`;
     const optimisticReply: HydratedComment = {
@@ -660,6 +734,12 @@ const SocialFeed: React.FC = () => {
     }));
 
     setReplyInputs((prev) => ({ ...prev, [key]: "" }));
+
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, commentCount: (p.commentCount ?? 0) + 1 } : p
+      )
+    );
 
     try {
       const { data, error } = await supabase
@@ -690,6 +770,7 @@ const SocialFeed: React.FC = () => {
       }));
 
       setReplyToByPost((prev) => ({ ...prev, [postId]: null }));
+      await loadComments(postId);
     } catch (e: any) {
       console.error(e);
 
@@ -705,7 +786,15 @@ const SocialFeed: React.FC = () => {
         [postId]: e?.message || "Could not reply. Try again.",
       }));
 
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount ?? 0) - 1) } : p
+        )
+      );
+
       setReplyInputs((prev) => ({ ...prev, [key]: body }));
+    } finally {
+      setCommenting((prev) => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -871,12 +960,12 @@ const SocialFeed: React.FC = () => {
                     <button
                       className="hover:text-pink-300"
                       type="button"
-                      onClick={async () => {
+                      onClick={() => {
                         const nextPostId = expandedPostId === post.id ? null : post.id;
                         setExpandedPostId(nextPostId);
 
                         if (nextPostId === post.id && !commentsByPost[post.id]) {
-                          await loadComments(post.id);
+                          loadComments(post.id);
                         }
                       }}
                     >
@@ -887,7 +976,9 @@ const SocialFeed: React.FC = () => {
                   {expandedPostId === post.id && (
                     <div className="mt-4 border-t border-white/20 pt-3 space-y-3">
                       {/* Existing Comments */}
-                      {(commentsByPost[post.id] ?? []).length === 0 ? (
+                      {commentsLoadingByPost[post.id] ? (
+                        <div className="text-sm text-white/60">Loading comments…</div>
+                      ) : (commentsByPost[post.id] ?? []).length === 0 ? (
                         <div className="text-sm text-white/60">
                           No comments yet.
                         </div>
@@ -943,7 +1034,7 @@ const SocialFeed: React.FC = () => {
                                     type="button"
                                     size="sm"
                                     onClick={() => sendReply(post.id, c.id)}
-                                    disabled={!((replyInputs[`${post.id}:${c.id}`] || "").trim())}
+                                    disabled={commenting[post.id] || !((replyInputs[`${post.id}:${c.id}`] || "").trim())}
                                   >
                                     Send
                                   </Button>
