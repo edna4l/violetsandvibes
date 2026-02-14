@@ -149,6 +149,33 @@ const SocialFeed: React.FC = () => {
     []
   );
 
+  const createNotification = async (input: {
+    recipientId: string;
+    actorId: string;
+    type: "comment" | "reply";
+    postId: string;
+    commentId?: string;
+  }) => {
+    const { recipientId, actorId, type, postId, commentId } = input;
+
+    // don't notify yourself
+    if (recipientId === actorId) return;
+
+    const payload: any = {
+      user_id: recipientId,
+      actor_id: actorId,
+      type,
+      post_id: postId,
+    };
+
+    // only include if your table has it
+    if (commentId) payload.comment_id = commentId;
+
+    const { error } = await supabase.from("notifications").insert(payload);
+    console.log("notification created:", payload);
+    if (error) throw error;
+  };
+
   // Persist whenever it changes
   useEffect(() => {
     try {
@@ -662,6 +689,23 @@ const SocialFeed: React.FC = () => {
       if (error) throw error;
       if (!data) throw new Error("Comment insert returned no data.");
 
+      // who owns the post?
+      const { data: postRow, error: postOwnerError } = await supabase
+        .from("posts")
+        .select("author_id")
+        .eq("id", postId)
+        .single();
+
+      if (postOwnerError) throw postOwnerError;
+
+      await createNotification({
+        recipientId: postRow.author_id,
+        actorId: user.id,
+        type: "comment",
+        postId,
+        commentId: data.id, // remove if you don't have comment_id column
+      });
+
       // replace optimistic with real row
       setCommentsByPost((prev) => ({
         ...prev,
@@ -755,6 +799,42 @@ const SocialFeed: React.FC = () => {
 
       if (error) throw error;
       if (!data) throw new Error("Reply insert returned no data.");
+
+      // 1) Notify the parent comment author
+      const { data: parentRow, error: parentErr } = await supabase
+        .from("post_comments")
+        .select("user_id")
+        .eq("id", parentCommentId)
+        .single();
+
+      if (parentErr) throw parentErr;
+
+      await createNotification({
+        recipientId: parentRow.user_id,
+        actorId: user.id,
+        type: "reply",
+        postId,
+        commentId: data.id, // remove if you don't have comment_id
+      });
+
+      // 2) Also notify post owner if they’re not the same as parent author
+      const { data: postRow, error: postErr } = await supabase
+        .from("posts")
+        .select("author_id")
+        .eq("id", postId)
+        .single();
+
+      if (postErr) throw postErr;
+
+      if (postRow.author_id !== parentRow.user_id) {
+        await createNotification({
+          recipientId: postRow.author_id,
+          actorId: user.id,
+          type: "reply",
+          postId,
+          commentId: data.id,
+        });
+      }
 
       const savedReply: HydratedComment = {
         ...data,
