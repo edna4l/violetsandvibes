@@ -689,22 +689,18 @@ const SocialFeed: React.FC = () => {
       if (error) throw error;
       if (!data) throw new Error("Comment insert returned no data.");
 
-      // who owns the post?
-      const { data: postRow, error: postOwnerError } = await supabase
-        .from("posts")
-        .select("author_id")
-        .eq("id", postId)
-        .single();
+      // Find the post author
+      const post = posts.find((p) => p.id === postId);
 
-      if (postOwnerError) throw postOwnerError;
-
-      await createNotification({
-        recipientId: postRow.author_id,
-        actorId: user.id,
-        type: "comment",
-        postId,
-        commentId: data.id, // remove if you don't have comment_id column
-      });
+      if (post && post.author_id !== user.id) {
+        await supabase.from("notifications").insert({
+          recipient_id: post.author_id,
+          actor_id: user.id,
+          type: "comment",
+          post_id: postId,
+          comment_id: data.id,
+        });
+      }
 
       // replace optimistic with real row
       setCommentsByPost((prev) => ({
@@ -800,39 +796,17 @@ const SocialFeed: React.FC = () => {
       if (error) throw error;
       if (!data) throw new Error("Reply insert returned no data.");
 
-      // 1) Notify the parent comment author
-      const { data: parentRow, error: parentErr } = await supabase
-        .from("post_comments")
-        .select("user_id")
-        .eq("id", parentCommentId)
-        .single();
+      // Find parent comment author
+      const parentComment =
+        commentsByPost[postId]?.find((c) => c.id === parentCommentId);
 
-      if (parentErr) throw parentErr;
-
-      await createNotification({
-        recipientId: parentRow.user_id,
-        actorId: user.id,
-        type: "reply",
-        postId,
-        commentId: data.id, // remove if you don't have comment_id
-      });
-
-      // 2) Also notify post owner if they’re not the same as parent author
-      const { data: postRow, error: postErr } = await supabase
-        .from("posts")
-        .select("author_id")
-        .eq("id", postId)
-        .single();
-
-      if (postErr) throw postErr;
-
-      if (postRow.author_id !== parentRow.user_id) {
-        await createNotification({
-          recipientId: postRow.author_id,
-          actorId: user.id,
+      if (parentComment && parentComment.user_id !== user.id) {
+        await supabase.from("notifications").insert({
+          recipient_id: parentComment.user_id,
+          actor_id: user.id,
           type: "reply",
-          postId,
-          commentId: data.id,
+          post_id: postId,
+          comment_id: data.id,
         });
       }
 
