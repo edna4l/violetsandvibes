@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,17 @@ type NotificationType =
   | "post_like"
   | "post_comment"
   | "comment_reply"
+  | "like"
+  | "comment"
+  | "reply"
   | "match"
   | "message"
   | "event"
   | string;
+
+type NotificationsReadField = "is_read" | "read" | "read_at";
+
+const READ_FIELDS: NotificationsReadField[] = ["is_read", "read", "read_at"];
 
 type NotificationRow = {
   id: string;
@@ -24,12 +31,26 @@ type NotificationRow = {
   post_id: string | null;
   comment_id: string | null;
   created_at: string;
-  read_at: string | null;
+  is_read?: boolean | null;
+  read?: boolean | null;
+  read_at?: string | null;
 };
 
 type HydratedNotification = NotificationRow & {
   actorName: string;
+  isRead: boolean;
 };
+
+function isMissingColumnError(error: { message?: string } | null) {
+  const msg = error?.message ?? "";
+  return /column .* does not exist/i.test(msg);
+}
+
+function isReadRow(row: NotificationRow, field: NotificationsReadField) {
+  if (field === "is_read") return !!row.is_read;
+  if (field === "read") return !!row.read;
+  return !!row.read_at;
+}
 
 function timeAgo(iso: string) {
   const d = new Date(iso);
@@ -46,15 +67,22 @@ function timeAgo(iso: string) {
 }
 
 function getIcon(type: NotificationType) {
-  // Map your real types first
-  if (type === "post_like") return <Heart className="w-5 h-5 text-pink-400" />;
-  if (type === "post_comment" || type === "comment_reply")
+  if (type === "post_like" || type === "like") {
+    return <Heart className="w-5 h-5 text-pink-400" />;
+  }
+  if (
+    type === "post_comment" ||
+    type === "comment_reply" ||
+    type === "comment" ||
+    type === "reply"
+  ) {
     return <MessageCircle className="w-5 h-5 text-cyan-300" />;
+  }
 
-  // Optional future types
   if (type === "event") return <Calendar className="w-5 h-5 text-purple-300" />;
-  if (type === "message")
+  if (type === "message") {
     return <MessageCircle className="w-5 h-5 text-blue-300" />;
+  }
   if (type === "match") return <Heart className="w-5 h-5 text-pink-300" />;
 
   return <Bell className="w-5 h-5 text-white/70" />;
@@ -63,10 +91,13 @@ function getIcon(type: NotificationType) {
 function buildTitle(n: NotificationRow) {
   switch (n.type) {
     case "post_like":
+    case "like":
       return "Someone liked your post";
     case "post_comment":
+    case "comment":
       return "New comment on your post";
     case "comment_reply":
+    case "reply":
       return "New reply to your comment";
     default:
       return "Notification";
@@ -76,10 +107,13 @@ function buildTitle(n: NotificationRow) {
 function buildMessage(n: NotificationRow, actorName: string) {
   switch (n.type) {
     case "post_like":
+    case "like":
       return `${actorName} liked your post 💜`;
     case "post_comment":
+    case "comment":
       return `${actorName} commented on your post 💬`;
     case "comment_reply":
+    case "reply":
       return `${actorName} replied to your comment 💬`;
     default:
       return `${actorName} sent an update`;
@@ -93,9 +127,72 @@ const NotificationCenter: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HydratedNotification[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [readField, setReadField] = useState<NotificationsReadField>("is_read");
 
   // Keep this UI-only (not real push yet)
   const [pushEnabled, setPushEnabled] = useState(true);
+
+  const markReadInDb = useCallback(
+    async (id?: string) => {
+      if (!user) return;
+
+      const order = [readField, ...READ_FIELDS.filter((f) => f !== readField)];
+      let lastMissing: { message?: string } | null = null;
+
+      for (const field of order) {
+        const now = new Date().toISOString();
+        const updatePayload =
+          field === "read_at" ? { read_at: now } : ({ [field]: true } as Record<string, boolean>);
+
+        let query = supabase.from("notifications").update(updatePayload).eq("recipient_id", user.id);
+
+        if (id) query = query.eq("id", id);
+        query = field === "read_at" ? query.is("read_at", null) : query.eq(field, false);
+
+        const { error: updateError } = await query;
+        if (!updateError) {
+          if (field !== readField) setReadField(field);
+          return;
+        }
+
+        if (isMissingColumnError(updateError)) {
+          lastMissing = updateError;
+          continue;
+        }
+
+        throw updateError;
+      }
+
+      throw new Error(lastMissing?.message || "No compatible notifications read field found.");
+    },
+    [readField, user?.id]
+  );
+
+  useEffect(() => {
+    if (!user) return;
+
+    const markAllAsRead = async () => {
+      try {
+        const now = new Date().toISOString();
+        await markReadInDb();
+
+        // Keep UI in sync immediately after marking all as read
+        setItems((prev) =>
+          prev.map((n) => ({
+            ...n,
+            isRead: true,
+            is_read: true,
+            read: true,
+            read_at: n.read_at ?? now,
+          }))
+        );
+      } catch (e: any) {
+        console.warn("markAllAsRead failed:", e?.message || "Unknown error");
+      }
+    };
+
+    void markAllAsRead();
+  }, [markReadInDb, user?.id]);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -104,20 +201,43 @@ const NotificationCenter: React.FC = () => {
     setError(null);
 
     try {
-      const { data: rows, error: nErr } = await supabase
-        .from("notifications")
-        .select(
-          "id, recipient_id, actor_id, type, post_id, comment_id, created_at, read_at"
-        )
-        .eq("recipient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(60);
+      const order = [readField, ...READ_FIELDS.filter((f) => f !== readField)];
+      let rows: NotificationRow[] | null = null;
+      let selectedReadField = readField;
+      let lastMissing: { message?: string } | null = null;
 
-      if (nErr) throw nErr;
+      for (const field of order) {
+        const { data, error: queryError } = await supabase
+          .from("notifications")
+          .select(`id, recipient_id, actor_id, type, post_id, comment_id, created_at, ${field}`)
+          .eq("recipient_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(60);
 
-      const base = (rows ?? []) as NotificationRow[];
+        if (!queryError) {
+          rows = (data ?? []) as NotificationRow[];
+          selectedReadField = field;
+          break;
+        }
+
+        if (isMissingColumnError(queryError)) {
+          lastMissing = queryError;
+          continue;
+        }
+
+        throw queryError;
+      }
+
+      if (!rows) {
+        throw new Error(lastMissing?.message || "No compatible notifications read field found.");
+      }
+
+      if (selectedReadField !== readField) {
+        setReadField(selectedReadField);
+      }
+
       const actorIds = Array.from(
-        new Set(base.map((r) => r.actor_id).filter(Boolean) as string[])
+        new Set(rows.map((r) => r.actor_id).filter(Boolean) as string[])
       );
 
       let profiles: any[] = [];
@@ -135,8 +255,9 @@ const NotificationCenter: React.FC = () => {
         nameById.set(p.id, p.full_name || p.name || p.username || "Member");
       });
 
-      const hydrated: HydratedNotification[] = base.map((n) => ({
+      const hydrated: HydratedNotification[] = rows.map((n) => ({
         ...n,
+        isRead: isReadRow(n, selectedReadField),
         actorName: n.actor_id
           ? n.actor_id === user.id
             ? "You"
@@ -151,27 +272,16 @@ const NotificationCenter: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [readField, user?.id]);
 
   useEffect(() => {
     if (!user) return;
     void loadNotifications();
-  }, [user?.id, loadNotifications]);
+  }, [loadNotifications, user?.id]);
 
-  // Realtime: reload on inserts/updates for this user
-  const userIdRef = useRef<string | null>(null);
+  // Realtime: reload on any notifications table change
   useEffect(() => {
     if (!user) return;
-    userIdRef.current = user.id;
-
-    let reloadTimer: number | null = null;
-    const scheduleReload = () => {
-      if (reloadTimer) return;
-      reloadTimer = window.setTimeout(async () => {
-        reloadTimer = null;
-        await loadNotifications();
-      }, 300);
-    };
 
     const channel = supabase
       .channel("vv-notifications")
@@ -181,44 +291,41 @@ const NotificationCenter: React.FC = () => {
           event: "*",
           schema: "public",
           table: "notifications",
-          // server-side filter (works when Realtime replication is on)
-          filter: `recipient_id=eq.${user.id}`,
         },
-        () => scheduleReload()
+        () => void loadNotifications()
       )
-      .subscribe((status) => {
-        // helpful debug
-        // console.log("vv-notifications status:", status);
-      });
+      .subscribe();
 
     return () => {
-      if (reloadTimer) window.clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, loadNotifications]);
+  }, [loadNotifications, user?.id]);
 
-  const unreadCount = useMemo(
-    () => items.filter((n) => !n.read_at).length,
-    [items]
-  );
+  const unreadCount = useMemo(() => items.filter((n) => !n.isRead).length, [items]);
 
   const markAsRead = async (id: string) => {
     if (!user) return;
 
+    const now = new Date().toISOString();
     // optimistic
     setItems((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
+      prev.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              isRead: true,
+              is_read: true,
+              read: true,
+              read_at: n.read_at ?? now,
+            }
+          : n
+      )
     );
 
-    const { error: uErr } = await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("recipient_id", user.id);
-
-    if (uErr) {
-      console.error(uErr);
-      // restore truth
+    try {
+      await markReadInDb(id);
+    } catch (e) {
+      console.error(e);
       await loadNotifications();
     }
   };
@@ -226,25 +333,29 @@ const NotificationCenter: React.FC = () => {
   const markAllRead = async () => {
     if (!user) return;
 
-    // optimistic
     const now = new Date().toISOString();
-    setItems((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: now })));
+    // optimistic
+    setItems((prev) =>
+      prev.map((n) => ({
+        ...n,
+        isRead: true,
+        is_read: true,
+        read: true,
+        read_at: n.read_at ?? now,
+      }))
+    );
 
-    const { error: uErr } = await supabase
-      .from("notifications")
-      .update({ read_at: now })
-      .eq("recipient_id", user.id)
-      .is("read_at", null);
-
-    if (uErr) {
-      console.error(uErr);
+    try {
+      await markReadInDb();
+    } catch (e) {
+      console.error(e);
       await loadNotifications();
     }
   };
 
   const openNotification = async (n: HydratedNotification) => {
     // mark read, then route somewhere useful
-    if (!n.read_at) await markAsRead(n.id);
+    if (!n.isRead) await markAsRead(n.id);
 
     // If we know the post, jump user to social and highlight post later if you want
     if (n.post_id) {
@@ -260,7 +371,12 @@ const NotificationCenter: React.FC = () => {
     <div className="p-4 space-y-4 max-w-md mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Bell className="w-6 h-6 text-white/90" />
+          <div className="relative">
+            <Bell className="w-6 h-6 text-white/90" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+            )}
+          </div>
           <h2 className="wedding-heading rainbow-header">Notifications</h2>
           {unreadCount > 0 && <Badge className="bg-pink-500">{unreadCount}</Badge>}
         </div>
@@ -298,7 +414,7 @@ const NotificationCenter: React.FC = () => {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-white/80">
-          {loading ? "Loading…" : `${items.length} total`}
+          {loading ? "Loading..." : `${items.length} total`}
         </div>
         <Button
           size="sm"
@@ -319,14 +435,12 @@ const NotificationCenter: React.FC = () => {
 
       <div className="space-y-3">
         {loading ? (
-          <div className="text-white/80">Loading notifications…</div>
+          <div className="text-white/80">Loading notifications...</div>
         ) : items.length === 0 ? (
-          <div className="text-white/70">
-            You’re all caught up 💜
-          </div>
+          <div className="text-white/70">You're all caught up 💜</div>
         ) : (
           items.map((n) => {
-            const unread = !n.read_at;
+            const unread = !n.isRead;
 
             return (
               <Card
