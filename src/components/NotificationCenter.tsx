@@ -53,23 +53,10 @@ function getIcon(type: NotificationType) {
   return <Bell className="w-5 h-5 text-white/70" />;
 }
 
-function formatNotification(n: NotificationRow) {
-  switch (n.type) {
-    case "post_like":
-      return { title: "Someone liked your post 💜", message: "Your post got a new like." };
-    case "post_comment":
-      return { title: "New comment", message: "Someone commented on your post." };
-    case "comment_reply":
-      return { title: "New reply", message: "Someone replied to your comment." };
-    case "match":
-      return { title: "New match 💞", message: "You have a new match." };
-    case "message":
-      return { title: "New message", message: "You received a message." };
-    case "event":
-      return { title: "Event update", message: "There’s an update to an event." };
-    default:
-      return { title: "Notification", message: "" };
-  }
+function snippet(text?: string | null, max = 80) {
+  const t = (text ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
 const NotificationCenter: React.FC = () => {
@@ -79,9 +66,103 @@ const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actorNameById, setActorNameById] = useState<Record<string, string>>({});
+  const [postSnippetById, setPostSnippetById] = useState<Record<string, string>>({});
+  const [commentSnippetById, setCommentSnippetById] = useState<Record<string, string>>({});
 
   // UI-only toggle (real push later)
   const [pushEnabled, setPushEnabled] = useState(true);
+
+  const formatNotification = (n: NotificationRow) => {
+    const who = n.actor_id ? (actorNameById[n.actor_id] || "Someone") : "Someone";
+    const postText = n.post_id ? (postSnippetById[n.post_id] || "your post") : "your post";
+    const commentText = n.comment_id ? (commentSnippetById[n.comment_id] || "") : "";
+
+    switch (n.type) {
+      case "post_like":
+        return {
+          title: `${who} liked your post 💜`,
+          message: postText ? `“${postText}”` : "",
+        };
+
+      case "post_comment":
+        return {
+          title: `${who} commented`,
+          message: commentText ? `“${commentText}”` : (postText ? `On “${postText}”` : ""),
+        };
+
+      case "comment_reply":
+        return {
+          title: `${who} replied to your comment`,
+          message: commentText ? `“${commentText}”` : "",
+        };
+
+      default:
+        return { title: "Notification", message: "" };
+    }
+  };
+
+  const hydrateActorsAndTargets = async (rows: NotificationRow[]) => {
+    if (!rows.length) return;
+
+    const actorIds = Array.from(
+      new Set(rows.map((r) => r.actor_id).filter(Boolean) as string[])
+    );
+    const postIds = Array.from(
+      new Set(rows.map((r) => r.post_id).filter(Boolean) as string[])
+    );
+    const commentIds = Array.from(
+      new Set(rows.map((r) => r.comment_id).filter(Boolean) as string[])
+    );
+
+    // 1) Actor names
+    if (actorIds.length) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, name, username")
+        .in("id", actorIds);
+
+      if (!error) {
+        const map: Record<string, string> = {};
+        (data ?? []).forEach((p: any) => {
+          map[p.id] = p.full_name || p.name || p.username || "Member";
+        });
+        setActorNameById((prev) => ({ ...prev, ...map }));
+      }
+    }
+
+    // 2) Post snippets
+    if (postIds.length) {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, title, body")
+        .in("id", postIds);
+
+      if (!error) {
+        const map: Record<string, string> = {};
+        (data ?? []).forEach((p: any) => {
+          map[p.id] = snippet(p.title || p.body);
+        });
+        setPostSnippetById((prev) => ({ ...prev, ...map }));
+      }
+    }
+
+    // 3) Comment snippets
+    if (commentIds.length) {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .select("id, body")
+        .in("id", commentIds);
+
+      if (!error) {
+        const map: Record<string, string> = {};
+        (data ?? []).forEach((c: any) => {
+          map[c.id] = snippet(c.body);
+        });
+        setCommentSnippetById((prev) => ({ ...prev, ...map }));
+      }
+    }
+  };
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read_at).length,
@@ -108,7 +189,9 @@ const NotificationCenter: React.FC = () => {
       return;
     }
 
-    setNotifications((data ?? []) as NotificationRow[]);
+    const rows = (data ?? []) as NotificationRow[];
+    setNotifications(rows);
+    void hydrateActorsAndTargets(rows);
     setLoading(false);
   };
 
@@ -185,6 +268,7 @@ const NotificationCenter: React.FC = () => {
           const row = (payload as any).new as NotificationRow;
           if (!row || row.recipient_id !== user.id) return;
           setNotifications((prev) => [row, ...prev]);
+          void hydrateActorsAndTargets([row]);
         }
       )
       .on(
