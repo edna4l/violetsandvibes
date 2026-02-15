@@ -1,99 +1,283 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Bell, Heart, MessageCircle, Calendar, Users, Settings } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Bell, Heart, MessageCircle, Calendar, Settings } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
-interface Notification {
+type NotificationType =
+  | "post_like"
+  | "post_comment"
+  | "comment_reply"
+  | "match"
+  | "message"
+  | "event"
+  | string;
+
+type NotificationRow = {
   id: string;
-  type: 'match' | 'message' | 'event' | 'like';
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-  avatar?: string;
+  recipient_id: string;
+  actor_id: string | null;
+  type: NotificationType;
+  post_id: string | null;
+  comment_id: string | null;
+  created_at: string;
+  read_at: string | null;
+};
+
+type HydratedNotification = NotificationRow & {
+  actorName: string;
+};
+
+function timeAgo(iso: string) {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 10) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  return `${days}d ago`;
+}
+
+function getIcon(type: NotificationType) {
+  // Map your real types first
+  if (type === "post_like") return <Heart className="w-5 h-5 text-pink-400" />;
+  if (type === "post_comment" || type === "comment_reply")
+    return <MessageCircle className="w-5 h-5 text-cyan-300" />;
+
+  // Optional future types
+  if (type === "event") return <Calendar className="w-5 h-5 text-purple-300" />;
+  if (type === "message")
+    return <MessageCircle className="w-5 h-5 text-blue-300" />;
+  if (type === "match") return <Heart className="w-5 h-5 text-pink-300" />;
+
+  return <Bell className="w-5 h-5 text-white/70" />;
+}
+
+function buildTitle(n: NotificationRow) {
+  switch (n.type) {
+    case "post_like":
+      return "Someone liked your post";
+    case "post_comment":
+      return "New comment on your post";
+    case "comment_reply":
+      return "New reply to your comment";
+    default:
+      return "Notification";
+  }
+}
+
+function buildMessage(n: NotificationRow, actorName: string) {
+  switch (n.type) {
+    case "post_like":
+      return `${actorName} liked your post 💜`;
+    case "post_comment":
+      return `${actorName} commented on your post 💬`;
+    case "comment_reply":
+      return `${actorName} replied to your comment 💬`;
+    default:
+      return `${actorName} sent an update`;
+  }
 }
 
 const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'match',
-      title: 'New Match! 💕',
-      message: 'You and Alex matched! Start a conversation.',
-      time: '2 min ago',
-      read: false,
-      avatar: '👩‍🦰'
-    },
-    {
-      id: '2',
-      type: 'message',
-      title: 'New Message',
-      message: 'Sam: "Hey! How was your weekend?"',
-      time: '5 min ago',
-      read: false,
-      avatar: '👩‍🦱'
-    },
-    {
-      id: '3',
-      type: 'event',
-      title: 'Pride Brunch Tomorrow',
-      message: 'Don\'t forget about the community brunch!',
-      time: '1 hour ago',
-      read: true
-    },
-    {
-      id: '4',
-      type: 'like',
-      title: 'Someone liked you!',
-      message: 'You have a new admirer 😊',
-      time: '3 hours ago',
-      read: true
-    }
-  ]);
+  const { user } = useAuth();
 
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<HydratedNotification[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep this UI-only (not real push yet)
   const [pushEnabled, setPushEnabled] = useState(true);
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'match': return <Heart className="w-5 h-5 text-pink-500" />;
-      case 'message': return <MessageCircle className="w-5 h-5 text-blue-500" />;
-      case 'event': return <Calendar className="w-5 h-5 text-purple-500" />;
-      case 'like': return <Heart className="w-5 h-5 text-red-500" />;
-      default: return <Bell className="w-5 h-5 text-gray-500" />;
+  const loadNotifications = useCallback(async () => {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: rows, error: nErr } = await supabase
+        .from("notifications")
+        .select(
+          "id, recipient_id, actor_id, type, post_id, comment_id, created_at, read_at"
+        )
+        .eq("recipient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(60);
+
+      if (nErr) throw nErr;
+
+      const base = (rows ?? []) as NotificationRow[];
+      const actorIds = Array.from(
+        new Set(base.map((r) => r.actor_id).filter(Boolean) as string[])
+      );
+
+      let profiles: any[] = [];
+      if (actorIds.length) {
+        const { data: profRows, error: pErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, name, username")
+          .in("id", actorIds);
+
+        if (!pErr) profiles = profRows ?? [];
+      }
+
+      const nameById = new Map<string, string>();
+      profiles.forEach((p: any) => {
+        nameById.set(p.id, p.full_name || p.name || p.username || "Member");
+      });
+
+      const hydrated: HydratedNotification[] = base.map((n) => ({
+        ...n,
+        actorName: n.actor_id
+          ? n.actor_id === user.id
+            ? "You"
+            : nameById.get(n.actor_id) || "Member"
+          : "Someone",
+      }));
+
+      setItems(hydrated);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Failed to load notifications");
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadNotifications();
+  }, [user?.id, loadNotifications]);
+
+  // Realtime: reload on inserts/updates for this user
+  const userIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    userIdRef.current = user.id;
+
+    let reloadTimer: number | null = null;
+    const scheduleReload = () => {
+      if (reloadTimer) return;
+      reloadTimer = window.setTimeout(async () => {
+        reloadTimer = null;
+        await loadNotifications();
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel("vv-notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          // server-side filter (works when Realtime replication is on)
+          filter: `recipient_id=eq.${user.id}`,
+        },
+        () => scheduleReload()
+      )
+      .subscribe((status) => {
+        // helpful debug
+        // console.log("vv-notifications status:", status);
+      });
+
+    return () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, loadNotifications]);
+
+  const unreadCount = useMemo(
+    () => items.filter((n) => !n.read_at).length,
+    [items]
+  );
+
+  const markAsRead = async (id: string) => {
+    if (!user) return;
+
+    // optimistic
+    setItems((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
+    );
+
+    const { error: uErr } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("recipient_id", user.id);
+
+    if (uErr) {
+      console.error(uErr);
+      // restore truth
+      await loadNotifications();
     }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => notif.id === id ? { ...notif, read: true } : notif)
-    );
+  const markAllRead = async () => {
+    if (!user) return;
+
+    // optimistic
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: now })));
+
+    const { error: uErr } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("recipient_id", user.id)
+      .is("read_at", null);
+
+    if (uErr) {
+      console.error(uErr);
+      await loadNotifications();
+    }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const openNotification = async (n: HydratedNotification) => {
+    // mark read, then route somewhere useful
+    if (!n.read_at) await markAsRead(n.id);
+
+    // If we know the post, jump user to social and highlight post later if you want
+    if (n.post_id) {
+      navigate(`/social?post=${n.post_id}`);
+      return;
+    }
+
+    // fallback
+    navigate("/social");
+  };
 
   return (
     <div className="p-4 space-y-4 max-w-md mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Bell className="w-6 h-6 text-purple-600" />
+          <Bell className="w-6 h-6 text-white/90" />
           <h2 className="wedding-heading rainbow-header">Notifications</h2>
-          {unreadCount > 0 && (
-            <Badge className="bg-pink-500">{unreadCount}</Badge>
-          )}
+          {unreadCount > 0 && <Badge className="bg-pink-500">{unreadCount}</Badge>}
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate('/profile')}
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/settings")}
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <Card className="bg-black/40 border-white/15 text-white">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">Push Notifications</CardTitle>
@@ -103,50 +287,94 @@ const NotificationCenter: React.FC = () => {
               onClick={() => setPushEnabled(!pushEnabled)}
               className={pushEnabled ? "bg-green-500 hover:bg-green-600" : ""}
             >
-              {pushEnabled ? 'On' : 'Off'}
+              {pushEnabled ? "On" : "Off"}
             </Button>
+          </div>
+          <div className="text-xs text-white/70">
+            (UI only for now — we’ll wire real push later.)
           </div>
         </CardHeader>
       </Card>
 
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-white/80">
+          {loading ? "Loading…" : `${items.length} total`}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={markAllRead}
+          disabled={!user || unreadCount === 0}
+          className="border-white/20 text-white hover:bg-white/10"
+        >
+          Mark all read
+        </Button>
+      </div>
+
+      {error && (
+        <div className="text-sm text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-3">
-        {notifications.map((notification) => (
-          <Card 
-            key={notification.id}
-            className={`cursor-pointer transition-all ${
-              !notification.read ? 'border-pink-200 bg-pink-50' : 'hover:bg-gray-50'
-            }`}
-            onClick={() => markAsRead(notification.id)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  {notification.avatar ? (
-                    <div className="text-2xl">{notification.avatar}</div>
-                  ) : (
-                    getIcon(notification.type)
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-sm text-gray-900">
-                      {notification.title}
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      {notification.time}
-                    </span>
+        {loading ? (
+          <div className="text-white/80">Loading notifications…</div>
+        ) : items.length === 0 ? (
+          <div className="text-white/70">
+            You’re all caught up 💜
+          </div>
+        ) : (
+          items.map((n) => {
+            const unread = !n.read_at;
+
+            return (
+              <Card
+                key={n.id}
+                className={`cursor-pointer transition-all border-white/15 ${
+                  unread ? "bg-pink-900/20" : "bg-black/30 hover:bg-white/5"
+                }`}
+                onClick={() => openNotification(n)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 mt-0.5">{getIcon(n.type)}</div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-sm text-white">
+                          {buildTitle(n)}
+                        </p>
+                        <span className="text-xs text-white/60">
+                          {timeAgo(n.created_at)}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-white/80 mt-1">
+                        {buildMessage(n, n.actorName)}
+                      </p>
+
+                      {unread && (
+                        <div className="w-2 h-2 bg-pink-400 rounded-full mt-2" />
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {notification.message}
-                  </p>
-                  {!notification.read && (
-                    <div className="w-2 h-2 bg-pink-500 rounded-full mt-2"></div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <div className="pt-2">
+        <Button
+          variant="ghost"
+          className="w-full text-white/80 hover:text-white hover:bg-white/5"
+          onClick={loadNotifications}
+          disabled={!user}
+        >
+          Refresh
+        </Button>
       </div>
     </div>
   );
