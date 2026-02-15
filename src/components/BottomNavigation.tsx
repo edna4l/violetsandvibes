@@ -53,7 +53,8 @@ const BottomNavigation: React.FC = () => {
     }`}>
       <div className="flex justify-around items-center py-2">
         {navItems.map(({ path, icon: Icon, label }) => {
-          const isActive = location.pathname === path;
+          const isActive =
+            location.pathname === path || location.pathname.startsWith(path + "/");
           return (
             <Link
               key={path}

@@ -11,13 +11,21 @@ type NotificationType =
   | "post_like"
   | "post_comment"
   | "comment_reply"
-  | "like"
-  | "comment"
-  | "reply"
   | "match"
   | "message"
   | "event"
   | string;
+
+type NotificationRow = {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  type: NotificationType;
+  post_id: string | null;
+  comment_id: string | null;
+  created_at: string;
+  read_at: string | null;
+};
 
 function timeAgo(iso?: string) {
   if (!iso) return "just now";
@@ -35,77 +43,57 @@ function timeAgo(iso?: string) {
 }
 
 function getIcon(type: NotificationType) {
-  if (type === "post_like" || type === "like") {
-    return <Heart className="w-5 h-5 text-pink-400" />;
+  if (type === "post_like" || type === "match") {
+    return <Heart className="w-5 h-5 text-pink-300" />;
   }
-  if (
-    type === "post_comment" ||
-    type === "comment_reply" ||
-    type === "comment" ||
-    type === "reply"
-  ) {
-    return <MessageCircle className="w-5 h-5 text-cyan-300" />;
+  if (type === "post_comment" || type === "comment_reply" || type === "message") {
+    return <MessageCircle className="w-5 h-5 text-cyan-200" />;
   }
-  if (type === "event") return <Calendar className="w-5 h-5 text-purple-300" />;
-  if (type === "message") return <MessageCircle className="w-5 h-5 text-blue-300" />;
-  if (type === "match") return <Heart className="w-5 h-5 text-pink-300" />;
+  if (type === "event") return <Calendar className="w-5 h-5 text-purple-200" />;
   return <Bell className="w-5 h-5 text-white/70" />;
 }
 
-function isUnread(n: any) {
-  if (typeof n?.is_read === "boolean") return !n.is_read;
-  if (typeof n?.read === "boolean") return !n.read;
-  if ("read_at" in (n ?? {})) return !n.read_at;
-  return true;
-}
-
-function isMissingColumnError(error: any) {
-  return /column .* does not exist/i.test(error?.message ?? "");
+function formatNotification(n: NotificationRow) {
+  switch (n.type) {
+    case "post_like":
+      return { title: "Someone liked your post 💜", message: "Your post got a new like." };
+    case "post_comment":
+      return { title: "New comment", message: "Someone commented on your post." };
+    case "comment_reply":
+      return { title: "New reply", message: "Someone replied to your comment." };
+    case "match":
+      return { title: "New match 💞", message: "You have a new match." };
+    case "message":
+      return { title: "New message", message: "You received a message." };
+    case "event":
+      return { title: "Event update", message: "There’s an update to an event." };
+    default:
+      return { title: "Notification", message: "" };
+  }
 }
 
 const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep this UI-only (not real push yet)
+  // UI-only toggle (real push later)
   const [pushEnabled, setPushEnabled] = useState(true);
 
-  const formatNotification = (n: any) => {
-    switch (n.type) {
-      case "post_like":
-      case "like":
-        return {
-          title: "Someone liked your post 💜",
-          message: "Your post got a new like.",
-        };
-      case "post_comment":
-      case "comment":
-        return {
-          title: "New comment",
-          message: "Someone commented on your post.",
-        };
-      case "comment_reply":
-      case "reply":
-        return {
-          title: "New reply",
-          message: "Someone replied to your comment.",
-        };
-      default:
-        return {
-          title: "Notification",
-          message: "",
-        };
-    }
-  };
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read_at).length,
+    [notifications]
+  );
 
   const loadNotifications = async () => {
     if (!user) return;
 
     setLoading(true);
+    setError(null);
+
     const { data, error: loadError } = await supabase
       .from("notifications")
       .select("id, recipient_id, actor_id, type, post_id, comment_id, created_at, read_at")
@@ -116,11 +104,67 @@ const NotificationCenter: React.FC = () => {
     if (loadError) {
       console.error("loadNotifications error:", loadError);
       setError(loadError.message);
-    } else {
-      setNotifications(data ?? []);
-      setError(null);
+      setLoading(false);
+      return;
     }
+
+    setNotifications((data ?? []) as NotificationRow[]);
     setLoading(false);
+  };
+
+  const markAsRead = async (id: string) => {
+    if (!user) return;
+
+    // optimistic
+    const now = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? now } : n))
+    );
+
+    const { error: updateError } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("recipient_id", user.id)
+      .eq("id", id)
+      .is("read_at", null);
+
+    if (updateError) {
+      console.error("markAsRead error:", updateError);
+      // revert to truth
+      await loadNotifications();
+    }
+  };
+
+  const markAllRead = async () => {
+    if (!user) return;
+
+    const now = new Date().toISOString();
+
+    // optimistic
+    setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? now })));
+
+    const { error: updateError } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("recipient_id", user.id)
+      .is("read_at", null);
+
+    if (updateError) {
+      console.error("markAllRead error:", updateError);
+      await loadNotifications();
+    }
+  };
+
+  const openNotification = async (n: NotificationRow) => {
+    if (!n.read_at) await markAsRead(n.id);
+
+    // simple routing for now
+    if (n.post_id) {
+      navigate(`/social?post=${n.post_id}`);
+      return;
+    }
+
+    navigate("/social");
   };
 
   useEffect(() => {
@@ -138,7 +182,7 @@ const NotificationCenter: React.FC = () => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
         (payload) => {
-          const row: any = (payload as any).new;
+          const row = (payload as any).new as NotificationRow;
           if (!row || row.recipient_id !== user.id) return;
           setNotifications((prev) => [row, ...prev]);
         }
@@ -147,7 +191,7 @@ const NotificationCenter: React.FC = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notifications" },
         (payload) => {
-          const row: any = (payload as any).new;
+          const row = (payload as any).new as NotificationRow;
           if (!row || row.recipient_id !== user.id) return;
           setNotifications((prev) => prev.map((n) => (n.id === row.id ? row : n)));
         }
@@ -159,106 +203,9 @@ const NotificationCenter: React.FC = () => {
     };
   }, [user?.id]);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => isUnread(n)).length,
-    [notifications]
-  );
-
-  const markAsReadInDb = async (id: string) => {
-    if (!user) return;
-
-    const attempts = [
-      { payload: { is_read: true }, apply: (q: any) => q.eq("is_read", false) },
-      { payload: { read: true }, apply: (q: any) => q.eq("read", false) },
-      {
-        payload: { read_at: new Date().toISOString() },
-        apply: (q: any) => q.is("read_at", null),
-      },
-    ];
-
-    for (const attempt of attempts) {
-      let query = supabase
-        .from("notifications")
-        .update(attempt.payload)
-        .eq("recipient_id", user.id)
-        .eq("id", id);
-      query = attempt.apply(query);
-      const { error: updateError } = await query;
-      if (!updateError) return;
-      if (isMissingColumnError(updateError)) continue;
-      throw updateError;
-    }
-  };
-
-  const markAllReadInDb = async () => {
-    if (!user) return;
-
-    const attempts = [
-      { payload: { is_read: true }, apply: (q: any) => q.eq("is_read", false) },
-      { payload: { read: true }, apply: (q: any) => q.eq("read", false) },
-      {
-        payload: { read_at: new Date().toISOString() },
-        apply: (q: any) => q.is("read_at", null),
-      },
-    ];
-    for (const attempt of attempts) {
-      let query = supabase
-        .from("notifications")
-        .update(attempt.payload)
-        .eq("recipient_id", user.id);
-      query = attempt.apply(query);
-      const { error: updateError } = await query;
-      if (!updateError) return;
-      if (isMissingColumnError(updateError)) continue;
-      throw updateError;
-    }
-  };
-
-  const markAsRead = async (id: string) => {
-    const now = new Date().toISOString();
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id
-          ? { ...n, is_read: true, read: true, read_at: n.read_at ?? now }
-          : n
-      )
-    );
-
-    try {
-      await markAsReadInDb(id);
-    } catch (e) {
-      console.error(e);
-      await loadNotifications();
-    }
-  };
-
-  const markAllRead = async () => {
-    const now = new Date().toISOString();
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, is_read: true, read: true, read_at: n.read_at ?? now }))
-    );
-
-    try {
-      await markAllReadInDb();
-    } catch (e) {
-      console.error(e);
-      await loadNotifications();
-    }
-  };
-
-  const openNotification = async (n: any) => {
-    if (isUnread(n)) await markAsRead(n.id);
-
-    if (n.post_id) {
-      navigate(`/social?post=${n.post_id}`);
-      return;
-    }
-
-    navigate("/social");
-  };
-
   return (
     <div className="p-4 space-y-4 max-w-md mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="relative">
@@ -267,22 +214,25 @@ const NotificationCenter: React.FC = () => {
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
             )}
           </div>
+
           <h2 className="wedding-heading rainbow-header">Notifications</h2>
-          {unreadCount > 0 && <Badge className="bg-pink-500">{unreadCount}</Badge>}
+
+          {unreadCount > 0 && (
+            <Badge className="bg-pink-500">{unreadCount}</Badge>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/settings")}
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/settings")}
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
       </div>
 
+      {/* Push toggle (UI only) */}
       <Card className="bg-black/40 border-white/15 text-white">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -296,25 +246,27 @@ const NotificationCenter: React.FC = () => {
               {pushEnabled ? "On" : "Off"}
             </Button>
           </div>
-          <div className="text-xs text-white/70">
-            (UI only for now - we will wire real push later.)
-          </div>
+          <div className="text-xs text-white/70">(UI only for now — real push later.)</div>
         </CardHeader>
       </Card>
 
+      {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-white/80">
           {loading ? "Loading..." : `${notifications.length} total`}
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={markAllRead}
-          disabled={!user || unreadCount === 0}
-          className="border-white/20 text-white hover:bg-white/10"
-        >
-          Mark all read
-        </Button>
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={markAllRead}
+            disabled={!user || unreadCount === 0}
+            className="border-white/20 text-white hover:bg-white/10"
+          >
+            Mark all read
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -323,6 +275,7 @@ const NotificationCenter: React.FC = () => {
         </div>
       )}
 
+      {/* List */}
       <div className="space-y-3">
         {loading ? (
           <div className="text-white/70">Loading…</div>
@@ -330,45 +283,39 @@ const NotificationCenter: React.FC = () => {
           <div className="text-white/70">No notifications yet.</div>
         ) : (
           notifications.map((n) => {
-            const { title, message } = formatNotification(n);
             const unread = !n.read_at;
+            const { title, message } = formatNotification(n);
 
             return (
               <Card
                 key={n.id}
-                className={`cursor-pointer transition-all ${
-                  unread ? "border-pink-200 bg-pink-50" : "hover:bg-gray-50"
+                className={`cursor-pointer transition-all bg-black/35 border-white/15 text-white hover:bg-black/45 ${
+                  unread ? "ring-1 ring-pink-400/40" : ""
                 }`}
-                onClick={async () => {
-                  if (!n.read_at) {
-                    await supabase
-                      .from("notifications")
-                      .update({ read_at: new Date().toISOString() })
-                      .eq("id", n.id);
-
-                    setNotifications((prev) =>
-                      prev.map((x) =>
-                        x.id === n.id
-                          ? { ...x, read_at: new Date().toISOString() }
-                          : x
-                      )
-                    );
-                  }
-                }}
+                onClick={() => void openNotification(n)}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div>
-                      {n.type === "post_like" && <Heart className="w-5 h-5 text-pink-500" />}
-                      {n.type === "post_comment" && <MessageCircle className="w-5 h-5 text-blue-500" />}
-                      {n.type === "comment_reply" && <MessageCircle className="w-5 h-5 text-purple-500" />}
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">{getIcon(n.type)}</div>
 
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{title}</p>
-                      <p className="text-sm text-gray-600 mt-1">{message}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-sm text-white truncate">
+                          {title}
+                        </p>
+                        <span className="text-xs text-white/60 shrink-0">
+                          {timeAgo(n.created_at)}
+                        </span>
+                      </div>
+
+                      {message && (
+                        <p className="text-sm text-white/75 mt-1">
+                          {message}
+                        </p>
+                      )}
+
                       {unread && (
-                        <div className="w-2 h-2 bg-pink-500 rounded-full mt-2"></div>
+                        <div className="w-2 h-2 bg-pink-500 rounded-full mt-2" />
                       )}
                     </div>
                   </div>
@@ -379,11 +326,12 @@ const NotificationCenter: React.FC = () => {
         )}
       </div>
 
+      {/* Refresh */}
       <div className="pt-2">
         <Button
           variant="ghost"
           className="w-full text-white/80 hover:text-white hover:bg-white/5"
-          onClick={loadNotifications}
+          onClick={() => void loadNotifications()}
           disabled={!user}
         >
           Refresh
