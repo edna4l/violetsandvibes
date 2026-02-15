@@ -21,8 +21,8 @@ const BottomNavigation: React.FC = () => {
     { path: '/', icon: Compass, label: 'Discover' },
     { path: '/matches', icon: Heart, label: 'Matches' },
     { path: '/chat', icon: MessageCircle, label: 'Chat' },
-    { path: '/social', icon: Users, label: 'Social' },
     { path: '/notifications', icon: Bell, label: 'Alerts' },
+    { path: '/social', icon: Users, label: 'Social' },
     { path: '/events', icon: Calendar, label: 'Events' },
     { path: '/profile', icon: User, label: 'Profile' }
   ];
