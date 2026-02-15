@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useNotifications } from "@/hooks/useNotifications";
 import { 
   Compass, 
   Heart, 
@@ -11,6 +12,7 @@ import {
 
 const BottomNavigation: React.FC = () => {
   const location = useLocation();
+  const { unreadCount } = useNotifications();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   
