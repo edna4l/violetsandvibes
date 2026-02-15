@@ -7,7 +7,8 @@ import {
   MessageCircle, 
   User, 
   Calendar,
-  Users
+  Users,
+  Bell
 } from 'lucide-react';
 
 const BottomNavigation: React.FC = () => {
@@ -21,6 +22,7 @@ const BottomNavigation: React.FC = () => {
     { path: '/matches', icon: Heart, label: 'Matches' },
     { path: '/chat', icon: MessageCircle, label: 'Chat' },
     { path: '/social', icon: Users, label: 'Social' },
+    { path: '/notifications', icon: Bell, label: 'Alerts' },
     { path: '/events', icon: Calendar, label: 'Events' },
     { path: '/profile', icon: User, label: 'Profile' }
   ];
@@ -62,7 +64,12 @@ const BottomNavigation: React.FC = () => {
                   : 'text-white/60 hover:text-white hover:scale-105'
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'text-pink-400' : ''}`} />
+              <div className="relative">
+                <Icon className={`w-5 h-5 ${isActive ? 'text-pink-400' : ''}`} />
+                {path === "/notifications" && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                )}
+              </div>
               <span className="text-xs mt-1">{label}</span>
             </Link>
           );
