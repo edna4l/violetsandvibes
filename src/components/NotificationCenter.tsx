@@ -27,6 +27,23 @@ type NotificationRow = {
   read_at: string | null;
 };
 
+type UiNotification = {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  type: string;
+  post_id: string | null;
+  comment_id: string | null;
+  created_at: string;
+  read_at: string | null;
+  actorName?: string;
+  postSnippet?: string;
+};
+
+function displayNameFromProfile(p: any) {
+  return p?.full_name || p?.name || p?.username || null;
+}
+
 function timeAgo(iso?: string) {
   if (!iso) return "just now";
   const d = new Date(iso);
@@ -41,6 +58,37 @@ function timeAgo(iso?: string) {
   const days = Math.floor(h / 24);
   return `${days}d ago`;
 }
+
+function isUnread(n: UiNotification) {
+  return !n.read_at;
+}
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function startOfThisWeek() {
+  const d = new Date();
+  const day = d.getDay(); // 0 Sun ... 6 Sat
+  const diff = (day + 6) % 7; // make Monday start
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function groupKey(n: UiNotification) {
+  const unread = !n.read_at;
+  if (unread) return "New";
+
+  const t = new Date(n.created_at).getTime();
+  if (t >= startOfToday()) return "Today";
+  if (t >= startOfThisWeek()) return "This week";
+  return "Earlier";
+}
+
+const GROUP_ORDER = ["New", "Today", "This week", "Earlier"] as const;
 
 function getIcon(type: NotificationType) {
   if (type === "post_like" || type === "match") {
@@ -63,7 +111,7 @@ const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [notifications, setNotifications] = useState<UiNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actorNameById, setActorNameById] = useState<Record<string, string>>({});
@@ -73,28 +121,27 @@ const NotificationCenter: React.FC = () => {
   // UI-only toggle (real push later)
   const [pushEnabled, setPushEnabled] = useState(true);
 
-  const formatNotification = (n: NotificationRow) => {
-    const who = n.actor_id ? (actorNameById[n.actor_id] || "Someone") : "Someone";
-    const postText = n.post_id ? (postSnippetById[n.post_id] || "your post") : "your post";
-    const commentText = n.comment_id ? (commentSnippetById[n.comment_id] || "") : "";
+  const formatNotification = (n: any) => {
+    const who = n.actorName || "Someone";
+    const snippet = n.postSnippet ? `: "${n.postSnippet}"` : "";
 
     switch (n.type) {
       case "post_like":
         return {
-          title: `${who} liked your post 💜`,
-          message: postText ? `“${postText}”` : "",
+          title: `${who} liked your post${snippet} 💜`,
+          message: "",
         };
 
       case "post_comment":
         return {
-          title: `${who} commented`,
-          message: commentText ? `“${commentText}”` : (postText ? `On “${postText}”` : ""),
+          title: `${who} commented on your post${snippet}`,
+          message: "",
         };
 
       case "comment_reply":
         return {
-          title: `${who} replied to your comment`,
-          message: commentText ? `“${commentText}”` : "",
+          title: `${who} replied to your comment${snippet}`,
+          message: "",
         };
 
       default:
@@ -102,7 +149,72 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
-  const hydrateActorsAndTargets = async (rows: NotificationRow[]) => {
+  const hydrateActors = async (rows: UiNotification[]) => {
+    const ids = Array.from(
+      new Set(rows.map((n) => n.actor_id).filter(Boolean) as string[])
+    ).filter((id) => !actorNameById[id]);
+
+    if (ids.length === 0) return rows;
+
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, name, username")
+      .in("id", ids);
+
+    if (error) {
+      console.warn("actor profiles lookup failed:", error.message);
+      return rows;
+    }
+
+    const nextMap: Record<string, string> = {};
+    (profiles ?? []).forEach((p: any) => {
+      const name = displayNameFromProfile(p);
+      if (name) nextMap[p.id] = name;
+    });
+
+    setActorNameById((prev) => ({ ...prev, ...nextMap }));
+
+    return rows.map((n) => ({
+      ...n,
+      actorName: n.actor_id ? nextMap[n.actor_id] || actorNameById[n.actor_id] : undefined,
+    }));
+  };
+
+  const hydratePosts = async (rows: UiNotification[]) => {
+    const postIds = Array.from(
+      new Set(rows.map((n) => n.post_id).filter(Boolean) as string[])
+    ).filter((id) => !postSnippetById[id]); // only fetch unknown posts
+
+    if (postIds.length === 0) return rows;
+
+    const { data: posts, error } = await supabase
+      .from("posts")
+      .select("id, title, body")
+      .in("id", postIds);
+
+    if (error) {
+      console.warn("post snippet lookup failed:", error.message);
+      return rows;
+    }
+
+    const nextMap: Record<string, string> = {};
+    (posts ?? []).forEach((p: any) => {
+      const text = p.title || p.body || "";
+      const snippetText =
+        text.length > 60 ? text.slice(0, 60).trim() + "…" : text;
+      nextMap[p.id] = snippetText;
+    });
+
+    setPostSnippetById((prev) => ({ ...prev, ...nextMap }));
+
+    return rows.map((n) => ({
+      ...n,
+      postSnippet:
+        n.post_id ? nextMap[n.post_id] || postSnippetById[n.post_id] : undefined,
+    }));
+  };
+
+  const hydrateActorsAndTargets = async (rows: UiNotification[]) => {
     if (!rows.length) return;
 
     const actorIds = Array.from(
@@ -125,7 +237,7 @@ const NotificationCenter: React.FC = () => {
       if (!error) {
         const map: Record<string, string> = {};
         (data ?? []).forEach((p: any) => {
-          map[p.id] = p.full_name || p.name || p.username || "Member";
+          map[p.id] = displayNameFromProfile(p) || "Member";
         });
         setActorNameById((prev) => ({ ...prev, ...map }));
       }
@@ -168,13 +280,22 @@ const NotificationCenter: React.FC = () => {
     () => notifications.filter((n) => !n.read_at).length,
     [notifications]
   );
+  const grouped = useMemo(() => {
+    const map = new Map<string, UiNotification[]>();
+    (notifications ?? []).forEach((n) => {
+      const k = groupKey(n);
+      map.set(k, [...(map.get(k) ?? []), n]);
+    });
+
+    return GROUP_ORDER
+      .map((k) => ({ key: k, items: map.get(k) ?? [] }))
+      .filter((g) => g.items.length > 0);
+  }, [notifications]);
 
   const loadNotifications = async () => {
     if (!user) return;
 
     setLoading(true);
-    setError(null);
-
     const { data, error: loadError } = await supabase
       .from("notifications")
       .select("id, recipient_id, actor_id, type, post_id, comment_id, created_at, read_at")
@@ -189,9 +310,17 @@ const NotificationCenter: React.FC = () => {
       return;
     }
 
-    const rows = (data ?? []) as NotificationRow[];
-    setNotifications(rows);
-    void hydrateActorsAndTargets(rows);
+    const rows = (data ?? []) as UiNotification[];
+    let hydrated = await hydrateActors(
+      rows.map((n) => ({
+        ...n,
+        actorName: n.actor_id ? actorNameById[n.actor_id] : undefined,
+      }))
+    );
+    hydrated = await hydratePosts(hydrated);
+
+    setNotifications(hydrated);
+    setError(null);
     setLoading(false);
   };
 
@@ -268,18 +397,61 @@ const NotificationCenter: React.FC = () => {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
-        (payload) => {
-          const row = (payload as any).new as NotificationRow;
+        async (payload) => {
+          const row = (payload as any).new as UiNotification;
           if (!row || row.recipient_id !== user.id) return;
-          setNotifications((prev) => [row, ...prev]);
-          void hydrateActorsAndTargets([row]);
+
+          let actorName: string | undefined =
+            row.actor_id ? actorNameById[row.actor_id] : undefined;
+
+          // fetch actor name if missing
+          if (row.actor_id && !actorName) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("id, full_name, name, username")
+              .eq("id", row.actor_id)
+              .single();
+
+            const name = displayNameFromProfile(prof);
+            if (name) {
+              actorName = name;
+              setActorNameById((prev) => ({ ...prev, [row.actor_id!]: name }));
+            }
+          }
+
+          let postSnippet: string | undefined =
+            row.post_id ? postSnippetById[row.post_id] : undefined;
+
+          if (row.post_id && !postSnippet) {
+            const { data: post } = await supabase
+              .from("posts")
+              .select("id, title, body")
+              .eq("id", row.post_id)
+              .single();
+
+            if (post) {
+              const text = post.title || post.body || "";
+              postSnippet =
+                text.length > 60 ? text.slice(0, 60).trim() + "…" : text;
+
+              setPostSnippetById((prev) => ({
+                ...prev,
+                [row.post_id!]: postSnippet!,
+              }));
+            }
+          }
+
+          setNotifications((prev) => [
+            { ...row, actorName, postSnippet },
+            ...prev,
+          ]);
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notifications" },
         (payload) => {
-          const row = (payload as any).new as NotificationRow;
+          const row = (payload as any).new as UiNotification;
           if (!row || row.recipient_id !== user.id) return;
           setNotifications((prev) => prev.map((n) => (n.id === row.id ? row : n)));
         }
@@ -364,53 +536,99 @@ const NotificationCenter: React.FC = () => {
       )}
 
       {/* List */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {loading ? (
           <div className="text-white/70">Loading…</div>
         ) : notifications.length === 0 ? (
-          <div className="text-white/70">No notifications yet.</div>
-        ) : (
-          notifications.map((n) => {
-            const unread = !n.read_at;
-            const { title, message } = formatNotification(n);
-
-            return (
-              <Card
-                key={n.id}
-                className={`cursor-pointer transition-all bg-black/35 border-white/15 text-white hover:bg-black/45 ${
-                  unread ? "ring-1 ring-pink-400/40" : ""
-                }`}
-                onClick={() => openNotification(n)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">{getIcon(n.type)}</div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium text-sm text-white truncate">
-                          {title}
-                        </p>
-                        <span className="text-xs text-white/60 shrink-0">
-                          {timeAgo(n.created_at)}
-                        </span>
-                      </div>
-
-                      {message && (
-                        <p className="text-sm text-white/75 mt-1">
-                          {message}
-                        </p>
-                      )}
-
-                      {unread && (
-                        <div className="w-2 h-2 bg-pink-500 rounded-full mt-2" />
-                      )}
-                    </div>
+          <Card className="bg-black/30 border-white/15 text-white">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <Bell className="w-5 h-5 text-white/70" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold">You’re all caught up</div>
+                  <div className="text-sm text-white/70 mt-1">
+                    Likes and comments will show up here as they happen.
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-white/10 hover:bg-white/15 text-white"
+                      onClick={() => navigate("/social")}
+                    >
+                      Go to Social
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-white/20 text-white hover:bg-white/10"
+                      onClick={loadNotifications}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          grouped.map((group) => (
+            <div key={group.key} className="space-y-3">
+              <div className="text-xs uppercase tracking-wide text-white/60 px-1">
+                {group.key}
+              </div>
+
+              {group.items.map((n) => {
+                const { title, message } = formatNotification(n);
+                const unread = !n.read_at;
+
+                return (
+                  <Card
+                    key={n.id}
+                    className={`cursor-pointer transition-all bg-black/35 border-white/15 text-white hover:bg-black/45 ${
+                      unread ? "ring-1 ring-pink-400/30" : ""
+                    }`}
+                    onClick={() => openNotification(n)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1">{getIcon(n.type)}</div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{title}</p>
+                              {message ? (
+                                <p className="text-sm text-white/70 mt-1 line-clamp-2">
+                                  {message}
+                                </p>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs text-white/60">
+                                {timeAgo(n.created_at)}
+                              </span>
+                              {unread && (
+                                <span className="h-2 w-2 rounded-full bg-red-500" />
+                              )}
+                            </div>
+                          </div>
+
+                          {n.type === "post_like" && (
+                            <div className="mt-2 text-xs text-white/60">
+                              Tap to view the post
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ))
         )}
       </div>
 
