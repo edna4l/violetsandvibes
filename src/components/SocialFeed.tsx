@@ -479,6 +479,9 @@ const SocialFeed: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const postId = params.get("post");
+    const t = (params.get("t") || "").toLowerCase();
+    const shouldAutoExpand =
+      t === "post_comment" || t === "comment_reply";
 
     if (!postId) return;
 
@@ -494,10 +497,11 @@ const SocialFeed: React.FC = () => {
     if (exists) {
       setHighlightPostId(postId);
 
-      // optional: auto-open comments
-      setExpandedPostId(postId);
-      if (!commentsByPost[postId]) {
-        void loadComments(postId);
+      if (shouldAutoExpand) {
+        setExpandedPostId(postId);
+        if (!commentsByPost[postId]) {
+          void loadComments(postId);
+        }
       }
 
       // scroll + clear highlight
@@ -516,16 +520,21 @@ const SocialFeed: React.FC = () => {
   useEffect(() => {
     const postId = highlightPostIdRef.current;
     if (!postId) return;
+    const params = new URLSearchParams(location.search);
+    const t = (params.get("t") || "").toLowerCase();
+    const shouldAutoExpand =
+      t === "post_comment" || t === "comment_reply";
 
     const exists = posts.some((p) => p.id === postId);
     if (!exists) return;
 
     setHighlightPostId(postId);
 
-    // optional: auto-open comments
-    setExpandedPostId(postId);
-    if (!commentsByPost[postId]) {
-      void loadComments(postId);
+    if (shouldAutoExpand) {
+      setExpandedPostId(postId);
+      if (!commentsByPost[postId]) {
+        void loadComments(postId);
+      }
     }
 
     requestAnimationFrame(() => {
@@ -547,7 +556,9 @@ const SocialFeed: React.FC = () => {
 
     const params = new URLSearchParams(location.search);
     const postId = params.get("post");
-    const openComments = params.get("openComments") === "1";
+    const t = (params.get("t") || "").toLowerCase();
+    const shouldAutoExpand =
+      t === "post_comment" || t === "comment_reply";
     const commentId = params.get("comment");
 
     if (!postId) return;
@@ -562,8 +573,8 @@ const SocialFeed: React.FC = () => {
       setHighlightPostId(postId);
       window.setTimeout(() => setHighlightPostId(null), 1200);
 
-      // open comments if requested OR if there’s a commentId
-      if (openComments || commentId) {
+      // open comments only for comment/reply notifications
+      if (shouldAutoExpand) {
         setExpandedPostId(postId);
         if (!commentsByPost[postId]) {
           await loadComments(postId);
@@ -574,7 +585,7 @@ const SocialFeed: React.FC = () => {
       }
 
       // If we were sent a specific comment, scroll to it and open reply box (if it's a top-level comment)
-      if (commentId) {
+      if (commentId && shouldAutoExpand) {
         // highlight post briefly
         setHighlightPostId(postId);
         window.setTimeout(() => setHighlightPostId(null), 1200);
@@ -1109,7 +1120,7 @@ const SocialFeed: React.FC = () => {
                   post._optimistic ? "opacity-70" : ""
                 } ${
                   highlightPostId === post.id
-                    ? "ring-2 ring-pink-300 shadow-[0_0_0_6px_rgba(236,72,153,0.15)]"
+                    ? "ring-2 ring-pink-300 vv-pulse-highlight"
                     : ""
                 }`}
               >
