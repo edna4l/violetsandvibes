@@ -238,12 +238,16 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
-  const openNotification = async (n: NotificationRow) => {
-    if (!n.read_at) await markAsRead(n.id);
+  const openNotification = async (n: any) => {
+    if (isUnread(n)) await markAsRead(n.id);
 
-    // simple routing for now
     if (n.post_id) {
-      navigate(`/social?post=${n.post_id}`);
+      const openComments =
+        n.type === "post_comment" || n.type === "comment_reply" ? "1" : "0";
+
+      const commentPart = n.comment_id ? `&comment=${n.comment_id}` : "";
+
+      navigate(`/social?post=${n.post_id}&openComments=${openComments}${commentPart}`);
       return;
     }
 
@@ -376,7 +380,7 @@ const NotificationCenter: React.FC = () => {
                 className={`cursor-pointer transition-all bg-black/35 border-white/15 text-white hover:bg-black/45 ${
                   unread ? "ring-1 ring-pink-400/40" : ""
                 }`}
-                onClick={() => void openNotification(n)}
+                onClick={() => openNotification(n)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
