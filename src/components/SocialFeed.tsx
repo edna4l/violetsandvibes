@@ -90,6 +90,7 @@ const SocialFeed: React.FC = () => {
   const [commenting, setCommenting] = useState<Record<string, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
+  const highlightPostIdRef = useRef<string | null>(null);
   const expandedPostIdRef = useRef<string | null>(expandedPostId);
   const loadFeedRef = useRef<() => Promise<void>>(async () => {});
   const loadCommentsRef = useRef<(postId: string) => Promise<void>>(async () => {});
@@ -193,6 +194,10 @@ const SocialFeed: React.FC = () => {
   useEffect(() => {
     expandedPostIdRef.current = expandedPostId;
   }, [expandedPostId]);
+
+  useEffect(() => {
+    highlightPostIdRef.current = highlightPostId;
+  }, [highlightPostId]);
 
   const loadFeed = useCallback(async () => {
     if (!user) return;
@@ -470,6 +475,72 @@ const SocialFeed: React.FC = () => {
     if (!user) return;
     void loadFeedRef.current();
   }, [user?.id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const postId = params.get("post");
+
+    if (!postId) return;
+
+    const cleaned = new URL(window.location.href);
+    cleaned.searchParams.delete("post");
+    window.history.replaceState({}, "", cleaned.toString());
+
+    // Save so we can use it after posts load
+    highlightPostIdRef.current = postId;
+
+    // If post is already in state, highlight immediately
+    const exists = posts.some((p) => p.id === postId);
+    if (exists) {
+      setHighlightPostId(postId);
+
+      // optional: auto-open comments
+      setExpandedPostId(postId);
+      if (!commentsByPost[postId]) {
+        void loadComments(postId);
+      }
+
+      // scroll + clear highlight
+      requestAnimationFrame(() => {
+        document.getElementById(`post-${postId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+
+      window.setTimeout(() => setHighlightPostId(null), 2200);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  useEffect(() => {
+    const postId = highlightPostIdRef.current;
+    if (!postId) return;
+
+    const exists = posts.some((p) => p.id === postId);
+    if (!exists) return;
+
+    setHighlightPostId(postId);
+
+    // optional: auto-open comments
+    setExpandedPostId(postId);
+    if (!commentsByPost[postId]) {
+      void loadComments(postId);
+    }
+
+    requestAnimationFrame(() => {
+      document.getElementById(`post-${postId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    window.setTimeout(() => setHighlightPostId(null), 2200);
+
+    // only once
+    highlightPostIdRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
 
   useEffect(() => {
     if (!user) return;
@@ -1037,7 +1108,9 @@ const SocialFeed: React.FC = () => {
                 className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm transition-all ${
                   post._optimistic ? "opacity-70" : ""
                 } ${
-                  highlightPostId === post.id ? "ring-2 ring-pink-300/80 shadow-lg" : ""
+                  highlightPostId === post.id
+                    ? "ring-2 ring-pink-300 shadow-[0_0_0_6px_rgba(236,72,153,0.15)]"
+                    : ""
                 }`}
               >
                 <CardHeader className="pb-2">
