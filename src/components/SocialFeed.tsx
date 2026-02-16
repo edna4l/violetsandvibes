@@ -154,33 +154,6 @@ const SocialFeed: React.FC = () => {
     []
   );
 
-  const createNotification = async (input: {
-    recipientId: string;
-    actorId: string;
-    type: "comment" | "reply";
-    postId: string;
-    commentId?: string;
-  }) => {
-    const { recipientId, actorId, type, postId, commentId } = input;
-
-    // don't notify yourself
-    if (recipientId === actorId) return;
-
-    const payload: any = {
-      user_id: recipientId,
-      actor_id: actorId,
-      type,
-      post_id: postId,
-    };
-
-    // only include if your table has it
-    if (commentId) payload.comment_id = commentId;
-
-    const { error } = await supabase.from("notifications").insert(payload);
-    console.log("notification created:", payload);
-    if (error) throw error;
-  };
-
   // Persist whenever it changes
   useEffect(() => {
     try {
@@ -835,19 +808,6 @@ const SocialFeed: React.FC = () => {
       if (error) throw error;
       if (!data) throw new Error("Comment insert returned no data.");
 
-      // Find the post author
-      const post = posts.find((p) => p.id === postId);
-
-      if (post && post.author_id !== user.id) {
-        await supabase.from("notifications").insert({
-          recipient_id: post.author_id,
-          actor_id: user.id,
-          type: "comment",
-          post_id: postId,
-          comment_id: data.id,
-        });
-      }
-
       // replace optimistic with real row
       setCommentsByPost((prev) => ({
         ...prev,
@@ -941,20 +901,6 @@ const SocialFeed: React.FC = () => {
 
       if (error) throw error;
       if (!data) throw new Error("Reply insert returned no data.");
-
-      // Find parent comment author
-      const parentComment =
-        commentsByPost[postId]?.find((c) => c.id === parentCommentId);
-
-      if (parentComment && parentComment.user_id !== user.id) {
-        await supabase.from("notifications").insert({
-          recipient_id: parentComment.user_id,
-          actor_id: user.id,
-          type: "reply",
-          post_id: postId,
-          comment_id: data.id,
-        });
-      }
 
       const savedReply: HydratedComment = {
         ...data,
