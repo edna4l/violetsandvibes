@@ -8,6 +8,7 @@ import EventCard from "./EventCard";
 import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "react-router-dom";
 
 type PostRow = {
   id: string;
@@ -64,6 +65,7 @@ const EXPANDED_KEY = "vv_expanded_post_v1";
 
 const SocialFeed: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
 
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
@@ -71,6 +73,8 @@ const SocialFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(() => {
     try {
       return sessionStorage.getItem(EXPANDED_KEY);
@@ -466,6 +470,66 @@ const SocialFeed: React.FC = () => {
     if (!user) return;
     void loadFeedRef.current();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const params = new URLSearchParams(location.search);
+    const postId = params.get("post");
+    const openComments = params.get("openComments") === "1";
+    const commentId = params.get("comment");
+
+    if (!postId) return;
+
+    // if posts not loaded yet, load feed first
+    const run = async () => {
+      if (!posts.some((p) => p.id === postId)) {
+        await loadFeed();
+      }
+
+      // highlight + scroll
+      setHighlightPostId(postId);
+      window.setTimeout(() => setHighlightPostId(null), 1200);
+
+      // open comments if requested OR if there’s a commentId
+      if (openComments || commentId) {
+        setExpandedPostId(postId);
+        if (!commentsByPost[postId]) {
+          await loadComments(postId);
+        } else if (commentId) {
+          // if already loaded, refresh once to be safe (optional)
+          await loadComments(postId);
+        }
+      }
+
+      // If we were sent a specific comment, scroll to it and open reply box (if it's a top-level comment)
+      if (commentId) {
+        // highlight post briefly
+        setHighlightPostId(postId);
+        window.setTimeout(() => setHighlightPostId(null), 1200);
+        setHighlightCommentId(commentId);
+        window.setTimeout(() => setHighlightCommentId(null), 1200);
+
+        // wait a tick for comment DOM to render, then scroll
+        window.setTimeout(() => {
+          const el = document.getElementById(`comment-${commentId}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 80);
+
+        // optionally auto-open reply box for that comment (only for top-level comments)
+        setReplyToByPost((prev) => ({ ...prev, [postId]: commentId }));
+      }
+
+      // scroll into view (after DOM paints)
+      window.setTimeout(() => {
+        const el = document.getElementById(`post-${postId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    };
+
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, location.search]);
 
   useEffect(() => {
     if (!user) return;
@@ -968,9 +1032,12 @@ const SocialFeed: React.FC = () => {
           ) : (
             posts.map((post) => (
               <Card
+                id={`post-${post.id}`}
                 key={post.id}
-                className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm ${
+                className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm transition-all ${
                   post._optimistic ? "opacity-70" : ""
+                } ${
+                  highlightPostId === post.id ? "ring-2 ring-pink-300/80 shadow-lg" : ""
                 }`}
               >
                 <CardHeader className="pb-2">
@@ -1041,7 +1108,13 @@ const SocialFeed: React.FC = () => {
                           const isReplying = replyToByPost[post.id] === c.id;
 
                           return (
-                            <div key={c.id} className="text-sm text-white/90">
+                            <div
+                              key={c.id}
+                              id={`comment-${c.id}`}
+                              className={`text-sm text-white/90 rounded-md px-2 py-1 -mx-2 ${
+                                highlightCommentId === c.id ? "bg-pink-400/15 ring-1 ring-pink-300/40" : ""
+                              }`}
+                            >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <span className="font-semibold">{c.authorName || "Member"}</span>{" "}
@@ -1065,7 +1138,7 @@ const SocialFeed: React.FC = () => {
                               </div>
 
                               {(repliesByParentId[c.id] ?? []).map((r) => (
-                                <div key={r.id} className="ml-6 mt-2 text-sm text-white/85">
+                                <div key={r.id} id={`comment-${r.id}`} className="ml-6 mt-2 text-sm text-white/85">
                                   <span className="font-semibold">{r.authorName || "Member"}</span>{" "}
                                   {r.body}
                                 </div>
