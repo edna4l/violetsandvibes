@@ -370,16 +370,11 @@ const NotificationCenter: React.FC = () => {
   const openNotification = async (n: any) => {
     if (isUnread(n)) await markAsRead(n.id);
 
+    const t = encodeURIComponent(n.type || "");
     if (n.post_id) {
-      const openComments =
-        n.type === "post_comment" || n.type === "comment_reply" ? "1" : "0";
-
-      const commentPart = n.comment_id ? `&comment=${n.comment_id}` : "";
-
-      navigate(`/social?post=${n.post_id}&openComments=${openComments}${commentPart}`);
+      navigate(`/social?post=${n.post_id}&t=${t}`);
       return;
     }
-
     navigate("/social");
   };
 
