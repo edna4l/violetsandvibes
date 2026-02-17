@@ -94,6 +94,9 @@ function getIcon(type: NotificationType) {
   if (type === "post_like" || type === "match") {
     return <Heart className="w-5 h-5 text-pink-300" />;
   }
+  if (type === "new_post") {
+    return <MessageCircle className="w-5 h-5 text-pink-200" />;
+  }
   if (type === "post_comment" || type === "comment_reply" || type === "message") {
     return <MessageCircle className="w-5 h-5 text-cyan-200" />;
   }
@@ -126,6 +129,12 @@ const NotificationCenter: React.FC = () => {
     const snippet = n.postSnippet ? `: "${n.postSnippet}"` : "";
 
     switch (n.type) {
+      case "new_post":
+        return {
+          title: "New post 💜",
+          message: "Someone just shared a post in the community.",
+        };
+
       case "post_like":
         return {
           title: `${who} liked your post${snippet} 💜`,
