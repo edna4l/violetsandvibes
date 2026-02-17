@@ -81,7 +81,8 @@ begin
   end if;
 
   insert into public.notifications (recipient_id, actor_id, type, post_id, comment_id)
-  values (v_recipient, v_actor, 'post_comment', v_post_id, new.id);
+  values (v_recipient, v_actor, 'post_comment', v_post_id, new.id)
+  on conflict do nothing;
 
   return new;
 end;
@@ -135,7 +136,8 @@ begin
   end if;
 
   insert into public.notifications (recipient_id, actor_id, type, post_id, comment_id)
-  values (v_parent_author, v_actor, 'comment_reply', v_post_id, new.id);
+  values (v_parent_author, v_actor, 'comment_reply', v_post_id, new.id)
+  on conflict do nothing;
 
   return new;
 end;
