@@ -7,27 +7,7 @@ import { Bell, Heart, MessageCircle, Calendar, Settings } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
-type NotificationType =
-  | "post_like"
-  | "post_comment"
-  | "comment_reply"
-  | "match"
-  | "message"
-  | "event"
-  | string;
-
 type NotificationRow = {
-  id: string;
-  recipient_id: string;
-  actor_id: string | null;
-  type: NotificationType;
-  post_id: string | null;
-  comment_id: string | null;
-  created_at: string;
-  read_at: string | null;
-};
-
-type UiNotification = {
   id: string;
   recipient_id: string;
   actor_id: string | null;
@@ -36,12 +16,22 @@ type UiNotification = {
   comment_id: string | null;
   created_at: string;
   read_at: string | null;
+};
+
+type HydratedNotification = NotificationRow & {
   actorName?: string;
-  postSnippet?: string;
+  postTitle?: string | null;
+  postSnippet?: string | null;
 };
 
 function displayNameFromProfile(p: any) {
   return p?.full_name || p?.name || p?.username || null;
+}
+
+function makePostSnippet(title?: string | null, body?: string | null) {
+  const base = (title && title.trim()) ? title.trim() : (body || "").trim();
+  if (!base) return null;
+  return base.length > 90 ? base.slice(0, 90) + "…" : base;
 }
 
 function timeAgo(iso?: string) {
@@ -59,7 +49,7 @@ function timeAgo(iso?: string) {
   return `${days}d ago`;
 }
 
-function isUnread(n: UiNotification) {
+function isUnread(n: HydratedNotification) {
   return !n.read_at;
 }
 
@@ -78,7 +68,7 @@ function startOfThisWeek() {
   return d.getTime();
 }
 
-function groupKey(n: UiNotification) {
+function groupKey(n: HydratedNotification) {
   const unread = !n.read_at;
   if (unread) return "New";
 
@@ -90,7 +80,7 @@ function groupKey(n: UiNotification) {
 
 const GROUP_ORDER = ["New", "Today", "This week", "Earlier"] as const;
 
-function getIcon(type: NotificationType) {
+function getIcon(type: string) {
   if (type === "post_like" || type === "match") {
     return <Heart className="w-5 h-5 text-pink-300" />;
   }
@@ -114,7 +104,7 @@ const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [notifications, setNotifications] = useState<UiNotification[]>([]);
+  const [notifications, setNotifications] = useState<HydratedNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actorNameById, setActorNameById] = useState<Record<string, string>>({});
@@ -125,164 +115,88 @@ const NotificationCenter: React.FC = () => {
   const [pushEnabled, setPushEnabled] = useState(true);
 
   const formatNotification = (n: any) => {
-    const who = n.actorName || "Someone";
-    const snippet = n.postSnippet ? `: "${n.postSnippet}"` : "";
+    const actor = n.actorName || "Someone";
+    const snippet = n.postSnippet ? `“${n.postSnippet}”` : "";
 
     switch (n.type) {
-      case "new_post":
-        return {
-          title: "New post 💜",
-          message: "Someone just shared a post in the community.",
-        };
-
       case "post_like":
         return {
-          title: `${who} liked your post${snippet} 💜`,
-          message: "",
+          title: `${actor} liked your post`,
+          message: snippet || "Your post got a new like.",
         };
-
       case "post_comment":
         return {
-          title: `${who} commented on your post${snippet}`,
-          message: "",
+          title: `${actor} commented on your post`,
+          message: snippet || "Someone commented on your post.",
         };
-
       case "comment_reply":
         return {
-          title: `${who} replied to your comment${snippet}`,
+          title: `${actor} replied`,
+          message: "Someone replied to your comment.",
+        };
+      case "new_post":
+        return {
+          title: `${actor} posted`,
+          message: snippet || "A new post appeared in your feed.",
+        };
+      default:
+        return {
+          title: "Notification",
           message: "",
         };
-
-      default:
-        return { title: "Notification", message: "" };
     }
   };
 
-  const hydrateActors = async (rows: UiNotification[]) => {
-    const ids = Array.from(
-      new Set(rows.map((n) => n.actor_id).filter(Boolean) as string[])
-    ).filter((id) => !actorNameById[id]);
+  const hydrateNotifications = async (rows: NotificationRow[]) => {
+    if (!rows.length) return [] as HydratedNotification[];
 
-    if (ids.length === 0) return rows;
+    const actorIds = Array.from(new Set(rows.map(r => r.actor_id).filter(Boolean))) as string[];
+    const postIds = Array.from(new Set(rows.map(r => r.post_id).filter(Boolean))) as string[];
 
-    const { data: profiles, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, name, username")
-      .in("id", ids);
-
-    if (error) {
-      console.warn("actor profiles lookup failed:", error.message);
-      return rows;
-    }
-
-    const nextMap: Record<string, string> = {};
-    (profiles ?? []).forEach((p: any) => {
-      const name = displayNameFromProfile(p);
-      if (name) nextMap[p.id] = name;
-    });
-
-    setActorNameById((prev) => ({ ...prev, ...nextMap }));
-
-    return rows.map((n) => ({
-      ...n,
-      actorName: n.actor_id ? nextMap[n.actor_id] || actorNameById[n.actor_id] : undefined,
-    }));
-  };
-
-  const hydratePosts = async (rows: UiNotification[]) => {
-    const postIds = Array.from(
-      new Set(rows.map((n) => n.post_id).filter(Boolean) as string[])
-    ).filter((id) => !postSnippetById[id]); // only fetch unknown posts
-
-    if (postIds.length === 0) return rows;
-
-    const { data: posts, error } = await supabase
-      .from("posts")
-      .select("id, title, body")
-      .in("id", postIds);
-
-    if (error) {
-      console.warn("post snippet lookup failed:", error.message);
-      return rows;
-    }
-
-    const nextMap: Record<string, string> = {};
-    (posts ?? []).forEach((p: any) => {
-      const text = p.title || p.body || "";
-      const snippetText =
-        text.length > 60 ? text.slice(0, 60).trim() + "…" : text;
-      nextMap[p.id] = snippetText;
-    });
-
-    setPostSnippetById((prev) => ({ ...prev, ...nextMap }));
-
-    return rows.map((n) => ({
-      ...n,
-      postSnippet:
-        n.post_id ? nextMap[n.post_id] || postSnippetById[n.post_id] : undefined,
-    }));
-  };
-
-  const hydrateActorsAndTargets = async (rows: UiNotification[]) => {
-    if (!rows.length) return;
-
-    const actorIds = Array.from(
-      new Set(rows.map((r) => r.actor_id).filter(Boolean) as string[])
-    );
-    const postIds = Array.from(
-      new Set(rows.map((r) => r.post_id).filter(Boolean) as string[])
-    );
-    const commentIds = Array.from(
-      new Set(rows.map((r) => r.comment_id).filter(Boolean) as string[])
-    );
-
-    // 1) Actor names
+    // Fetch actor names from profiles (best effort)
+    let profiles: any[] = [];
     if (actorIds.length) {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, name, username")
         .in("id", actorIds);
 
-      if (!error) {
-        const map: Record<string, string> = {};
-        (data ?? []).forEach((p: any) => {
-          map[p.id] = displayNameFromProfile(p) || "Member";
-        });
-        setActorNameById((prev) => ({ ...prev, ...map }));
-      }
+      if (!error) profiles = data ?? [];
+      else console.warn("profiles hydrate failed:", error.message);
     }
 
-    // 2) Post snippets
+    const nameById = new Map<string, string>();
+    profiles.forEach((p: any) => {
+      nameById.set(p.id, p.full_name || p.name || p.username || "Someone");
+    });
+
+    // Fetch post snippets (best effort)
+    let posts: any[] = [];
     if (postIds.length) {
       const { data, error } = await supabase
         .from("posts")
         .select("id, title, body")
         .in("id", postIds);
 
-      if (!error) {
-        const map: Record<string, string> = {};
-        (data ?? []).forEach((p: any) => {
-          map[p.id] = snippet(p.title || p.body);
-        });
-        setPostSnippetById((prev) => ({ ...prev, ...map }));
-      }
+      if (!error) posts = data ?? [];
+      else console.warn("posts hydrate failed:", error.message);
     }
 
-    // 3) Comment snippets
-    if (commentIds.length) {
-      const { data, error } = await supabase
-        .from("post_comments")
-        .select("id, body")
-        .in("id", commentIds);
+    const postById = new Map<string, { title: string | null; body: string | null }>();
+    posts.forEach((p: any) => {
+      postById.set(p.id, { title: p.title ?? null, body: p.body ?? null });
+    });
 
-      if (!error) {
-        const map: Record<string, string> = {};
-        (data ?? []).forEach((c: any) => {
-          map[c.id] = snippet(c.body);
-        });
-        setCommentSnippetById((prev) => ({ ...prev, ...map }));
-      }
-    }
+    return rows.map((n) => {
+      const post = n.post_id ? postById.get(n.post_id) : null;
+
+      return {
+        ...n,
+        actorName: n.actor_id ? (nameById.get(n.actor_id) || "Someone") : "Someone",
+        postTitle: post?.title ?? null,
+        postSnippet: makePostSnippet(post?.title ?? null, post?.body ?? null),
+      } as HydratedNotification;
+    });
   };
 
   const unreadCount = useMemo(
@@ -290,7 +204,7 @@ const NotificationCenter: React.FC = () => {
     [notifications]
   );
   const grouped = useMemo(() => {
-    const map = new Map<string, UiNotification[]>();
+    const map = new Map<string, HydratedNotification[]>();
     (notifications ?? []).forEach((n) => {
       const k = groupKey(n);
       map.set(k, [...(map.get(k) ?? []), n]);
@@ -305,6 +219,7 @@ const NotificationCenter: React.FC = () => {
     if (!user) return;
 
     setLoading(true);
+
     const { data, error: loadError } = await supabase
       .from("notifications")
       .select("id, recipient_id, actor_id, type, post_id, comment_id, created_at, read_at")
@@ -319,14 +234,7 @@ const NotificationCenter: React.FC = () => {
       return;
     }
 
-    const rows = (data ?? []) as UiNotification[];
-    let hydrated = await hydrateActors(
-      rows.map((n) => ({
-        ...n,
-        actorName: n.actor_id ? actorNameById[n.actor_id] : undefined,
-      }))
-    );
-    hydrated = await hydratePosts(hydrated);
+    const hydrated = await hydrateNotifications((data ?? []) as NotificationRow[]);
 
     setNotifications(hydrated);
     setError(null);
@@ -402,60 +310,19 @@ const NotificationCenter: React.FC = () => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
         async (payload) => {
-          const row = (payload as any).new as UiNotification;
+          const row = (payload as any).new as HydratedNotification;
           if (!row || row.recipient_id !== user.id) return;
-
-          let actorName: string | undefined =
-            row.actor_id ? actorNameById[row.actor_id] : undefined;
-
-          // fetch actor name if missing
-          if (row.actor_id && !actorName) {
-            const { data: prof } = await supabase
-              .from("profiles")
-              .select("id, full_name, name, username")
-              .eq("id", row.actor_id)
-              .single();
-
-            const name = displayNameFromProfile(prof);
-            if (name) {
-              actorName = name;
-              setActorNameById((prev) => ({ ...prev, [row.actor_id!]: name }));
-            }
-          }
-
-          let postSnippet: string | undefined =
-            row.post_id ? postSnippetById[row.post_id] : undefined;
-
-          if (row.post_id && !postSnippet) {
-            const { data: post } = await supabase
-              .from("posts")
-              .select("id, title, body")
-              .eq("id", row.post_id)
-              .single();
-
-            if (post) {
-              const text = post.title || post.body || "";
-              postSnippet =
-                text.length > 60 ? text.slice(0, 60).trim() + "…" : text;
-
-              setPostSnippetById((prev) => ({
-                ...prev,
-                [row.post_id!]: postSnippet!,
-              }));
-            }
-          }
-
-          setNotifications((prev) => [
-            { ...row, actorName, postSnippet },
-            ...prev,
-          ]);
+          (async () => {
+            const hydrated = await hydrateNotifications([row as NotificationRow]);
+            setNotifications((prev) => [hydrated[0], ...prev]);
+          })();
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notifications" },
         (payload) => {
-          const row = (payload as any).new as UiNotification;
+          const row = (payload as any).new as HydratedNotification;
           if (!row || row.recipient_id !== user.id) return;
           setNotifications((prev) => prev.map((n) => (n.id === row.id ? row : n)));
         }
