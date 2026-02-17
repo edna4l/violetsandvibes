@@ -158,7 +158,7 @@ const NotificationCenter: React.FC = () => {
     if (actorIds.length) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, name, username")
+        .select("id, full_name, username")
         .in("id", actorIds);
 
       if (!error) profiles = data ?? [];
@@ -167,7 +167,7 @@ const NotificationCenter: React.FC = () => {
 
     const nameById = new Map<string, string>();
     profiles.forEach((p: any) => {
-      nameById.set(p.id, p.full_name || p.name || p.username || "Someone");
+      nameById.set(p.id, p.full_name || p.username || "Someone");
     });
     if (nameById.size > 0) {
       const nextActorMap: Record<string, string> = {};
