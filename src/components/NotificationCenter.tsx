@@ -115,7 +115,7 @@ const NotificationCenter: React.FC = () => {
   const [pushEnabled, setPushEnabled] = useState(true);
 
   const formatNotification = (n: any) => {
-    const actor = n.actorName || "Someone";
+    const actor = n.actorName || (n.actor_id ? actorNameById[n.actor_id] : undefined) || "Someone";
     const snippet = n.postSnippet ? `“${n.postSnippet}”` : "";
 
     switch (n.type) {
@@ -169,6 +169,13 @@ const NotificationCenter: React.FC = () => {
     profiles.forEach((p: any) => {
       nameById.set(p.id, p.full_name || p.name || p.username || "Someone");
     });
+    if (nameById.size > 0) {
+      const nextActorMap: Record<string, string> = {};
+      nameById.forEach((v, k) => {
+        nextActorMap[k] = v;
+      });
+      setActorNameById((prev) => ({ ...prev, ...nextActorMap }));
+    }
 
     // Fetch post snippets (best effort)
     let posts: any[] = [];
@@ -186,6 +193,14 @@ const NotificationCenter: React.FC = () => {
     posts.forEach((p: any) => {
       postById.set(p.id, { title: p.title ?? null, body: p.body ?? null });
     });
+    if (postById.size > 0) {
+      const nextSnippetMap: Record<string, string> = {};
+      postById.forEach((v, k) => {
+        const s = makePostSnippet(v.title, v.body);
+        if (s) nextSnippetMap[k] = s;
+      });
+      setPostSnippetById((prev) => ({ ...prev, ...nextSnippetMap }));
+    }
 
     return rows.map((n) => {
       const post = n.post_id ? postById.get(n.post_id) : null;
@@ -321,10 +336,12 @@ const NotificationCenter: React.FC = () => {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "notifications" },
-        (payload) => {
+        async (payload) => {
           const row = (payload as any).new as HydratedNotification;
           if (!row || row.recipient_id !== user.id) return;
-          setNotifications((prev) => prev.map((n) => (n.id === row.id ? row : n)));
+          const hydrated = await hydrateNotifications([row as NotificationRow]);
+          if (!hydrated[0]) return;
+          setNotifications((prev) => prev.map((n) => (n.id === row.id ? hydrated[0] : n)));
         }
       )
       .subscribe((status) => console.log("vv-notifications status:", status));
