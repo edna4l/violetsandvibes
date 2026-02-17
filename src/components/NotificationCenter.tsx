@@ -303,11 +303,16 @@ const NotificationCenter: React.FC = () => {
     if (isUnread(n)) await markAsRead(n.id);
 
     const t = encodeURIComponent(n.type || "");
-    if (n.post_id) {
-      navigate(`/social?post=${n.post_id}&t=${t}`);
-      return;
+    const params = new URLSearchParams();
+
+    if (n.post_id) params.set("post", n.post_id);
+    if (n.comment_id) params.set("focusComment", n.comment_id);
+    if (n.type === "post_comment" || n.type === "comment_reply") {
+      params.set("comments", "1");
     }
-    navigate("/social");
+    if (t) params.set("t", t);
+
+    navigate(`/social?${params.toString()}`);
   };
 
   useEffect(() => {

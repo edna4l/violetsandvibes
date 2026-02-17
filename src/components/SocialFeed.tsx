@@ -90,6 +90,7 @@ const SocialFeed: React.FC = () => {
   const [commenting, setCommenting] = useState<Record<string, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<string, string | null>>({});
+  const focusCommentIdRef = useRef<string | null>(null);
   const highlightPostIdRef = useRef<string | null>(null);
   const expandedPostIdRef = useRef<string | null>(expandedPostId);
   const loadFeedRef = useRef<() => Promise<void>>(async () => {});
@@ -452,14 +453,22 @@ const SocialFeed: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const postId = params.get("post");
+    const focusCommentId = params.get("focusComment");
     const t = (params.get("t") || "").toLowerCase();
+    const commentsParam = params.get("comments");
     const shouldAutoExpand =
-      t === "post_comment" || t === "comment_reply";
+      commentsParam === "1" || t === "post_comment" || t === "comment_reply";
 
     if (!postId) return;
+    if (focusCommentId) {
+      focusCommentIdRef.current = focusCommentId;
+    }
 
     const cleaned = new URL(window.location.href);
     cleaned.searchParams.delete("post");
+    cleaned.searchParams.delete("t");
+    cleaned.searchParams.delete("comments");
+    cleaned.searchParams.delete("focusComment");
     window.history.replaceState({}, "", cleaned.toString());
 
     // Save so we can use it after posts load
@@ -469,6 +478,7 @@ const SocialFeed: React.FC = () => {
     const exists = posts.some((p) => p.id === postId);
     if (exists) {
       setHighlightPostId(postId);
+      highlightPostIdRef.current = null;
 
       if (shouldAutoExpand) {
         setExpandedPostId(postId);
@@ -495,32 +505,56 @@ const SocialFeed: React.FC = () => {
     if (!postId) return;
     const params = new URLSearchParams(location.search);
     const t = (params.get("t") || "").toLowerCase();
+    const commentsParam = params.get("comments");
     const shouldAutoExpand =
-      t === "post_comment" || t === "comment_reply";
+      commentsParam === "1" || t === "post_comment" || t === "comment_reply";
 
     const exists = posts.some((p) => p.id === postId);
     if (!exists) return;
 
-    setHighlightPostId(postId);
+    const run = async () => {
+      setHighlightPostId(postId);
 
-    if (shouldAutoExpand) {
-      setExpandedPostId(postId);
-      if (!commentsByPost[postId]) {
-        void loadComments(postId);
+      if (shouldAutoExpand) {
+        setExpandedPostId(postId);
+
+        if (!commentsByPost[postId]) {
+          await loadComments(postId);
+        }
       }
-    }
 
-    requestAnimationFrame(() => {
-      document.getElementById(`post-${postId}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
+      requestAnimationFrame(() => {
+        document.getElementById(`post-${postId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       });
-    });
 
-    window.setTimeout(() => setHighlightPostId(null), 2200);
+      const commentId = focusCommentIdRef.current;
+      if (commentId) {
+        requestAnimationFrame(() => {
+          document.getElementById(`comment-${commentId}`)?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        });
 
-    // only once
-    highlightPostIdRef.current = null;
+        setHighlightCommentId(commentId);
+
+        window.setTimeout(() => {
+          setHighlightCommentId(null);
+        }, 2200);
+
+        focusCommentIdRef.current = null;
+      }
+
+      window.setTimeout(() => setHighlightPostId(null), 2200);
+
+      // only once
+      highlightPostIdRef.current = null;
+    };
+
+    void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
 
@@ -1139,10 +1173,12 @@ const SocialFeed: React.FC = () => {
 
                           return (
                             <div
-                              key={c.id}
                               id={`comment-${c.id}`}
-                              className={`text-sm text-white/90 rounded-md px-2 py-1 -mx-2 ${
-                                highlightCommentId === c.id ? "bg-pink-400/15 ring-1 ring-pink-300/40" : ""
+                              key={c.id}
+                              className={`text-sm text-white/90 transition-all duration-500 ${
+                                highlightCommentId === c.id
+                                  ? "ring-2 ring-pink-400 animate-pulse rounded-md p-2"
+                                  : ""
                               }`}
                             >
                               <div className="flex items-start justify-between gap-3">
