@@ -1175,10 +1175,8 @@ const SocialFeed: React.FC = () => {
                             <div
                               id={`comment-${c.id}`}
                               key={c.id}
-                              className={`text-sm text-white/90 transition-all duration-500 ${
-                                highlightCommentId === c.id
-                                  ? "ring-2 ring-pink-400 animate-pulse rounded-md p-2"
-                                  : ""
+                              className={`text-sm text-white/90 transition-colors ${
+                                highlightCommentId === c.id ? "vv-focus-highlight" : ""
                               }`}
                             >
                               <div className="flex items-start justify-between gap-3">
