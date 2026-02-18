@@ -325,7 +325,20 @@ const NotificationCenter: React.FC = () => {
       setLoading(false);
       return;
     }
-    void loadNotifications();
+
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        await loadNotifications();
+      } catch (e: any) {
+        setError(e?.message ?? "Failed to load notifications");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 

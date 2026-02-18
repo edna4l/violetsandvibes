@@ -17,7 +17,7 @@ const Index: React.FC = () => {
       return;
     }
 
-    (async () => {
+    const run = async () => {
       try {
         setLoading(true);
         setError(null);
@@ -29,7 +29,9 @@ const Index: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    void run();
   }, [user?.id]);
 
   return (
