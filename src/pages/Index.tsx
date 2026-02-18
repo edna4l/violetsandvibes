@@ -10,7 +10,12 @@ const Index: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setRows([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       try {
