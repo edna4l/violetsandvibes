@@ -231,7 +231,10 @@ const NotificationCenter: React.FC = () => {
   }, [notifications]);
 
   const loadNotifications = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
@@ -316,7 +319,12 @@ const NotificationCenter: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     void loadNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
