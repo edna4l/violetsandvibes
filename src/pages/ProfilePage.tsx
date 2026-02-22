@@ -50,7 +50,13 @@ const ProfilePage: React.FC = () => {
   }, [id, user, navigate]);
 
   if (!id && !user) {
-    return null;
+    return (
+      <div className="page-calm min-h-screen flex items-center justify-center p-4">
+        <div className="glass-pride rounded-2xl p-6 w-full max-w-md text-center text-white/90">
+          Redirecting...
+        </div>
+      </div>
+    );
   }
 
   const isOwnProfile = !!user && !!profile && profile.id === user.id;
