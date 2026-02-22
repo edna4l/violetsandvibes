@@ -246,7 +246,7 @@ const SocialFeed: React.FC = () => {
         if (commenterIds.length > 0) {
           const { data, error: commenterProfilesError } = await supabase
             .from("profiles")
-            .select("id, full_name, name, username")
+            .select("id, full_name, username")
             .in("id", commenterIds);
 
           if (commenterProfilesError) {
@@ -360,7 +360,7 @@ const SocialFeed: React.FC = () => {
       if (authorIds.length > 0) {
         const { data, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, full_name, name, username")
+          .select("id, full_name, username")
           .in("id", authorIds);
 
         if (profilesError) {
