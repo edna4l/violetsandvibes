@@ -206,7 +206,7 @@ const SocialFeed: React.FC = () => {
 
       const nameById = new Map<string, string>();
       (profileRows ?? []).forEach((r: any) => {
-        nameById.set(r.id, r.full_name || r.name || r.username || "Member");
+        nameById.set(r.id, r.full_name || r.username || "Member");
       });
 
       // 3) Likes count per post
@@ -261,7 +261,7 @@ const SocialFeed: React.FC = () => {
 
         const commenterNameById = new Map<string, string>();
         commenterProfiles.forEach((r: any) => {
-          commenterNameById.set(r.id, r.full_name || r.name || r.username || "Member");
+          commenterNameById.set(r.id, r.full_name || r.username || "Member");
         });
 
         comments.forEach((c) => {
@@ -372,7 +372,7 @@ const SocialFeed: React.FC = () => {
 
       const nameById = new Map<string, string>();
       (profileRows ?? []).forEach((r: any) => {
-        nameById.set(r.id, r.full_name || r.name || r.username || "Member");
+        nameById.set(r.id, r.full_name || r.username || "Member");
       });
 
       const hydratedRows: HydratedComment[] = base.map((c) => ({
