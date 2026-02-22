@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 
+function calcAgeFromBirthdate(birthdate?: string | null) {
+  if (!birthdate) return null;
+  const d = new Date(birthdate);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
 export const useProfile = (id?: string) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -37,25 +48,21 @@ export const useProfile = (id?: string) => {
             throw fetchError;
           }
         } else {
-          // Transform database fields to match component expectations
+          // Return DB-shaped fields + legacy aliases used by older components.
           setProfile({
+            ...data,
             user_id: data.id,
-            name: data.full_name,
-            age: data.birthdate ? new Date().getFullYear() - new Date(data.birthdate).getFullYear() : null,
-            location: data.location,
-            bio: data.bio,
-            occupation: data.occupation,
+            name: data.full_name || data.username || 'Member',
+            age: calcAgeFromBirthdate(data.birthdate),
             lgbtq_status: data.sexual_orientation,
             genderIdentity: data.gender_identity,
             sexualOrientation: data.sexual_orientation,
-            interests: data.interests || [],
-            photos: data.photos || [],
             lifestyle: data.lifestyle_interests || {},
             privacy: data.privacy_settings || {},
             safety: data.safety_settings || {},
-            profileCompleted: data.profile_completed || false,
+            profileCompleted: !!data.profile_completed,
             createdAt: data.created_at,
-            updatedAt: data.updated_at
+            updatedAt: data.updated_at,
           });
         }
       } catch (err) {
