@@ -10,14 +10,14 @@ export type ProfileRow = {
 };
 
 export async function fetchDiscoverProfiles(myId: string) {
-  // Keep this conservative: only fetch what you need for cards
+  // Fetch only completed profiles excluding the current user
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, bio, location, photos, profile_completed")
-    .neq("id", myId)
-    .eq("profile_completed", true)
-    .order("updated_at", { ascending: false })
-    .limit(50);
+    .neq("id", myId) // Exclude the current user
+    .eq("profile_completed", true) // Only completed profiles
+    .order("updated_at", { ascending: false }) // Order by most recent updates
+    .limit(50); // Limit results to a manageable number (can be paginated later)
 
   if (error) throw error;
   return (data ?? []) as ProfileRow[];

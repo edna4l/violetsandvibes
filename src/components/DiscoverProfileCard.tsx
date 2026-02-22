@@ -6,20 +6,23 @@ import type { ProfileRow } from "@/lib/profiles";
 
 export function DiscoverProfileCard({ profile }: { profile: ProfileRow }) {
   const navigate = useNavigate();
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   const name = profile.full_name || "Member";
   const bio = (profile.bio || "").trim();
   const photo = profile.photos?.[0];
+  const showPhoto = !!photo && !imageFailed;
 
   return (
     <Card className="bg-violet-950/90 border-violet-400/35 text-white overflow-hidden shadow-xl">
-      {photo ? (
+      {showPhoto ? (
         <div className="h-44 w-full">
           <img
             src={photo}
             alt={name}
             className="h-44 w-full object-cover"
             loading="lazy"
+            onError={() => setImageFailed(true)}
           />
         </div>
       ) : (
