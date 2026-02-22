@@ -17,10 +17,13 @@ export const useProfile = (id?: string) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const fetchProfile = async () => {
+      // If this hook depends on current user (/profile) wait for auth to settle.
+      if (!id && authLoading) return;
+
       try {
         setLoading(true);
         setError(null);
@@ -29,7 +32,8 @@ export const useProfile = (id?: string) => {
         const userId = id || user?.id;
         
         if (!userId) {
-          setError('No user ID provided');
+          setProfile(null);
+          setError(null);
           setLoading(false);
           return;
         }
@@ -73,12 +77,13 @@ export const useProfile = (id?: string) => {
       }
     };
 
-    if (user || id) {
+    if (id || user || !authLoading) {
       fetchProfile();
     } else {
-      setLoading(false);
+      // Wait for auth resolution when no explicit id was provided.
+      setLoading(true);
     }
-  }, [id, user]);
+  }, [id, user, authLoading]);
 
   const updateProfile = async (updates: any) => {
     if (!user) return { error: 'Not authenticated' };

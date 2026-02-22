@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,22 +42,6 @@ const ProfilePage: React.FC = () => {
 
   // Keep hook order stable on every render.
   const { profile, loading, error } = useProfile(targetId);
-
-  useEffect(() => {
-    if (!id && !user) {
-      navigate("/signin?redirect=/profile", { replace: true });
-    }
-  }, [id, user, navigate]);
-
-  if (!id && !user) {
-    return (
-      <div className="page-calm min-h-screen flex items-center justify-center p-4">
-        <div className="glass-pride rounded-2xl p-6 w-full max-w-md text-center text-white/90">
-          Redirecting...
-        </div>
-      </div>
-    );
-  }
 
   const isOwnProfile = !!user && !!profile && profile.id === user.id;
 
