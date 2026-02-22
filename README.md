@@ -1,5 +1,11 @@
 # 🌈💜 Violets and Vibes 💜🌈
+## Installation
 
+Install @vercel/analytics in your project:
+
+```bash
+npm i @vercel/analytics
+```
 A modern, inclusive dating platform designed specifically for queer lesbian individuals to find meaningful connections and build community.
 
 ## Features
