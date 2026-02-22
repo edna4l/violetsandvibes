@@ -36,21 +36,21 @@ const Index: React.FC = () => {
 
   return (
     <div className="page-calm min-h-screen p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto relative z-10">
         <h1 className="text-white text-2xl font-semibold mb-4">Discover</h1>
 
         {loading ? (
-          <div className="text-white/70">Loading people…</div>
+          <div className="text-white/70 relative z-10">Loading people…</div>
         ) : error ? (
-          <div className="text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2">
+          <div className="text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2 relative z-10">
             {error}
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-white/70">
+          <div className="text-white/70 relative z-10">
             No profiles yet. Invite a friend or check back soon 💜
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
             {rows.map((p) => (
               <DiscoverProfileCard key={p.id} profile={p} />
             ))}

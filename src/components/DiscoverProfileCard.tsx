@@ -12,7 +12,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow }) {
   const photo = profile.photos?.[0];
 
   return (
-    <Card className="bg-violet-950/70 border-violet-400/30 text-white overflow-hidden">
+    <Card className="bg-violet-950/90 border-violet-400/35 text-white overflow-hidden shadow-xl">
       {photo ? (
         <div className="h-44 w-full">
           <img
