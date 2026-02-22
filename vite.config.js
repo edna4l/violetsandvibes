@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    sourcemap: true,
     rollupOptions: {
       external: ['src/main.tsx']
     }
