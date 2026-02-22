@@ -140,9 +140,7 @@ const App = () => (
               path="/profile"
               element={
                 <ProtectedRoute>
-                  <ProfileGate>
-                    <GlobalLayout><ProfilePage /></GlobalLayout>
-                  </ProfileGate>
+                  <GlobalLayout><ProfilePage /></GlobalLayout>
                 </ProtectedRoute>
               }
             />
@@ -150,9 +148,7 @@ const App = () => (
               path="/profile/:id"
               element={
                 <ProtectedRoute>
-                  <ProfileGate>
-                    <GlobalLayout><ProfilePage /></GlobalLayout>
-                  </ProfileGate>
+                  <GlobalLayout><ProfilePage /></GlobalLayout>
                 </ProtectedRoute>
               }
             />
