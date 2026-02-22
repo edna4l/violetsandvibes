@@ -390,17 +390,28 @@
   /* Calm page background for focus screens (auth/settings/forms) */
 .page-calm {
   @apply min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900;
+  isolation: isolate;
 }
 
 .page-calm::before {
   content: '';
-  @apply absolute inset-0 bg-black/40 backdrop-blur-md;
+  @apply absolute inset-0 bg-black/40;
+  pointer-events: none;
+  z-index: 0;
 }
 
   .page-gradient::before {
   content: '';
   @apply absolute inset-0 bg-black/20 backdrop-blur-md;
+  pointer-events: none;
+  z-index: 0;
  }
+
+  .page-calm > *,
+  .page-gradient > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Responsive Layout Utilities */

@@ -1,40 +1,25 @@
-const CACHE_NAME = 'violets-vibes-v1';
-const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/manifest.json'
-];
-
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
+// Legacy service worker decommission script.
+// This worker unregisters itself and clears old caches to prevent stale assets.
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+  event.waitUntil(Promise.resolve());
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+      await self.registration.unregister();
+
+      const clientsList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientsList) {
+        client.navigate(client.url);
       }
-    )
-  );
-});
-
-// Push notification handling
-self.addEventListener('push', event => {
-  const options = {
-    body: event.data ? event.data.text() : 'New notification',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png'
-  };
-  
-  event.waitUntil(
-    self.registration.showNotification('Violets and Vibes', options)
+    })()
   );
 });
