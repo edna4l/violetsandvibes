@@ -1,53 +1,87 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { getOrCreateDirectConversation } from "@/lib/messaging";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
-interface MessageButtonProps {
-  userId: string;
+type Props = {
+  userId: string;      // the other person
   userName?: string;
   className?: string;
-}
+};
 
-const MessageButton: React.FC<MessageButtonProps> = ({ userId, userName, className }) => {
+export default function MessageButton({ userId, userName, className }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
 
-  const onClick = async () => {
+  const openChat = async () => {
     if (!user) {
-      navigate(`/signin?redirect=/profile/${userId}`, { replace: true });
+      navigate("/signin?redirect=/chat", { replace: true });
       return;
     }
+    if (!userId || userId === user.id) return;
 
-    setLoading(true);
-    setErrorMessage(null);
+    setOpening(true);
     try {
-      const conversationId = await getOrCreateDirectConversation(user.id, userId);
+      // 1) Try to find existing 1:1 conversation
+      // Strategy: find conversation_ids where BOTH users are members.
+      const { data: myMemberships, error: memErr1 } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", user.id);
+
+      if (memErr1) throw memErr1;
+
+      const convoIds = (myMemberships ?? []).map((r: any) => r.conversation_id);
+
+      let conversationId: string | null = null;
+
+      if (convoIds.length > 0) {
+        const { data: otherMemberships, error: memErr2 } = await supabase
+          .from("conversation_members")
+          .select("conversation_id")
+          .eq("user_id", userId)
+          .in("conversation_id", convoIds);
+
+        if (memErr2) throw memErr2;
+
+        conversationId = (otherMemberships ?? [])[0]?.conversation_id ?? null;
+      }
+
+      // 2) If none exists, create it
+      if (!conversationId) {
+        const { data: convo, error: convoErr } = await supabase
+          .from("conversations")
+          .insert({})
+          .select("id")
+          .single();
+
+        if (convoErr) throw convoErr;
+        if (!convo?.id) throw new Error("Conversation create returned no id.");
+        conversationId = convo.id;
+
+        // add both members
+        const { error: membersErr } = await supabase.from("conversation_members").insert([
+          { conversation_id: conversationId, user_id: user.id },
+          { conversation_id: conversationId, user_id: userId },
+        ]);
+        if (membersErr) throw membersErr;
+      }
+
+      // 3) Navigate to chat thread
       navigate(`/chat?c=${conversationId}`, { replace: false });
-    } catch (error: any) {
-      const message = error?.message || "Could not open chat right now.";
-      console.error("open chat failed:", error);
-      setErrorMessage(message);
+    } catch (e: any) {
+      console.error("openChat failed:", e);
+      alert(e?.message || "Could not open chat. Check console for details.");
     } finally {
-      setLoading(false);
+      setOpening(false);
     }
   };
 
   return (
-    <div className="space-y-1">
-      <Button className={className} onClick={() => void onClick()} disabled={loading}>
-        <MessageCircle className="w-5 h-5 mr-2" />
-        {loading ? "Opening…" : `Message ${userName || ""}`.trim()}
-      </Button>
-      {errorMessage ? (
-        <div className="text-xs text-pink-200">{errorMessage}</div>
-      ) : null}
-    </div>
+    <Button className={className} onClick={openChat} disabled={opening}>
+      {opening ? "Opening..." : `Message${userName ? ` ${userName}` : ""}`}
+    </Button>
   );
-};
-
-export default MessageButton;
+}
