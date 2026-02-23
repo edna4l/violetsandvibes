@@ -116,10 +116,10 @@ const ChatView: React.FC = () => {
     setListError(null);
 
     try {
-      // 1) My memberships + convo metadata
+      // 1) My memberships
       const { data: myMemberships, error: memErr } = await supabase
         .from("conversation_members")
-        .select("conversation_id, user_id, last_read_at, conversations(id, created_at, updated_at, last_message_at)")
+        .select("conversation_id, user_id, last_read_at")
         .eq("user_id", user.id);
 
       if (memErr) throw memErr;
@@ -132,7 +132,18 @@ const ChatView: React.FC = () => {
         return;
       }
 
-      // 2) Find the "other" member per conversation
+      // 2) Convo metadata
+      const { data: convoRows, error: convoErr } = await supabase
+        .from("conversations")
+        .select("id, last_message_at, updated_at, created_at")
+        .in("id", convoIds);
+
+      if (convoErr) throw convoErr;
+
+      const convoById = new Map<string, any>();
+      (convoRows ?? []).forEach((c: any) => convoById.set(c.id, c));
+
+      // 3) Find the "other" member per conversation
       const { data: otherRows, error: otherErr } = await supabase
         .from("conversation_members")
         .select("conversation_id, user_id")
@@ -160,11 +171,9 @@ const ChatView: React.FC = () => {
       profiles.forEach((p) => profileById.set(p.id, p));
 
       const lastReadByConvo = new Map<string, string | null>();
-      const lastMsgByConvo = new Map<string, string | null>();
 
       memberships.forEach((m) => {
         lastReadByConvo.set(m.conversation_id, m.last_read_at ?? null);
-        lastMsgByConvo.set(m.conversation_id, m.conversations?.last_message_at ?? null);
       });
 
       const items: ConversationListItem[] = convoIds.map((cid) => {
@@ -175,7 +184,8 @@ const ChatView: React.FC = () => {
         const otherPhoto = prof?.photos?.[0] ?? null;
 
         const lastReadAt = lastReadByConvo.get(cid) ?? null;
-        const lastMessageAt = lastMsgByConvo.get(cid) ?? null;
+        const meta = convoById.get(cid);
+        const lastMessageAt = meta?.last_message_at ?? null;
 
         // Simple unread heuristic:
         // unread if last_message_at exists and is newer than last_read_at
