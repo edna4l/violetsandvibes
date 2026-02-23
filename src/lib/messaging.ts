@@ -6,6 +6,14 @@ import { supabase } from "@/lib/supabase";
  * otherwise creates a new conversation + both membership rows.
  */
 export async function getOrCreateDirectConversation(myId: string, otherUserId: string) {
+  if (!myId || !otherUserId) {
+    throw new Error("Both user IDs are required.");
+  }
+
+  if (myId === otherUserId) {
+    throw new Error("You cannot start a conversation with yourself.");
+  }
+
   // 1) Try to find an existing convo shared by both users
   const { data: shared, error: sharedError } = await supabase
     .from("conversation_members")
@@ -31,7 +39,7 @@ export async function getOrCreateDirectConversation(myId: string, otherUserId: s
   // 2) Create a new conversation
   const { data: convo, error: convoError } = await supabase
     .from("conversations")
-    .insert({})
+    .insert({ created_by: myId })
     .select("id")
     .single();
 
@@ -39,13 +47,16 @@ export async function getOrCreateDirectConversation(myId: string, otherUserId: s
 
   const conversationId = convo.id as string;
 
-  // 3) Add both members
-  const { error: memberError } = await supabase.from("conversation_members").insert([
-    { conversation_id: conversationId, user_id: myId },
-    { conversation_id: conversationId, user_id: otherUserId },
-  ]);
+  // 3) Add both members (insert self first for stricter RLS setups)
+  const { error: meMemberError } = await supabase
+    .from("conversation_members")
+    .insert({ conversation_id: conversationId, user_id: myId });
+  if (meMemberError) throw meMemberError;
 
-  if (memberError) throw memberError;
+  const { error: otherMemberError } = await supabase
+    .from("conversation_members")
+    .insert({ conversation_id: conversationId, user_id: otherUserId });
+  if (otherMemberError) throw otherMemberError;
 
   return conversationId;
 }
