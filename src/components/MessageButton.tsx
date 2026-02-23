@@ -53,7 +53,7 @@ export default function MessageButton({ userId, userName, className }: Props) {
       if (!conversationId) {
         const { data: convo, error: convoErr } = await supabase
           .from("conversations")
-          .insert({})
+          .insert({ created_by: user.id })
           .select("id")
           .single();
 
