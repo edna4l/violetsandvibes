@@ -1,7 +1,6 @@
 import React from 'react';
 import ChatView from '@/components/ChatView';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
-import BottomNavigation from '@/components/BottomNavigation';
 
 const ChatPage: React.FC = () => {
   return (
@@ -13,7 +12,6 @@ const ChatPage: React.FC = () => {
           </div>
         </ResponsiveWrapper>
       </div>
-      <BottomNavigation />
     </div>
   );
 };
