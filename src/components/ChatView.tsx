@@ -355,115 +355,98 @@ const ChatView: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    const convoIds = conversations.map((c) => c.conversationId);
+    if (convoIds.length === 0) return;
+
+    // Realtime filter: only messages for convos I'm in
+    const filter = `conversation_id=in.(${convoIds.join(",")})`;
 
     const channel = supabase
-      .channel("vv-inbox")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        () => {
-          void loadConversationList();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user || !activeConversationId) return;
-
-    const cid = activeConversationId;
-
-    const channel = supabase
-      .channel(`vv-chat-${cid}`)
+      .channel("vv-chat-messages")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${cid}`,
+          filter,
         },
-        (payload) => {
-          const row = (payload as any).new as MessageRow | undefined;
+        async (payload) => {
+          const row = (payload as any).new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            body: string;
+            created_at: string;
+          };
+
           if (!row) return;
+          const convoId = row.conversation_id;
 
-          // Prevent duplicates from optimistic local sends.
-          if (row.sender_id === user.id) return;
-
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === row.id)) return prev; // dedupe
-            return [...prev, row];
-          });
-
-          // Keep active conversation row fresh in inbox list.
+          // 1) Update conversation list (bump + unread)
           setConversations((prev) =>
-            prev.map((c) =>
-              c.conversationId === cid
-                ? { ...c, lastMessageAt: row.created_at, hasUnread: false }
-                : c
-            )
+            {
+              const next = prev.map((c) => {
+                if (c.conversationId !== convoId) return c;
+
+                const lastReadAt = c.lastReadAt;
+                const lastMessageAt = row.created_at;
+
+                const unreadBecauseNewer =
+                  !lastReadAt ||
+                  new Date(lastMessageAt).getTime() > new Date(lastReadAt).getTime();
+
+                const hasUnread =
+                  row.sender_id !== user.id &&
+                  unreadBecauseNewer &&
+                  convoId !== activeConversationId;
+
+                return {
+                  ...c,
+                  lastMessageAt,
+                  hasUnread: hasUnread ? true : c.hasUnread,
+                };
+              });
+
+              // bump conversation to top
+              next.sort((a, b) => {
+                const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+                const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+                return tb - ta;
+              });
+
+              return next;
+            }
           );
+
+          // 2) If this is the open thread, append message (and mark read)
+          if (convoId === activeConversationId) {
+            setMessages((prev) => {
+              // avoid duplicates (important!)
+              if (prev.some((m) => m.id === row.id)) return prev;
+              return [...prev, row];
+            });
+
+            await markConversationRead(convoId);
+          }
         }
       )
       .subscribe((status) => {
-        console.log("vv-chat realtime status:", status);
+        // console.log("vv-chat-messages status:", status);
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, activeConversationId]);
+  }, [user?.id, conversations, activeConversationId]);
 
-  // Realtime subscriptions:
-  // - messages inserts for active conversation (append)
+  // Realtime subscription:
   // - conversation_members updates for me (unread/read reconciliation)
-  // - conversations updates (last_message_at changes -> list updates)
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
       .channel("vv-chat")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        async (payload) => {
-          const row = (payload as any).new as MessageRow;
-          if (!row) return;
-
-          // If it belongs to active thread, append (unless it's already there)
-          if (
-            activeConversationId &&
-            row.conversation_id === activeConversationId &&
-            row.sender_id !== user.id
-          ) {
-            setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
-            // If message is from someone else and we’re viewing it, mark read
-            await markConversationRead(activeConversationId);
-          }
-
-          // Update conversation list lastMessageAt for that convo
-          setConversations((prev) =>
-            prev.map((c) => {
-              if (c.conversationId !== row.conversation_id) return c;
-
-              // If message from someone else and not currently open -> mark unread
-              const shouldUnread =
-                row.sender_id !== user.id && row.conversation_id !== activeConversationId;
-
-              return {
-                ...c,
-                lastMessageAt: row.created_at,
-                hasUnread: shouldUnread ? true : c.hasUnread,
-              };
-            })
-          );
-        }
-      )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "conversation_members" },
