@@ -349,6 +349,59 @@ const ChatView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, activeConversationId]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("vv-inbox")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          void loadConversationList();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || !activeConversationId) return;
+
+    const channel = supabase
+      .channel(`vv-chat-${activeConversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        (payload) => {
+          const row: any = (payload as any).new;
+          if (!row) return;
+
+          // Avoid duplicates if you optimistically added the message
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [...prev, row];
+          });
+        }
+      )
+      .subscribe((status) => {
+        // console.log("chat realtime:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeConversationId]);
+
   // Realtime subscriptions:
   // - messages inserts for active conversation (append)
   // - conversation_members updates for me (unread/read reconciliation)
