@@ -99,6 +99,16 @@ const ChatView: React.FC = () => {
     if (queryConversationId) setActiveConversationId(queryConversationId);
   }, [queryConversationId]);
 
+  useEffect(() => {
+    if (queryConversationId) return;
+    if (!activeConversationId && conversations.length > 0) {
+      const firstId = conversations[0].conversationId;
+      setActiveConversationId(firstId);
+      navigate(`/chat?c=${firstId}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryConversationId, conversations, activeConversationId]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -212,12 +222,6 @@ const ChatView: React.FC = () => {
       });
 
       setConversations(items);
-
-      // If URL doesn't pick one, choose first
-      if (!queryConversationId && items.length > 0) {
-        setActiveConversationId(items[0].conversationId);
-        navigate(`/chat?c=${items[0].conversationId}`, { replace: true });
-      }
     } catch (e: any) {
       console.error(e);
       setListError(e?.message || "Failed to load conversations");
@@ -382,18 +386,26 @@ const ChatView: React.FC = () => {
           table: "messages",
           filter: `conversation_id=eq.${activeConversationId}`,
         },
-        (payload) => {
+        async (payload) => {
           const row: any = (payload as any).new;
           if (!row) return;
 
-          // Avoid duplicates if you optimistically added the message
+          // Ignore my own INSERT if you already add optimistic messages locally
+          // (optional, but prevents duplicates if your send flow already appends)
+          if (row.sender_id === user.id) return;
+
           setMessages((prev) => {
-            if (prev.some((m) => m.id === row.id)) return prev;
+            if (prev.some((m: any) => m.id === row.id)) return prev; // dedupe
             return [...prev, row];
           });
+
+          // Optional: if user is currently viewing this thread, mark read
+          // await markConversationRead(activeConversationId);
         }
       )
-      .subscribe((status) => console.log("chat realtime:", status));
+      .subscribe((status) => {
+        console.log("vv-chat realtime status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -417,12 +429,14 @@ const ChatView: React.FC = () => {
           if (!row) return;
 
           // If it belongs to active thread, append (unless it's already there)
-          if (activeConversationId && row.conversation_id === activeConversationId) {
+          if (
+            activeConversationId &&
+            row.conversation_id === activeConversationId &&
+            row.sender_id !== user.id
+          ) {
             setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
             // If message is from someone else and we’re viewing it, mark read
-            if (row.sender_id !== user.id) {
-              await markConversationRead(activeConversationId);
-            }
+            await markConversationRead(activeConversationId);
           }
 
           // Update conversation list lastMessageAt for that convo
