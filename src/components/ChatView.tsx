@@ -393,9 +393,7 @@ const ChatView: React.FC = () => {
           });
         }
       )
-      .subscribe((status) => {
-        // console.log("chat realtime:", status);
-      });
+      .subscribe((status) => console.log("chat realtime:", status));
 
     return () => {
       supabase.removeChannel(channel);
