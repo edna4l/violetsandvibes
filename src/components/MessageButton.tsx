@@ -15,6 +15,15 @@ export default function MessageButton({ userId, userName, className }: Props) {
   const navigate = useNavigate();
   const [opening, setOpening] = useState(false);
 
+  const ensureMember = async (conversationId: string, memberId: string) => {
+    const { error } = await supabase
+      .from("conversation_members")
+      .insert({ conversation_id: conversationId, user_id: memberId });
+
+    // Ignore duplicate membership rows.
+    if (error && error.code !== "23505") throw error;
+  };
+
   const openChat = async () => {
     if (!user) {
       navigate("/signin?redirect=/chat", { replace: true });
@@ -61,13 +70,11 @@ export default function MessageButton({ userId, userName, className }: Props) {
         if (!convo?.id) throw new Error("Conversation create returned no id.");
         conversationId = convo.id;
 
-        // add both members
-        const { error: membersErr } = await supabase.from("conversation_members").insert([
-          { conversation_id: conversationId, user_id: user.id },
-          { conversation_id: conversationId, user_id: userId },
-        ]);
-        if (membersErr) throw membersErr;
       }
+
+      // Ensure both members exist even for older/broken conversations.
+      await ensureMember(conversationId, user.id);
+      await ensureMember(conversationId, userId);
 
       // 3) Navigate to chat thread
       navigate(`/chat?c=${conversationId}`, { replace: false });

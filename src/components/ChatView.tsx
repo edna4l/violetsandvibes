@@ -390,10 +390,6 @@ const ChatView: React.FC = () => {
           const row: any = (payload as any).new;
           if (!row) return;
 
-          // Ignore my own INSERT if you already add optimistic messages locally
-          // (optional, but prevents duplicates if your send flow already appends)
-          if (row.sender_id === user.id) return;
-
           setMessages((prev) => {
             if (prev.some((m: any) => m.id === row.id)) return prev; // dedupe
             return [...prev, row];
