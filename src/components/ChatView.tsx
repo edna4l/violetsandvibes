@@ -376,27 +376,38 @@ const ChatView: React.FC = () => {
   useEffect(() => {
     if (!user || !activeConversationId) return;
 
+    const cid = activeConversationId;
+
     const channel = supabase
-      .channel(`vv-chat-${activeConversationId}`)
+      .channel(`vv-chat-${cid}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${activeConversationId}`,
+          filter: `conversation_id=eq.${cid}`,
         },
-        async (payload) => {
-          const row: any = (payload as any).new;
+        (payload) => {
+          const row = (payload as any).new as MessageRow | undefined;
           if (!row) return;
 
+          // Prevent duplicates from optimistic local sends.
+          if (row.sender_id === user.id) return;
+
           setMessages((prev) => {
-            if (prev.some((m: any) => m.id === row.id)) return prev; // dedupe
+            if (prev.some((m) => m.id === row.id)) return prev; // dedupe
             return [...prev, row];
           });
 
-          // Optional: if user is currently viewing this thread, mark read
-          // await markConversationRead(activeConversationId);
+          // Keep active conversation row fresh in inbox list.
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.conversationId === cid
+                ? { ...c, lastMessageAt: row.created_at, hasUnread: false }
+                : c
+            )
+          );
         }
       )
       .subscribe((status) => {
