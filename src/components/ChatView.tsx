@@ -39,6 +39,8 @@ type ConversationListItem = {
   lastMessageAt: string | null;
   lastReadAt: string | null;
   hasUnread: boolean;
+  lastMessagePreview?: string | null;
+  lastMessageSenderId?: string | null;
 };
 
 type MessageRow = {
@@ -70,6 +72,12 @@ function getInitials(name: string) {
   return parts.slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 }
 
+function previewText(s?: string | null, max = 60) {
+  const t = (s ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  return t.length > max ? t.slice(0, max - 1) + "…" : t;
+}
+
 const ChatView: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -96,15 +104,30 @@ const ChatView: React.FC = () => {
 
   // Keep URL -> state in sync
   useEffect(() => {
-    if (queryConversationId) setActiveConversationId(queryConversationId);
-  }, [queryConversationId]);
+    if (!queryConversationId) return;
+
+    setActiveConversationId(queryConversationId);
+
+    // Clear unread immediately when opening from URL entry points.
+    const convo = conversations.find((c) => c.conversationId === queryConversationId);
+    if (convo?.hasUnread) {
+      void markConversationRead(queryConversationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryConversationId, conversations]);
 
   useEffect(() => {
     if (queryConversationId) return;
     if (!activeConversationId && conversations.length > 0) {
-      const firstId = conversations[0].conversationId;
+      const first = conversations[0];
+      const firstId = first.conversationId;
       setActiveConversationId(firstId);
       navigate(`/chat?c=${firstId}`, { replace: true });
+
+      // Clear unread immediately for auto-selected thread.
+      if (first.hasUnread) {
+        void markConversationRead(firstId);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryConversationId, conversations, activeConversationId]);
@@ -165,6 +188,28 @@ const ChatView: React.FC = () => {
       const others = (otherRows ?? []) as OtherMemberRow[];
       const otherUserIds = Array.from(new Set(others.map((r) => r.user_id)));
 
+      // 4) Latest message preview per conversation
+      const { data: msgRows, error: msgErr } = await supabase
+        .from("messages")
+        .select("conversation_id, sender_id, body, created_at")
+        .in("conversation_id", convoIds)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (msgErr) throw msgErr;
+
+      // Pick first (newest) message per conversation_id
+      const latestByConvo = new Map<string, { body: string; sender_id: string; created_at: string }>();
+      (msgRows ?? []).forEach((m: any) => {
+        if (!latestByConvo.has(m.conversation_id)) {
+          latestByConvo.set(m.conversation_id, {
+            body: m.body,
+            sender_id: m.sender_id,
+            created_at: m.created_at,
+          });
+        }
+      });
+
       // 3) Pull names/photos for other users
       let profiles: ProfileRow[] = [];
       if (otherUserIds.length > 0) {
@@ -196,6 +241,9 @@ const ChatView: React.FC = () => {
         const lastReadAt = lastReadByConvo.get(cid) ?? null;
         const meta = convoById.get(cid);
         const lastMessageAt = meta?.last_message_at ?? null;
+        const latest = latestByConvo.get(cid);
+        const lastMessagePreview = previewText(latest?.body ?? null);
+        const lastMessageSenderId = latest?.sender_id ?? null;
 
         // Simple unread heuristic:
         // unread if last_message_at exists and is newer than last_read_at
@@ -211,6 +259,8 @@ const ChatView: React.FC = () => {
           lastMessageAt,
           lastReadAt,
           hasUnread,
+          lastMessagePreview,
+          lastMessageSenderId,
         };
       });
 
@@ -355,90 +405,80 @@ const ChatView: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    const convoIds = conversations.map((c) => c.conversationId);
-    if (convoIds.length === 0) return;
 
-    // Realtime filter: only messages for convos I'm in
-    const filter = `conversation_id=in.(${convoIds.join(",")})`;
-
+    // Subscribe to any message INSERTs for conversations where I'm a member
     const channel = supabase
-      .channel("vv-chat-messages")
+      .channel(`vv-chat-${user.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter,
-        },
+        { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
-          const row = (payload as any).new as {
-            id: string;
-            conversation_id: string;
-            sender_id: string;
-            body: string;
-            created_at: string;
-          };
+          const row = (payload as any).new as MessageRow | undefined;
+          if (!row?.conversation_id) return;
 
-          if (!row) return;
-          const convoId = row.conversation_id;
+          // Gate: only react if I'm a member of that conversation.
+          // (This prevents seeing messages from conversations I'm not part of.)
+          const { data: memberRow, error: memErr } = await supabase
+            .from("conversation_members")
+            .select("conversation_id")
+            .eq("conversation_id", row.conversation_id)
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-          // 1) Update conversation list (bump + unread)
-          setConversations((prev) =>
-            {
-              const next = prev.map((c) => {
-                if (c.conversationId !== convoId) return c;
+          if (memErr || !memberRow) return;
 
-                const lastReadAt = c.lastReadAt;
-                const lastMessageAt = row.created_at;
+          // 1) If this is the active thread, append (dedupe-safe)
+          setMessages((prev) => {
+            if (row.conversation_id !== activeConversationId) return prev;
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [...prev, row];
+          });
 
-                const unreadBecauseNewer =
-                  !lastReadAt ||
-                  new Date(lastMessageAt).getTime() > new Date(lastReadAt).getTime();
+          // 2) Update conversation list: preview, time, unread, move to top
+          setConversations((prev) => {
+            const next = prev.map((c) => {
+              if (c.conversationId !== row.conversation_id) return c;
 
-                const hasUnread =
-                  row.sender_id !== user.id &&
-                  unreadBecauseNewer &&
-                  convoId !== activeConversationId;
+              const isMine = row.sender_id === user.id;
+              const nowIso = row.created_at;
 
-                return {
-                  ...c,
-                  lastMessageAt,
-                  hasUnread: hasUnread ? true : c.hasUnread,
-                };
-              });
+              // If I sent it, don't mark unread for me.
+              const hasUnread = isMine ? false : true;
 
-              // bump conversation to top
-              next.sort((a, b) => {
-                const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-                const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-                return tb - ta;
-              });
-
-              return next;
-            }
-          );
-
-          // 2) If this is the open thread, append message (and mark read)
-          if (convoId === activeConversationId) {
-            setMessages((prev) => {
-              // avoid duplicates (important!)
-              if (prev.some((m) => m.id === row.id)) return prev;
-              return [...prev, row];
+              return {
+                ...c,
+                lastMessageAt: nowIso,
+                lastMessagePreview: previewText(row.body),
+                lastMessageSenderId: row.sender_id,
+                hasUnread,
+              };
             });
 
-            await markConversationRead(convoId);
-          }
+            // Move this conversation to top
+            next.sort((a, b) => {
+              const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+              const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+              return tb - ta;
+            });
+
+            return next;
+          });
+
+          // 3) Keep server truth up to date (best effort)
+          // Update conversations.last_message_at (optional but recommended)
+          await supabase
+            .from("conversations")
+            .update({ last_message_at: row.created_at })
+            .eq("id", row.conversation_id);
         }
       )
-      .subscribe((status) => {
-        // console.log("vv-chat-messages status:", status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, conversations, activeConversationId]);
+    // IMPORTANT: include activeConversationId so thread appends correctly
+  }, [user?.id, activeConversationId]);
 
   // Realtime subscription:
   // - conversation_members updates for me (unread/read reconciliation)
@@ -533,6 +573,11 @@ const ChatView: React.FC = () => {
                     onClick={() => {
                       setActiveConversationId(c.conversationId);
                       navigate(`/chat?c=${c.conversationId}`, { replace: false });
+
+                      // clear unread immediately for better UX
+                      if (c.hasUnread) {
+                        void markConversationRead(c.conversationId);
+                      }
                     }}
                     className={`w-full text-left rounded-xl p-3 transition-all border ${
                       isActive
@@ -570,7 +615,11 @@ const ChatView: React.FC = () => {
                           </div>
                         </div>
                         <div className="text-xs text-white/55 mt-0.5 truncate">
-                          {c.hasUnread ? "New messages" : "—"}
+                          {c.lastMessagePreview
+                            ? `${c.lastMessageSenderId === user?.id ? "You: " : ""}${c.lastMessagePreview}`
+                            : c.hasUnread
+                              ? "New messages"
+                              : "—"}
                         </div>
                       </div>
                     </div>
