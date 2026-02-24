@@ -92,6 +92,7 @@ const ChatView: React.FC = () => {
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -323,10 +324,23 @@ const ChatView: React.FC = () => {
 
   const loadThread = async (conversationId: string) => {
     if (!user) return;
+
     setThreadLoading(true);
     setThreadError(null);
 
     try {
+      // 0) Get my last_read_at BEFORE marking read
+      const { data: memRow, error: memErr } = await supabase
+        .from("conversation_members")
+        .select("last_read_at")
+        .eq("conversation_id", conversationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (memErr) throw memErr;
+      const lastReadAt = memRow?.last_read_at as string | null;
+
+      // 1) Load messages
       const { data, error } = await supabase
         .from("messages")
         .select("id, conversation_id, sender_id, body, created_at")
@@ -336,7 +350,22 @@ const ChatView: React.FC = () => {
 
       if (error) throw error;
 
-      setMessages((data ?? []) as MessageRow[]);
+      const rows = (data ?? []) as MessageRow[];
+      setMessages(rows);
+
+      // 2) Compute first unread message id (only messages after last_read_at, not mine)
+      if (!lastReadAt) {
+        setFirstUnreadMessageId(null);
+      } else {
+        const firstUnread = rows.find(
+          (m) =>
+            m.sender_id !== user.id &&
+            new Date(m.created_at).getTime() > new Date(lastReadAt).getTime()
+        );
+        setFirstUnreadMessageId(firstUnread?.id ?? null);
+      }
+
+      // 3) Mark conversation read (existing behavior)
       await markConversationRead(conversationId);
     } catch (e: any) {
       console.error(e);
@@ -411,6 +440,7 @@ const ChatView: React.FC = () => {
 
   // Load thread when activeConversationId changes
   useEffect(() => {
+    setFirstUnreadMessageId(null);
     if (!user || !activeConversationId) {
       setMessages([]);
       return;
@@ -687,24 +717,33 @@ const ChatView: React.FC = () => {
             ) : (
               messages.map((m) => {
                 const mine = m.sender_id === user.id;
+                const showDivider = m.id === firstUnreadMessageId;
+
                 return (
-                  <div
-                    key={m.id}
-                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
-                        mine
-                          ? "bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white"
-                          : "bg-white/10 text-white/90 border border-white/10"
-                      }`}
-                    >
-                      {m.body}
-                      <div className="text-[11px] mt-1 opacity-70">
-                        {timeAgo(m.created_at)}
+                  <React.Fragment key={m.id}>
+                    {showDivider && (
+                      <div className="flex items-center gap-3 my-3">
+                        <div className="h-px flex-1 bg-white/15" />
+                        <div className="text-[11px] px-2 py-1 rounded-full bg-white/10 text-white/70 border border-white/10">
+                          New messages
+                        </div>
+                        <div className="h-px flex-1 bg-white/15" />
+                      </div>
+                    )}
+
+                    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+                          mine
+                            ? "bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white"
+                            : "bg-white/10 text-white/90 border border-white/10"
+                        }`}
+                      >
+                        {m.body}
+                        <div className="text-[11px] mt-1 opacity-70">{timeAgo(m.created_at)}</div>
                       </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })
             )}
