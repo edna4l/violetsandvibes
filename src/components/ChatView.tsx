@@ -95,6 +95,7 @@ const ChatView: React.FC = () => {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
+  const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const queryConversationId = useMemo(() => {
@@ -132,9 +133,24 @@ const ChatView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryConversationId, conversations, activeConversationId]);
 
-  // Scroll to bottom when messages change
+  const isNearBottom = () => {
+    const el = threadContainerRef.current;
+    if (!el) return true;
+
+    const threshold = 120; // px from bottom considered "near"
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    return distanceFromBottom < threshold;
+  };
+
+  // Scroll to bottom when messages change, but only if user is already near bottom.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!threadContainerRef.current) return;
+
+    if (isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages.length]);
 
   const loadConversationList = async () => {
@@ -650,7 +666,7 @@ const ChatView: React.FC = () => {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div ref={threadContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
             {!activeConversationId ? (
               <div className="text-white/70">
                 Choose someone to start chatting 💜
