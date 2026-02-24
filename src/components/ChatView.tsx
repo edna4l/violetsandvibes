@@ -93,11 +93,18 @@ const ChatView: React.FC = () => {
   const [threadError, setThreadError] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
+  const [newDividerSeen, setNewDividerSeen] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
+  const newDividerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const typingChannelRef = useRef<any>(null);
 
   const queryConversationId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -432,6 +439,29 @@ const ChatView: React.FC = () => {
     }
   };
 
+  const emitTyping = (isTyping: boolean) => {
+    if (!user || !activeConversationId) return;
+    if (!typingChannelRef.current) return;
+
+    void typingChannelRef.current.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: user.id, isTyping },
+    });
+  };
+
+  const onDraftChange = (v: string) => {
+    setDraft(v);
+
+    emitTyping(true);
+
+    if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = window.setTimeout(() => {
+      emitTyping(false);
+      typingTimerRef.current = null;
+    }, 900);
+  };
+
   // Load list on auth
   useEffect(() => {
     void loadConversationList();
@@ -440,6 +470,7 @@ const ChatView: React.FC = () => {
 
   // Load thread when activeConversationId changes
   useEffect(() => {
+    setNewDividerSeen(false);
     setFirstUnreadMessageId(null);
     if (!user || !activeConversationId) {
       setMessages([]);
@@ -447,6 +478,102 @@ const ChatView: React.FC = () => {
     }
     void loadThread(activeConversationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeConversationId]);
+
+  useEffect(() => {
+    if (!firstUnreadMessageId) return;
+    if (newDividerSeen) return;
+
+    const el = newDividerRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e?.isIntersecting) {
+          setNewDividerSeen(true);
+          // remove divider after user reaches it
+          setFirstUnreadMessageId(null);
+        }
+      },
+      {
+        root: null,
+        threshold: 0.4, // divider "mostly" visible
+      }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [firstUnreadMessageId, newDividerSeen]);
+
+  useEffect(() => {
+    if (!user || !activeConversationId) {
+      setOtherOnline(false);
+      return;
+    }
+
+    const channel = supabase.channel(`vv-presence-${activeConversationId}`, {
+      config: { presence: { key: user.id } },
+    });
+
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState() as Record<string, any[]>;
+      // state keys are presence keys
+      const keys = Object.keys(state);
+      // "otherOnline" means anyone besides me is present
+      setOtherOnline(keys.some((k) => k !== user.id));
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ user_id: user.id, online_at: new Date().toISOString() });
+      }
+    });
+
+    return () => {
+      setOtherOnline(false);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeConversationId]);
+
+  useEffect(() => {
+    if (!user || !activeConversationId) return;
+
+    setOtherTyping(false);
+
+    const channel = supabase
+      .channel(`vv-typing-${activeConversationId}`)
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const { userId, isTyping } = (payload as any).payload || {};
+        if (!userId || userId === user.id) return;
+
+        setOtherTyping(!!isTyping);
+
+        // auto-clear after a moment (in case they stop typing but event gets missed)
+        if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
+        if (isTyping) {
+          typingTimeoutRef.current = window.setTimeout(() => {
+            setOtherTyping(false);
+          }, 2500);
+        }
+      })
+      .subscribe();
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+      setOtherTyping(false);
+      typingChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, activeConversationId]);
 
   useEffect(() => {
@@ -680,8 +807,17 @@ const ChatView: React.FC = () => {
         <div className="flex flex-col h-full bg-black/20">
           {/* Thread header */}
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <div className="text-white font-semibold">
-              {active ? active.otherName : "Select a conversation"}
+            <div>
+              <div className="text-white font-semibold">
+                {active ? active.otherName : "Select a conversation"}
+              </div>
+              {active ? (
+                otherOnline ? (
+                  <div className="text-xs text-green-300">Online</div>
+                ) : (
+                  <div className="text-xs text-white/50">Offline</div>
+                )
+              ) : null}
             </div>
             {active ? (
               <Button
@@ -722,7 +858,10 @@ const ChatView: React.FC = () => {
                 return (
                   <React.Fragment key={m.id}>
                     {showDivider && (
-                      <div className="flex items-center gap-3 my-3">
+                      <div
+                        ref={newDividerRef}
+                        className="flex items-center gap-3 my-3"
+                      >
                         <div className="h-px flex-1 bg-white/15" />
                         <div className="text-[11px] px-2 py-1 rounded-full bg-white/10 text-white/70 border border-white/10">
                           New messages
@@ -750,12 +889,18 @@ const ChatView: React.FC = () => {
             <div ref={bottomRef} />
           </div>
 
+          {otherTyping && (
+            <div className="text-xs text-white/70 px-4 pb-2">
+              Typing…
+            </div>
+          )}
+
           {/* Composer */}
           <div className="p-4 border-t border-white/10">
             <div className="flex gap-2">
               <Input
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => onDraftChange(e.target.value)}
                 placeholder={activeConversationId ? "Write a message…" : "Select a conversation…"}
                 disabled={!activeConversationId || sending}
                 className="bg-violet-900/30 border-violet-400/30 text-white placeholder:text-white/50"
