@@ -102,9 +102,9 @@ const ChatView: React.FC = () => {
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const newDividerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
+  const otherTypingTimeoutRef = useRef<number | null>(null);
   const typingTimerRef = useRef<number | null>(null);
-  const typingChannelRef = useRef<any>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const queryConversationId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -439,25 +439,26 @@ const ChatView: React.FC = () => {
     }
   };
 
-  const emitTyping = (isTyping: boolean) => {
-    if (!user || !activeConversationId) return;
-    if (!typingChannelRef.current) return;
-
-    void typingChannelRef.current.send({
-      type: "broadcast",
-      event: "typing",
-      payload: { userId: user.id, isTyping },
-    });
-  };
-
   const onDraftChange = (v: string) => {
     setDraft(v);
 
-    emitTyping(true);
+    const ch = typingChannelRef.current;
+    if (!user || !activeConversationId || !ch) return;
+
+    // tell other user I'm typing
+    void ch.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: user.id, isTyping: true },
+    });
 
     if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current);
     typingTimerRef.current = window.setTimeout(() => {
-      emitTyping(false);
+      void ch.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { userId: user.id, isTyping: false },
+      });
       typingTimerRef.current = null;
     }, 900);
   };
@@ -537,42 +538,42 @@ const ChatView: React.FC = () => {
   }, [user?.id, activeConversationId]);
 
   useEffect(() => {
-    if (!user || !activeConversationId) return;
+    if (!user || !activeConversationId) {
+      setOtherTyping(false);
+      return;
+    }
 
-    setOtherTyping(false);
-
-    const channel = supabase
-      .channel(`vv-typing-${activeConversationId}`)
-      .on("broadcast", { event: "typing" }, (payload) => {
-        const { userId, isTyping } = (payload as any).payload || {};
-        if (!userId || userId === user.id) return;
-
-        setOtherTyping(!!isTyping);
-
-        // auto-clear after a moment (in case they stop typing but event gets missed)
-        if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
-        if (isTyping) {
-          typingTimeoutRef.current = window.setTimeout(() => {
-            setOtherTyping(false);
-          }, 2500);
-        }
-      })
-      .subscribe();
-
+    const channel = supabase.channel(`vv-typing-${activeConversationId}`);
     typingChannelRef.current = channel;
 
-    return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
+    channel.on("broadcast", { event: "typing" }, (payload) => {
+      const { userId, isTyping } = (payload as any).payload || {};
+      if (!userId || userId === user.id) return;
+
+      setOtherTyping(!!isTyping);
+
+      if (otherTypingTimeoutRef.current) window.clearTimeout(otherTypingTimeoutRef.current);
+      if (isTyping) {
+        otherTypingTimeoutRef.current = window.setTimeout(() => {
+          setOtherTyping(false);
+        }, 2500);
       }
+    });
+
+    channel.subscribe();
+
+    return () => {
       if (typingTimerRef.current) {
         window.clearTimeout(typingTimerRef.current);
         typingTimerRef.current = null;
       }
+      if (otherTypingTimeoutRef.current) {
+        window.clearTimeout(otherTypingTimeoutRef.current);
+        otherTypingTimeoutRef.current = null;
+      }
       setOtherTyping(false);
-      typingChannelRef.current = null;
       supabase.removeChannel(channel);
+      typingChannelRef.current = null;
     };
   }, [user?.id, activeConversationId]);
 
@@ -817,6 +818,11 @@ const ChatView: React.FC = () => {
                 ) : (
                   <div className="text-xs text-white/50">Offline</div>
                 )
+              ) : null}
+              {active ? (
+                otherTyping ? (
+                  <div className="text-xs text-white/70">Typing…</div>
+                ) : null
               ) : null}
             </div>
             {active ? (
