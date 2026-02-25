@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -25,6 +25,10 @@ const UserVerification: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
   const [existingSafetySettings, setExistingSafetySettings] = useState<Record<string, any>>({});
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +76,37 @@ const UserVerification: React.FC = () => {
       cancelled = true;
     };
   }, [user?.id]);
+
+  const stopCameraStream = () => {
+    if (!cameraStreamRef.current) return;
+    cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraReady(false);
+  };
+
+  useEffect(() => {
+    if (!showCameraCapture || !videoRef.current || !cameraStreamRef.current) return;
+
+    const video = videoRef.current;
+    video.srcObject = cameraStreamRef.current;
+
+    const markReady = () => setCameraReady(true);
+    video.addEventListener('loadedmetadata', markReady);
+    void video.play().catch(() => {
+      // no-op: browser autoplay restrictions handled by controls/actions.
+    });
+
+    return () => {
+      video.removeEventListener('loadedmetadata', markReady);
+      video.srcObject = null;
+    };
+  }, [showCameraCapture]);
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
 
   const verificationState = useMemo(
     () =>
@@ -142,11 +177,14 @@ const UserVerification: React.FC = () => {
     if (type === 'id') setIdStatus(nextStatus);
   };
 
-  const pickSingleFile = (accept: string) =>
+  const pickSingleFile = (accept: string, captureMode?: 'user' | 'environment') =>
     new Promise<File | null>((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = accept;
+      if (captureMode) {
+        input.setAttribute('capture', captureMode);
+      }
       input.onchange = (e) => {
         const file = (e.target as HTMLInputElement).files?.[0] ?? null;
         resolve(file);
@@ -154,6 +192,90 @@ const UserVerification: React.FC = () => {
       input.oncancel = () => resolve(null);
       input.click();
     });
+
+  const startCameraCapture = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return false;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'user' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      stopCameraStream();
+      cameraStreamRef.current = stream;
+      setShowCameraCapture(true);
+      return true;
+    } catch (error) {
+      console.warn('Camera access failed, falling back to file picker:', error);
+      return false;
+    }
+  };
+
+  const capturePhotoFile = async () => {
+    const video = videoRef.current;
+    if (!video) throw new Error('Camera is not ready yet.');
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not access capture context.');
+
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.92);
+    });
+
+    if (!blob) throw new Error('Could not capture photo.');
+
+    return new File([blob], `verification-photo-${Date.now()}.jpg`, {
+      type: 'image/jpeg',
+    });
+  };
+
+  const closeCameraCapture = () => {
+    setShowCameraCapture(false);
+    stopCameraStream();
+  };
+
+  const submitCapturedPhoto = async () => {
+    try {
+      setLoading(true);
+      const file = await capturePhotoFile();
+      const uploaded = await uploadVerificationFile('photo', file);
+      await updateVerificationStatus(
+        'photo',
+        'submitted',
+        uploaded.originalFileName,
+        uploaded.path
+      );
+
+      toast({
+        title: 'Photo Submitted',
+        description: 'Your verification photo is now under review.',
+      });
+      closeCameraCapture();
+    } catch (error) {
+      console.error('Camera photo submit failed:', error);
+      toast({
+        title: 'Upload failed',
+        description: (error as Error)?.message || 'Could not submit verification photo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const uploadVerificationFile = async (type: 'photo' | 'id', file: File) => {
     if (!user?.id) throw new Error('You must be logged in.');
@@ -208,8 +330,11 @@ const UserVerification: React.FC = () => {
 
   const handlePhotoUpload = async () => {
     try {
+      const openedCamera = await startCameraCapture();
+      if (openedCamera) return;
+
       setLoading(true);
-      const file = await pickSingleFile('image/*');
+      const file = await pickSingleFile('image/*', 'environment');
       if (!file) return;
 
       const uploaded = await uploadVerificationFile('photo', file);
@@ -326,11 +451,53 @@ const UserVerification: React.FC = () => {
             </div>
           ))}
           
+          {showCameraCapture && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/70 p-3 space-y-3">
+              <div className="text-sm text-purple-700 font-medium">Camera Preview</div>
+              <div className="overflow-hidden rounded-md border border-purple-200 bg-black">
+                <video
+                  ref={videoRef}
+                  className="w-full h-56 object-cover"
+                  playsInline
+                  muted
+                  autoPlay
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={closeCameraCapture}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1 bg-pink-600 hover:bg-pink-700"
+                  onClick={() => void submitCapturedPhoto()}
+                  disabled={!cameraReady || loading}
+                >
+                  {loading ? 'Submitting…' : 'Use This Photo'}
+                </Button>
+              </div>
+              <div className="text-xs text-purple-700/80">
+                Allow camera access, center your face, then use the capture button.
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3 pt-4">
             <Button 
               onClick={handlePhotoUpload}
               className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-              disabled={photoStatus === 'submitted' || photoStatus === 'approved' || loading}
+              disabled={
+                photoStatus === 'submitted' ||
+                photoStatus === 'approved' ||
+                loading ||
+                showCameraCapture
+              }
             >
               <Camera className="w-4 h-4 mr-2" />
               {photoStatus === 'approved'
