@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -25,6 +25,11 @@ interface EnhancedProfileCreationFlowProps {
   onDataChange?: () => void;
 }
 
+export interface EnhancedProfileCreationFlowHandle {
+  saveProfile: () => Promise<void>;
+  goToStep: (stepIndex: number) => void;
+}
+
 function isMissingBirthdateColumnError(error: unknown): boolean {
   const message = (error as { message?: string })?.message ?? '';
   return message.includes("Could not find the 'birthdate' column") || message.includes('Could not find the "birthdate" column');
@@ -42,17 +47,50 @@ function persistedPhotoUrls(photos: string[] | undefined | null) {
     .filter((p) => !!p && !p.startsWith('blob:') && !p.startsWith('data:'));
 }
 
-const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = ({ 
+function computeBirthdateISO(ageValue: unknown): string | null {
+  const age = Number.parseInt(`${ageValue ?? ''}`, 10);
+  if (!Number.isFinite(age) || age <= 0) return null;
+  const birthdate = new Date();
+  birthdate.setFullYear(birthdate.getFullYear() - age);
+  return birthdate.toISOString().split('T')[0];
+}
+
+function toDbProfileData(profile: any, user: any, profileCompleted: boolean) {
+  return {
+    id: user.id,
+    full_name: profile.name?.trim() || null,
+    display_name: profile.name?.trim() || user.user_metadata?.name || user.email || 'Member',
+    bio: profile.bio?.trim() || null,
+    location: profile.location?.trim() || null,
+    occupation: profile.occupation?.trim() || null,
+    birthdate: computeBirthdateISO(profile.age),
+    gender_identity: profile.genderIdentity?.trim() || null,
+    sexual_orientation: profile.sexualOrientation?.trim() || null,
+    interests: Array.isArray(profile.interests) ? profile.interests : [],
+    photos: persistedPhotoUrls(profile.photos),
+    lifestyle_interests: profile.lifestyle || {},
+    privacy_settings: profile.privacy || {},
+    safety_settings: profile.safety || {},
+    profile_completed: profileCompleted,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+const EnhancedProfileCreationFlow = forwardRef<
+  EnhancedProfileCreationFlowHandle,
+  EnhancedProfileCreationFlowProps
+>(({ 
   onComplete, 
   onCancel,
   isPreview = false,
   onDataChange
-}) => {
+}, ref) => {
   const { user } = useAuth();
   const { profile: existingProfile, loading: profileLoading } = useProfile();
   const location = useLocation();
   const { toast } = useToast();
-  const isEditing = location.state?.isEditing || false;
+  // /edit-profile should behave as edit mode by default, even without navigation state.
+  const isEditing = location.state?.isEditing ?? true;
   
   const [currentStep, setCurrentStep] = useState(0);
   const [profile, setProfile] = useState({
@@ -145,18 +183,26 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
     
     setAutoSaving(true);
     try {
-      const mergedPhotos = persistedPhotoUrls((updates as any)?.photos ?? (profile as any).photos);
-      const profileData = {
+      const mergedProfile = {
         ...profile,
         ...updates,
-        photos: mergedPhotos,
-        updated_at: new Date().toISOString()
+        photos: persistedPhotoUrls((updates as any)?.photos ?? (profile as any).photos),
       };
-      
-      await supabase
+      const profileData = toDbProfileData(mergedProfile, user, true);
+
+      let { error } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('id', user.id);
+        .upsert(profileData);
+
+      if (error && (isMissingBirthdateColumnError(error) || isMissingFullNameColumnError(error))) {
+        const { birthdate: _birthdate, full_name: _full_name, ...fallbackProfileData } = profileData;
+        const retry = await supabase
+          .from('profiles')
+          .upsert(fallbackProfileData);
+        error = retry.error;
+      }
+
+      if (error) throw error;
     } catch (error) {
       console.error('Auto-save failed:', error);
     } finally {
@@ -179,34 +225,12 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
     }
   };
 
-  const saveProfile = async () => {
+  const persistProfile = async () => {
     if (!user) return;
     
     setSaving(true);
     try {
-      const age = parseInt(profile.age);
-      const birthdate = new Date();
-      birthdate.setFullYear(birthdate.getFullYear() - age);
-      const photos = persistedPhotoUrls((profile as any).photos);
-
-      const profileData = {
-        id: user.id,
-        full_name: profile.name,
-        display_name: profile.name || user.user_metadata?.name || user.email || 'Member',
-        bio: profile.bio,
-        location: profile.location,
-        occupation: profile.occupation,
-        birthdate: birthdate.toISOString().split('T')[0],
-        gender_identity: profile.genderIdentity,
-        sexual_orientation: profile.sexualOrientation,
-        interests: profile.interests,
-        photos,
-        lifestyle_interests: profile.lifestyle || {},
-        privacy_settings: profile.privacy,
-        safety_settings: profile.safety || {},
-        profile_completed: true,
-        updated_at: new Date().toISOString()
-      };
+      const profileData = toDbProfileData(profile, user, true);
 
       let { error } = await supabase
         .from('profiles')
@@ -240,11 +264,22 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    saveProfile: async () => {
+      await persistProfile();
+    },
+    goToStep: (stepIndex: number) => {
+      const normalized = Number.isFinite(stepIndex) ? Math.floor(stepIndex) : 0;
+      const clamped = Math.max(0, Math.min(normalized, steps.length - 1));
+      setCurrentStep(clamped);
+    },
+  }));
+
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      saveProfile();
+      void persistProfile();
     }
   };
 
@@ -352,6 +387,8 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
       </div>
     </div>
   );
-};
+});
+
+EnhancedProfileCreationFlow.displayName = 'EnhancedProfileCreationFlow';
 
 export default EnhancedProfileCreationFlow;
