@@ -522,29 +522,47 @@ const SettingsPage: React.FC = () => {
                   Account Management
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2">
                 <Button 
                   variant="ghost" 
-                  className="w-full justify-between" 
-                  onClick={() => navigate('/profile/edit')}
+                  className="w-full justify-between h-auto py-3 px-2" 
+                  onClick={() => navigate('/edit-profile')}
                 >
-                  Edit Profile
+                  <div className="text-left">
+                    <div>Edit Profile</div>
+                    <div className="text-xs text-gray-600">Update photos, bio, and profile details.</div>
+                  </div>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="w-full justify-between"
+                  className="w-full justify-between h-auto py-3 px-2"
                   onClick={() => navigate('/verification')}
                 >
-                  Verification
+                  <div className="text-left">
+                    <div>Verification</div>
+                    <div className="text-xs text-gray-600">Manage your identity and photo verification status.</div>
+                  </div>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="w-full justify-between"
-                  onClick={() => toast({ title: "Coming Soon", description: "Account deletion will be available soon." })}
+                  className="w-full justify-between h-auto py-3 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      'Are you sure? Account deletion is not yet available from settings.'
+                    );
+                    if (!confirmed) return;
+                    toast({
+                      title: 'Coming Soon',
+                      description: 'Account deletion will be available soon.',
+                    });
+                  }}
                 >
-                  Delete Account
+                  <div className="text-left">
+                    <div>Delete Account</div>
+                    <div className="text-xs text-red-500/80">Permanent action. This cannot be undone.</div>
+                  </div>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </CardContent>
