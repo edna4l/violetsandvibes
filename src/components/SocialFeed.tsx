@@ -1038,7 +1038,7 @@ const SocialFeed: React.FC = () => {
 
   return (
     <div className="p-4 w-full">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] gap-4 items-start">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] gap-4 items-start">
         <section className="space-y-4">
           <div className="px-1">
             <h2 className="wedding-heading text-2xl text-white">Community Feed</h2>

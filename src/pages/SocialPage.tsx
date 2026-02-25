@@ -16,7 +16,7 @@ const SocialPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative z-10">
-        <ResponsiveWrapper maxWidth="2xl" className="h-full">
+        <ResponsiveWrapper maxWidth="full" className="h-full">
           <div className="glass-pride rounded-2xl overflow-hidden">
             <SocialFeed />
           </div>
