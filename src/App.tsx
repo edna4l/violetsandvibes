@@ -8,6 +8,7 @@ import AppPreferencesBootstrapper from "@/components/AppPreferencesBootstrapper"
 import { GlobalLayout } from "@/components/GlobalLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProfileGate } from "@/components/ProfileGate";
+import { VerificationGate } from "@/components/VerificationGate";
 import Index from "./pages/Index";
 import HeroesPage from "./pages/HeroesPage";
 import SignInPage from "./pages/SignInPage";
@@ -43,14 +44,27 @@ const App = () => (
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/landing-preview" element={<LandingPreviewPage />} />
             <Route path="/" element={<HeroesPage />} />
-            <Route path="/discover" element={<GlobalLayout><Index /></GlobalLayout>} />
+            <Route
+              path="/discover"
+              element={
+                <ProtectedRoute>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><Index /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/heroes" element={<HeroesPage />} />
             <Route
               path="/matches"
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><MatchesPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><MatchesPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -60,7 +74,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><SocialPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><SocialPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -70,7 +86,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><ChatPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><ChatPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -80,7 +98,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><VideoPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><VideoPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -90,7 +110,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><EventsPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><EventsPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -100,7 +122,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><EventsPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><EventsPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -110,7 +134,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><NotificationsPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><NotificationsPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -119,7 +145,9 @@ const App = () => (
               path="/verification"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><VerificationPage /></GlobalLayout>
+                  <ProfileGate>
+                    <GlobalLayout><VerificationPage /></GlobalLayout>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -128,7 +156,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><FiltersPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><FiltersPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
@@ -137,7 +167,11 @@ const App = () => (
               path="/profile"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><ProfilePage /></GlobalLayout>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><ProfilePage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -145,7 +179,11 @@ const App = () => (
               path="/profile/:id"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><ProfilePage /></GlobalLayout>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><ProfilePage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -161,7 +199,11 @@ const App = () => (
               path="/edit-profile"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><ProfileEditPage /></GlobalLayout>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><ProfileEditPage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -169,7 +211,11 @@ const App = () => (
               path="/admin"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><AdminPage /></GlobalLayout>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><AdminPage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -177,7 +223,11 @@ const App = () => (
               path="/subscription"
               element={
                 <ProtectedRoute>
-                  <GlobalLayout><SubscriptionPage /></GlobalLayout>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><SubscriptionPage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
                 </ProtectedRoute>
               }
             />
@@ -186,7 +236,9 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProfileGate>
-                    <GlobalLayout><SettingsPage /></GlobalLayout>
+                    <VerificationGate>
+                      <GlobalLayout><SettingsPage /></GlobalLayout>
+                    </VerificationGate>
                   </ProfileGate>
                 </ProtectedRoute>
               }
