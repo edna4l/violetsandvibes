@@ -183,7 +183,20 @@ const UserVerification: React.FC = () => {
         upsert: false,
       });
 
-    if (error) throw error;
+    if (error) {
+      const message = (error.message || '').toLowerCase();
+      if (message.includes('bucket not found')) {
+        throw new Error(
+          `Verification storage bucket "${VERIFICATION_MEDIA_BUCKET}" was not found. Run migration 20260225_add_verification_media_storage.sql.`
+        );
+      }
+      if (message.includes('row-level security')) {
+        throw new Error(
+          `Verification upload blocked by storage policy for bucket "${VERIFICATION_MEDIA_BUCKET}".`
+        );
+      }
+      throw error;
+    }
 
     return { path, originalFileName: file.name };
   };
