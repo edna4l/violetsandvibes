@@ -45,6 +45,9 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
       case 'events':
         navigate('/events');
         break;
+      case 'calendar':
+        navigate('/calendar');
+        break;
       case 'notifications':
         navigate('/notifications');
         break;

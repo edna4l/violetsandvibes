@@ -136,11 +136,11 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
         </DropdownMenuItem>
         
         <DropdownMenuItem 
-          onClick={() => handleMenuClick('events', '/events')}
+          onClick={() => handleMenuClick('calendar', '/calendar')}
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
           <Calendar className="mr-2 h-4 w-4" />
-          Events
+          Calendar
         </DropdownMenuItem>
         
         <DropdownMenuItem 

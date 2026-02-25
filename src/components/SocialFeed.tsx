@@ -7,7 +7,7 @@ import EventCard from "./EventCard";
 import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 type PostRow = {
   id: string;
@@ -1038,7 +1038,7 @@ const SocialFeed: React.FC = () => {
 
   return (
     <div className="p-4 w-full">
-      <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] gap-3 sm:gap-4 items-start">
+      <div className="max-w-7xl mx-auto grid social-feed-columns gap-3 sm:gap-4 items-start">
         <section className="space-y-4">
           <div className="px-1">
             <h2 className="wedding-heading text-2xl text-white">Community Feed</h2>
@@ -1260,6 +1260,14 @@ const SocialFeed: React.FC = () => {
           <div className="px-1">
             <h2 className="wedding-heading text-2xl text-white">Events</h2>
           </div>
+
+          <Button
+            asChild
+            variant="outline"
+            className="w-full border-white/20 text-white hover:bg-white/10"
+          >
+            <Link to="/calendar">Open Calendar</Link>
+          </Button>
 
           <Button
             onClick={() => setShowCreateEvent(!showCreateEvent)}

@@ -1,44 +1,68 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { ShieldCheck, Users, MessageCircle, Sparkles } from "lucide-react";
 
 const LandingPreviewPage: React.FC = () => {
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "support@violetsandvibes.com";
+  const [feedbackName, setFeedbackName] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+
+  const openFeedbackEmail = () => {
+    const subject = encodeURIComponent(
+      feedbackName.trim()
+        ? `Violets & Vibes feedback from ${feedbackName.trim()}`
+        : "Violets & Vibes feedback"
+    );
+    const body = encodeURIComponent(
+      feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"
+    );
+    window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+  };
+
   return (
-    <div className="page-calm min-h-screen relative">
+    <div className="page-gradient min-h-screen relative">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-8 left-8 h-40 w-40 rounded-full bg-pink-400/20 blur-3xl floating-orb" />
+        <div className="absolute -top-8 left-8 h-40 w-40 rounded-full bg-pink-400/18 sm:bg-pink-400/30 blur-3xl floating-orb" />
         <div
-          className="absolute top-24 right-10 h-32 w-32 rounded-full bg-purple-400/20 blur-2xl floating-orb"
+          className="absolute top-24 right-10 h-32 w-32 rounded-full bg-purple-400/18 sm:bg-purple-400/30 blur-2xl floating-orb"
           style={{ animationDelay: "1.5s" }}
         />
         <div
-          className="absolute bottom-10 left-1/4 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl floating-orb"
+          className="absolute bottom-10 left-1/4 h-44 w-44 rounded-full bg-indigo-500/18 sm:bg-indigo-500/30 blur-3xl floating-orb"
           style={{ animationDelay: "3s" }}
+        />
+        <div
+          className="absolute bottom-16 right-1/4 h-40 w-40 rounded-full bg-cyan-400/14 sm:bg-cyan-400/20 blur-3xl floating-orb"
+          style={{ animationDelay: "2.2s" }}
+        />
+        <div
+          className="absolute top-1/3 left-1/3 h-36 w-36 rounded-full bg-orange-300/12 sm:bg-orange-300/20 blur-3xl floating-orb"
+          style={{ animationDelay: "4.1s" }}
         />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:py-12">
-        <header className="glass-pride-strong rounded-3xl p-6 sm:p-10 mb-8 sm:mb-12">
-          <AnimatedLogo size="lg" className="mb-5" />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:py-8">
+        <header className="rounded-3xl border border-white/30 bg-gradient-to-br from-black/88 via-purple-950/55 to-pink-950/52 sm:from-black/80 sm:via-purple-950/70 sm:to-pink-950/65 p-5 sm:p-7 mb-6 sm:mb-8 backdrop-blur-xl shadow-2xl">
+          <AnimatedLogo size="lg" className="mb-4" />
           <p className="text-3xl sm:text-4xl font-semibold text-white leading-tight max-w-3xl">
             A Safer Space for Women to Connect.
           </p>
-          <p className="mt-4 text-white/85 max-w-3xl text-base sm:text-lg leading-relaxed">
+          <p className="mt-3 text-white/85 max-w-3xl text-base sm:text-lg leading-relaxed">
             Violets &amp; Vibes is a protected, women-centered community where
             meaningful friendships, relationships, and real connection can grow
             without pressure, intrusion, or chaos.
           </p>
-          <p className="mt-3 text-white/80 max-w-3xl">
+          <p className="mt-2 text-white/80 max-w-3xl">
             Inclusive of transgender women and non-binary individuals who align
             with a woman-centered space.
           </p>
-          <p className="mt-5 text-pink-200 font-medium">
+          <p className="mt-4 text-pink-200 font-medium">
             Women-centered. Inclusive. Safety-first.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
             <Button asChild className="btn-pride-celebrate">
               <Link to="/signin">Join the Community</Link>
             </Button>
@@ -52,56 +76,56 @@ const LandingPreviewPage: React.FC = () => {
           </div>
         </header>
 
-        <main className="space-y-6 sm:space-y-8">
-          <section className="glass-pride rounded-2xl p-6 sm:p-8">
+        <main className="space-y-5 sm:space-y-6">
+          <section className="rounded-2xl border border-pink-200/30 bg-gradient-to-br from-pink-500/14 via-purple-600/14 to-indigo-600/12 sm:from-pink-500/22 sm:via-purple-600/22 sm:to-indigo-600/20 p-5 sm:p-6 backdrop-blur-lg shadow-2xl">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white">
               Because Women Deserve Better Online Spaces.
             </h2>
-            <p className="mt-4 text-white/85 leading-relaxed">
+            <p className="mt-3 text-white/85 leading-relaxed">
               Too many platforms prioritize attention over authenticity.
             </p>
-            <p className="mt-3 text-white/85 leading-relaxed">
+            <p className="mt-2 text-white/85 leading-relaxed">
               Violets &amp; Vibes was created intentionally, a space built for
               women who value respect, accountability, and genuine connection.
             </p>
-            <p className="mt-4 text-white/80">
+            <p className="mt-3 text-white/80">
               Dating is welcome. Friendship is valued. Community is the
               foundation.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-4">
               <Button asChild className="btn-pride">
                 <Link to="/signin">Create Your Profile</Link>
               </Button>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-pink-300/35 bg-black/70 p-6 sm:p-8 shadow-2xl">
+          <section className="rounded-2xl border border-rose-300/35 bg-gradient-to-br from-rose-600/16 via-fuchsia-600/14 to-orange-500/12 sm:from-rose-600/25 sm:via-fuchsia-600/20 sm:to-orange-500/18 p-5 sm:p-6 shadow-2xl backdrop-blur-lg">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white">
               Protected. Intentional. Clear.
             </h2>
-            <p className="mt-4 text-white/85 leading-relaxed">
+            <p className="mt-3 text-white/85 leading-relaxed">
               Violets &amp; Vibes is created exclusively for women, inclusive of
               transgender women and non-binary individuals who align with a
               woman-centered community.
             </p>
-            <p className="mt-4 text-white/90 font-medium">
+            <p className="mt-3 text-white/90 font-medium">
               This platform is not open to men or couples.
             </p>
-            <p className="mt-3 text-white/80 leading-relaxed">
+            <p className="mt-2 text-white/80 leading-relaxed">
               It exists to provide women a space free from unwanted pressure,
               fetishization, and intrusion, where connection can happen safely
               and intentionally.
             </p>
-            <p className="mt-4 text-pink-200 font-medium">Because women deserve that.</p>
+            <p className="mt-3 text-pink-200 font-medium">Because women deserve that.</p>
           </section>
 
-          <section className="glass-pride rounded-2xl p-6 sm:p-8">
+          <section className="rounded-2xl border border-indigo-200/30 bg-gradient-to-br from-indigo-500/16 via-purple-600/15 to-cyan-500/12 sm:from-indigo-500/25 sm:via-purple-600/22 sm:to-cyan-500/18 p-5 sm:p-6 backdrop-blur-lg shadow-2xl">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white">
               What You&apos;ll Find Here
             </h2>
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-pink-200/25 bg-gradient-to-br from-pink-500/8 to-purple-500/6 sm:from-pink-500/15 sm:to-purple-500/10 p-4">
                 <div className="flex items-center gap-2 text-pink-200 font-semibold">
                   <Sparkles className="w-4 h-4" />
                   Intentional Connection
@@ -112,7 +136,7 @@ const LandingPreviewPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+              <div className="rounded-xl border border-purple-200/25 bg-gradient-to-br from-purple-500/8 to-indigo-500/6 sm:from-purple-500/15 sm:to-indigo-500/10 p-4">
                 <div className="flex items-center gap-2 text-purple-200 font-semibold">
                   <Users className="w-4 h-4" />
                   Inclusive Community
@@ -123,7 +147,7 @@ const LandingPreviewPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+              <div className="rounded-xl border border-blue-200/25 bg-gradient-to-br from-blue-500/8 to-cyan-500/6 sm:from-blue-500/15 sm:to-cyan-500/10 p-4">
                 <div className="flex items-center gap-2 text-blue-200 font-semibold">
                   <MessageCircle className="w-4 h-4" />
                   Private Conversations
@@ -133,7 +157,7 @@ const LandingPreviewPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/15 bg-white/5 p-4">
+              <div className="rounded-xl border border-green-200/25 bg-gradient-to-br from-green-500/8 to-emerald-500/6 sm:from-green-500/15 sm:to-emerald-500/10 p-4">
                 <div className="flex items-center gap-2 text-green-200 font-semibold">
                   <ShieldCheck className="w-4 h-4" />
                   Safety First
@@ -146,15 +170,15 @@ const LandingPreviewPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="glass-pride-dark rounded-2xl p-6 sm:p-8 text-center">
+          <section className="rounded-2xl border border-white/20 bg-gradient-to-r from-purple-900/55 via-fuchsia-900/52 to-indigo-900/55 sm:from-purple-900/70 sm:via-fuchsia-900/65 sm:to-indigo-900/70 p-5 sm:p-6 text-center backdrop-blur-lg shadow-2xl">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white">
               Connection Should Feel Safe.
             </h2>
-            <p className="mt-4 text-white/85 max-w-3xl mx-auto leading-relaxed">
+            <p className="mt-3 text-white/85 max-w-3xl mx-auto leading-relaxed">
               Whether you&apos;re here for friendship, romance, conversation, or
               community, you deserve a space that feels aligned with your values.
             </p>
-            <p className="mt-4 text-white/80">
+            <p className="mt-3 text-white/80">
               No chaos. No performance. No outside agendas.
             </p>
             <p className="mt-2 text-pink-200 font-medium">
@@ -162,15 +186,61 @@ const LandingPreviewPage: React.FC = () => {
             </p>
           </section>
 
-          <section className="rounded-3xl border border-pink-300/30 bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-indigo-500/20 p-6 sm:p-10 text-center">
+          <section className="rounded-2xl border border-cyan-200/25 bg-gradient-to-br from-slate-900/92 via-purple-900/56 to-indigo-900/56 sm:from-slate-900/85 sm:via-purple-900/70 sm:to-indigo-900/70 p-5 sm:p-6 backdrop-blur-lg shadow-2xl">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white">
+              Comments, Suggestions, or Direct Contact
+            </h2>
+            <p className="mt-3 text-white/80">
+              Have ideas, feedback, or a support request? Send a note directly.
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={feedbackName}
+                onChange={(e) => setFeedbackName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/55 outline-none focus:border-pink-300/60"
+              />
+              <a
+                href={`mailto:${contactEmail}`}
+                className="rounded-lg border border-white/20 bg-gradient-to-r from-purple-500/12 to-pink-500/12 sm:from-purple-500/20 sm:to-pink-500/20 px-3 py-2 text-white/90 hover:from-purple-500/30 hover:to-pink-500/30"
+              >
+                Contact: {contactEmail}
+              </a>
+            </div>
+
+            <textarea
+              value={feedbackMessage}
+              onChange={(e) => setFeedbackMessage(e.target.value)}
+              placeholder="Share your comments or suggestions..."
+              rows={4}
+              className="mt-3 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/55 outline-none focus:border-pink-300/60"
+            />
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button onClick={openFeedbackEmail} className="btn-pride">
+                Send Feedback
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                <a href={`mailto:${contactEmail}`}>Email Directly</a>
+              </Button>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-pink-300/35 bg-gradient-to-r from-pink-500/22 via-purple-500/22 to-indigo-500/22 sm:from-pink-500/35 sm:via-purple-500/35 sm:to-indigo-500/35 p-5 sm:p-7 text-center shadow-2xl backdrop-blur-lg">
             <h2 className="text-3xl sm:text-4xl font-semibold text-white">
               Find Your People. Feel the Vibe.
             </h2>
-            <p className="mt-4 text-white/85 max-w-3xl mx-auto">
+            <p className="mt-3 text-white/85 max-w-3xl mx-auto">
               Join Violets &amp; Vibes and start building connections that feel
               real, respectful, and aligned.
             </p>
-            <div className="mt-6">
+            <div className="mt-5">
               <Button asChild className="btn-pride-celebrate">
                 <Link to="/signin">Join Violets &amp; Vibes</Link>
               </Button>

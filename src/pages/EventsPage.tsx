@@ -1,5 +1,7 @@
 import React from 'react';
 import CalendarIntegration from '@/components/CalendarIntegration';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { BottomNavigation } from '@/components/BottomNavigation';
@@ -19,6 +21,15 @@ const EventsPage: React.FC = () => {
       <div className="flex-1 overflow-hidden relative z-10 pb-20">
         <ResponsiveWrapper maxWidth="2xl" className="h-full">
           <div className="glass-pride rounded-2xl overflow-hidden">
+            <div className="p-3 border-b border-white/15 flex justify-end">
+              <Button
+                asChild
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <Link to="/social">Back to Events Feed</Link>
+              </Button>
+            </div>
             <CalendarIntegration />
           </div>
         </ResponsiveWrapper>

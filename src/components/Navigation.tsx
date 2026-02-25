@@ -10,7 +10,7 @@ const Navigation: React.FC = () => {
     { id: 'social', to: '/social', icon: Users, label: 'Social' },
     { id: 'chat', to: '/chat', icon: MessageCircle, label: 'Chat' },
     { id: 'video', to: '/video', icon: Video, label: 'Video' },
-    { id: 'calendar', to: '/events', icon: Calendar, label: 'Events' },
+    { id: 'calendar', to: '/calendar', icon: Calendar, label: 'Calendar' },
     { id: 'notifications', to: '/notifications', icon: Bell, label: 'Alerts' },
     { id: 'verification', to: '/verification', icon: Shield, label: 'Verify' },
     { id: 'filters', to: '/filters', icon: Filter, label: 'Filters' },
