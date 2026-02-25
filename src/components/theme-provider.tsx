@@ -45,33 +45,40 @@ export function ThemeProvider({
   })
 
   useLayoutEffect(() => {
-    // Prevent visual flashing when theme class changes.
-    const style = document.createElement("style")
-    style.appendChild(
-      document.createTextNode("*{transition:none!important;animation:none!important;}")
-    )
-    document.head.appendChild(style)
-
     const root = window.document.documentElement
-    root.classList.remove("light", "dark")
+    const resolvedTheme =
+      theme === "system"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : theme
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light"
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.add(theme)
+    const oppositeTheme = resolvedTheme === "dark" ? "light" : "dark"
+    const needsThemeMutation =
+      !root.classList.contains(resolvedTheme) || root.classList.contains(oppositeTheme)
+
+    let style: HTMLStyleElement | null = null
+    let removeTimer: number | null = null
+
+    if (needsThemeMutation) {
+      // Prevent visual flashing only when the effective theme actually changes.
+      style = document.createElement("style")
+      style.appendChild(
+        document.createTextNode("*{transition:none!important;animation:none!important;}")
+      )
+      document.head.appendChild(style)
+
+      root.classList.remove("light", "dark")
+      root.classList.add(resolvedTheme)
+
+      removeTimer = window.setTimeout(() => {
+        style?.remove()
+      }, 180)
     }
 
-    const removeTimer = window.setTimeout(() => {
-      style.remove()
-    }, 180)
-
     return () => {
-      window.clearTimeout(removeTimer)
-      style.remove()
+      if (removeTimer != null) window.clearTimeout(removeTimer)
+      style?.remove()
     }
   }, [theme])
 
