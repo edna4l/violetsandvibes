@@ -76,7 +76,10 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
       {/* Header */}
       {showHeader && (
         <div className="relative z-20">
-          <PrideHeader onMenuSelect={handleMenuSelect} />
+          <PrideHeader
+            onMenuSelect={handleMenuSelect}
+            className="mb-0 sm:mb-0 md:mb-0"
+          />
         </div>
       )}
 
