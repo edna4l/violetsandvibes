@@ -581,7 +581,7 @@ const ProfilePage: React.FC = () => {
                 <Button
                   variant="ghost"
                   className="text-white/80 hover:text-white hover:bg-white/10"
-                  onClick={() => navigate("/edit-profile")}
+                  onClick={() => navigate("/edit-profile", { state: { isEditing: true } })}
                   disabled={isSaving}
                 >
                   Open Advanced Editor

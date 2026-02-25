@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import EnhancedProfileCreationFlow from '@/components/EnhancedProfileCreationFlow';
+import EnhancedProfileCreationFlow, {
+  type EnhancedProfileCreationFlowHandle,
+} from '@/components/EnhancedProfileCreationFlow';
 import ProfileEditDropdown from '@/components/ProfileEditDropdown';
 import ProfileEditBottomMenu from '@/components/ProfileEditBottomMenu';
 import SubscriptionGate from '@/components/SubscriptionGate';
@@ -14,6 +16,7 @@ const ProfileEditPage: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const flowRef = useRef<EnhancedProfileCreationFlowHandle | null>(null);
 
   const handleComplete = async (profile: any) => {
     setIsLoading(true);
@@ -46,12 +49,21 @@ const ProfileEditPage: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    // This would trigger the save function from the profile creation flow
+  const handleSave = async () => {
+    if (!flowRef.current) return;
+
+    setIsLoading(true);
     toast({
       title: "Saving Profile",
       description: "Your changes are being saved...",
     });
+
+    try {
+      await flowRef.current.saveProfile();
+      setHasUnsavedChanges(false);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePreview = () => {
@@ -79,18 +91,12 @@ const ProfileEditPage: React.FC = () => {
   };
 
   const handleAddPhoto = () => {
-    if (currentTier === 'free') {
-      toast({
-        title: "Upgrade Required",
-        description: "Add more photos with Premium!",
-        variant: "destructive",
-      });
-      return;
-    }
-    // Handle photo upload
+    setShowPreview(false);
+    flowRef.current?.goToStep(4);
+
     toast({
       title: "Photo Upload",
-      description: "Photo upload feature coming soon!",
+      description: "Jumped to the Photos step.",
     });
   };
 
@@ -140,7 +146,8 @@ const ProfileEditPage: React.FC = () => {
           </div>
         )}
         
-        <EnhancedProfileCreationFlow 
+        <EnhancedProfileCreationFlow
+          ref={flowRef}
           onComplete={handleComplete} 
           onCancel={handleCancel}
           isPreview={showPreview}

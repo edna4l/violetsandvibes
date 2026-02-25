@@ -23,9 +23,9 @@ type UiMatch = {
   photo: string | null;
   location: string | null;
   createdAt: string;
-  lastMessageText: string | null;
-  lastMessageAt: string | null;
   isNewMatch: boolean;
+  lastMessageText?: string | null;
+  lastMessageAt?: string | null;
 };
 
 function timeAgo(iso?: string | null) {
@@ -150,8 +150,7 @@ const MatchesView: React.FC = () => {
           .map((m) => m.conversationId)
           .filter(Boolean) as string[];
 
-        let nextRows = uiRows;
-        if (convoIds.length) {
+        if (convoIds.length > 0) {
           const { data: msgRows, error: msgErr } = await supabase
             .from("messages")
             .select("conversation_id, body, created_at")
@@ -160,10 +159,12 @@ const MatchesView: React.FC = () => {
             .limit(200);
 
           if (msgErr) {
-            console.warn("latest messages lookup failed:", msgErr.message);
-          } else if (msgRows) {
+            console.warn("last message lookup failed:", msgErr.message);
+          } else {
             const latestByConvo = new Map<string, { body: string; created_at: string }>();
-            for (const r of msgRows) {
+
+            for (const r of msgRows ?? []) {
+              // Ordered desc: first message seen per conversation is the latest
               if (!latestByConvo.has(r.conversation_id)) {
                 latestByConvo.set(r.conversation_id, {
                   body: r.body,
@@ -172,19 +173,17 @@ const MatchesView: React.FC = () => {
               }
             }
 
-            nextRows = uiRows.map((m) =>
-              m.conversationId && latestByConvo.has(m.conversationId)
-                ? {
-                    ...m,
-                    lastMessageText: latestByConvo.get(m.conversationId)!.body,
-                    lastMessageAt: latestByConvo.get(m.conversationId)!.created_at,
-                  }
-                : m
-            );
+            uiRows.forEach((m) => {
+              if (!m.conversationId) return;
+              const latest = latestByConvo.get(m.conversationId);
+              if (!latest) return;
+              m.lastMessageText = latest.body;
+              m.lastMessageAt = latest.created_at;
+            });
           }
         }
 
-        setMatches(nextRows);
+        setMatches(uiRows);
       } catch (e: any) {
         console.error("Failed to load matches:", e);
         setError(e?.message || "Failed to load matches");
@@ -421,7 +420,9 @@ const MatchesView: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-sm text-white/80 truncate">
-                    {match.lastMessageText || "Tap to open chat"}
+                    {match.lastMessageText
+                      ? match.lastMessageText
+                      : "Tap to open chat"}
                   </p>
                   {match.location ? (
                     <p className="text-xs text-white/60 truncate">{match.location}</p>

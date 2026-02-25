@@ -4,6 +4,8 @@ import { Upload, X, Camera, Plus, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
+const PROFILE_MEDIA_BUCKET = import.meta.env.VITE_PROFILE_MEDIA_BUCKET || 'profile-media';
+
 interface MultiPhotoUploadProps {
   photos: string[];
   onPhotosChange: (photos: string[]) => void;
@@ -47,13 +49,18 @@ export const MultiPhotoUpload: React.FC<MultiPhotoUploadProps> = ({
         continue;
       }
 
-      const fileName = `${user.id}/${Date.now()}-${file.name}`;
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const uniquePart =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const fileName = `${user.id}/${uniquePart}-${safeFileName}`;
       
       try {
         console.log('Uploading file:', fileName);
         
         const { data, error: uploadError } = await supabase.storage
-          .from('profile-media')
+          .from(PROFILE_MEDIA_BUCKET)
           .upload(fileName, file, {
             cacheControl: '3600',
             upsert: false
@@ -61,14 +68,25 @@ export const MultiPhotoUpload: React.FC<MultiPhotoUploadProps> = ({
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          setError(`Upload failed: ${uploadError.message}`);
+          const message = uploadError.message || 'Upload failed';
+          if (message.toLowerCase().includes('bucket not found')) {
+            setError(
+              `Upload failed: storage bucket "${PROFILE_MEDIA_BUCKET}" was not found.`
+            );
+          } else if (message.toLowerCase().includes('row-level security')) {
+            setError(
+              `Upload failed: storage policy blocked upload. Confirm policies for bucket "${PROFILE_MEDIA_BUCKET}".`
+            );
+          } else {
+            setError(`Upload failed: ${message}`);
+          }
           continue;
         }
 
         console.log('Upload successful:', data);
 
         const { data: urlData } = supabase.storage
-          .from('profile-media')
+          .from(PROFILE_MEDIA_BUCKET)
           .getPublicUrl(fileName);
 
         console.log('Public URL:', urlData.publicUrl);
