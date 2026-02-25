@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { authService, CustomSocialProvider, SocialOAuthProvider } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Facebook, Instagram, Linkedin, Mail } from 'lucide-react';
@@ -12,6 +12,8 @@ type SocialLink = {
   customProvider?: CustomSocialProvider;
   href?: string;
 };
+
+type SupabaseExternalSettings = Partial<Record<string, boolean>>;
 
 const SOCIAL_LINKS: SocialLink[] = [
   { label: 'LinkedIn', Icon: Linkedin, provider: 'linkedin_oidc' },
@@ -30,8 +32,67 @@ export function SocialLoginButtons() {
   const location = useLocation();
   const { toast } = useToast();
   const redirectPath = `${location.pathname}${location.search || ''}`;
+  const [externalSettings, setExternalSettings] = useState<SupabaseExternalSettings | null>(null);
+
+  const providerSettingsKey = useMemo<Record<SocialOAuthProvider, string>>(
+    () => ({
+      google: 'google',
+      facebook: 'facebook',
+      linkedin_oidc: 'linkedin_oidc',
+      twitter: 'twitter',
+      azure: 'azure',
+      github: 'github',
+    }),
+    []
+  );
+
+  useEffect(() => {
+    const loadProviderSettings = async () => {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+        const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+        if (!supabaseUrl || !supabaseAnon) return;
+
+        const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+          headers: { apikey: supabaseAnon },
+        });
+        if (!response.ok) return;
+
+        const json = await response.json();
+        setExternalSettings((json?.external ?? null) as SupabaseExternalSettings | null);
+      } catch {
+        setExternalSettings(null);
+      }
+    };
+
+    void loadProviderSettings();
+  }, []);
+
+  const isProviderEnabled = (provider?: SocialOAuthProvider) => {
+    if (!provider) return true;
+    if (!externalSettings) return true;
+    const settingsKey = providerSettingsKey[provider];
+    return !!externalSettings?.[settingsKey];
+  };
+
+  const getAvailability = (link: SocialLink) => {
+    if (link.customProvider) return 'login' as const;
+    if (link.provider) return isProviderEnabled(link.provider) ? ('login' as const) : ('setup' as const);
+    return 'link' as const;
+  };
 
   const handleSocialAction = async (link: SocialLink) => {
+    const availability = getAvailability(link);
+
+    if (availability === 'setup' && link.provider) {
+      toast({
+        title: `${link.label} is not enabled`,
+        description: `Enable ${link.label} in Supabase Dashboard -> Authentication -> Providers.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (link.provider) {
       try {
         await authService.signInWithSocial(link.provider, redirectPath);
@@ -91,9 +152,11 @@ export function SocialLoginButtons() {
                 onClick={() => void handleSocialAction(link)}
                 aria-label={link.label}
                 title={
-                  link.provider || link.customProvider
+                  getAvailability(link) === 'login'
                     ? `${link.label} login`
-                    : `${link.label} link`
+                    : getAvailability(link) === 'setup'
+                      ? `${link.label} setup required`
+                  : `${link.label} link`
                 }
                 className="relative h-8 w-8 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
               >
@@ -106,22 +169,34 @@ export function SocialLoginButtons() {
                 )}
                 <span
                   className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-black/60 ${
-                    link.provider || link.customProvider ? "bg-emerald-400" : "bg-white/45"
+                    getAvailability(link) === "login"
+                      ? "bg-emerald-400"
+                      : getAvailability(link) === "setup"
+                        ? "bg-amber-400"
+                        : "bg-white/45"
                   }`}
                 />
               </button>
               <span
                 className={`text-[9px] leading-none ${
-                  link.provider || link.customProvider ? "text-emerald-200" : "text-white/50"
+                  getAvailability(link) === "login"
+                    ? "text-emerald-200"
+                    : getAvailability(link) === "setup"
+                      ? "text-amber-200"
+                      : "text-white/50"
                 }`}
               >
-                {link.provider || link.customProvider ? "Login" : "Link"}
+                {getAvailability(link) === "login"
+                  ? "Login"
+                  : getAvailability(link) === "setup"
+                    ? "Setup"
+                    : "Link"}
               </span>
             </div>
           ))}
         </div>
         <div className="mt-2 text-[11px] text-white/55 text-center">
-          Green dot = direct login. Gray dot = opens network page only.
+          Green dot = direct login. Amber dot = enable provider in Supabase. Gray dot = external link.
         </div>
       </div>
     </div>
