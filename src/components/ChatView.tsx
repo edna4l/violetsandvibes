@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Loader2, MessageCircle } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -707,9 +707,13 @@ const ChatView: React.FC = () => {
 
   return (
     <div className="h-full w-full">
-      <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] h-full">
+      <div className="h-full w-full md:grid md:grid-cols-[340px_1fr]">
         {/* LEFT: Conversation list */}
-        <div className="border-b md:border-b-0 md:border-r border-white/10 bg-black/30">
+        <div
+          className={`border-b md:border-b-0 md:border-r border-white/10 bg-black/30 ${
+            activeConversationId ? "hidden md:block" : "block"
+          }`}
+        >
           <div className="p-4 flex items-center justify-between">
             <div className="text-white font-semibold flex items-center gap-2">
               <MessageCircle className="w-5 h-5 text-pink-300" />
@@ -805,10 +809,23 @@ const ChatView: React.FC = () => {
         </div>
 
         {/* RIGHT: Thread */}
-        <div className="flex flex-col h-full bg-black/20">
+        <div
+          className={`h-full flex-col bg-black/20 ${
+            activeConversationId ? "flex" : "hidden md:flex"
+          }`}
+        >
           {/* Thread header */}
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <div>
+          <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="md:hidden h-8 w-8 text-white hover:bg-white/10"
+                onClick={() => setActiveConversationId(null)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div>
               <div className="text-white font-semibold">
                 {active ? active.otherName : "Select a conversation"}
               </div>
@@ -824,12 +841,13 @@ const ChatView: React.FC = () => {
                   <div className="text-xs text-white/70">Typing…</div>
                 ) : null
               ) : null}
+              </div>
             </div>
             {active ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="border-white/20 text-white hover:bg-white/10"
+                className="hidden sm:inline-flex border-white/20 text-white hover:bg-white/10"
                 onClick={() => markConversationRead(active.conversationId)}
               >
                 Mark read
