@@ -10,6 +10,8 @@ const applyInitialUiPreferences = () => {
   if (typeof window === 'undefined') return
 
   const root = window.document.documentElement
+  if (root.getAttribute('data-theme-preapplied') === '1') return
+
   root.classList.remove('light', 'dark')
 
   let hasDarkModePreference = false

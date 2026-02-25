@@ -48,6 +48,66 @@
       content="A safer, women-centered community for meaningful connection."
     />
     <meta name="twitter:image" content="https://www.violetsandvibes.com/og-share-v3.jpg" />
+
+    <style>
+      html, body {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      html.dark, html.dark body {
+        background: #020617;
+        color: #f8fafc;
+      }
+      html[data-theme-ready="0"] *,
+      html[data-theme-ready="0"] *::before,
+      html[data-theme-ready="0"] *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    </style>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        root.setAttribute("data-theme-ready", "0");
+
+        var theme = "light";
+        try {
+          var rawPrefs = localStorage.getItem("vv_app_preferences");
+          var parsedPrefs = rawPrefs ? JSON.parse(rawPrefs) : null;
+
+          if (parsedPrefs && typeof parsedPrefs.darkMode === "boolean") {
+            theme = parsedPrefs.darkMode ? "dark" : "light";
+          } else {
+            var savedTheme = localStorage.getItem("theme");
+            if (savedTheme === "dark" || savedTheme === "light") {
+              theme = savedTheme;
+            } else if (
+              window.matchMedia &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches
+            ) {
+              theme = "dark";
+            }
+          }
+
+          if (parsedPrefs) {
+            root.classList.toggle("vv-reduced-motion", !!parsedPrefs.reducedMotion);
+            root.classList.toggle("vv-high-contrast", !!parsedPrefs.highContrast);
+            root.classList.toggle("vv-large-text", !!parsedPrefs.largeText);
+            root.setAttribute("data-autoplay-videos", parsedPrefs.autoPlayVideos ? "true" : "false");
+            root.setAttribute("data-sound-effects", parsedPrefs.soundEffects ? "true" : "false");
+          }
+        } catch (_) {}
+
+        root.classList.remove("light", "dark");
+        root.classList.add(theme);
+        root.setAttribute("data-theme-preapplied", "1");
+
+        requestAnimationFrame(function () {
+          root.setAttribute("data-theme-ready", "1");
+        });
+      })();
+    </script>
   </head>
 
   <body>
