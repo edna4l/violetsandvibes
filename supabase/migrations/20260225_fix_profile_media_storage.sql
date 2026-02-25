@@ -15,7 +15,19 @@ set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-alter table storage.objects enable row level security;
+-- storage.objects is managed by Supabase internals; in some environments
+-- this role is not the table owner. Attempt to enable RLS, but don't fail
+-- the migration if permission is denied.
+do $$
+begin
+  begin
+    alter table storage.objects enable row level security;
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+end
+$$;
 
 -- Public read for profile images
 do $$
