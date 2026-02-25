@@ -9,6 +9,12 @@ import { useNavigate } from 'react-router-dom';
 import { getVerificationState, type VerificationStatus } from '@/lib/verification';
 import { useToast } from '@/hooks/use-toast';
 
+const VERIFICATION_MEDIA_BUCKET =
+  import.meta.env.VITE_VERIFICATION_MEDIA_BUCKET || 'verification-media';
+const MAX_VERIFICATION_FILE_BYTES = 10 * 1024 * 1024;
+
+const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
 const UserVerification: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -80,7 +86,8 @@ const UserVerification: React.FC = () => {
   const updateVerificationStatus = async (
     type: 'photo' | 'id',
     nextStatus: VerificationStatus,
-    fileName?: string
+    fileName?: string,
+    storagePath?: string
   ) => {
     if (!user?.id) return;
 
@@ -93,6 +100,15 @@ const UserVerification: React.FC = () => {
         ? { verification_photo_file_name: fileName || existingSafetySettings.verification_photo_file_name }
         : { verification_id_file_name: fileName || existingSafetySettings.verification_id_file_name }),
       ...(type === 'photo'
+        ? {
+            verification_photo_storage_path:
+              storagePath || existingSafetySettings.verification_photo_storage_path,
+          }
+        : {
+            verification_id_storage_path:
+              storagePath || existingSafetySettings.verification_id_storage_path,
+          }),
+      ...(type === 'photo'
         ? { verification_photo_updated_at: now }
         : { verification_id_updated_at: now }),
     };
@@ -103,8 +119,8 @@ const UserVerification: React.FC = () => {
         ? now
         : existingSafetySettings.verification_submitted_at;
     nextSafety.verification_under_review = computed.underReview;
-    // Keep explicit approved flag for future admin workflows.
-    nextSafety.photoVerification = computed.fullyApproved || existingSafetySettings.photoVerification === true;
+    // Explicit approved flag should only be true after full approval workflow.
+    nextSafety.photoVerification = computed.fullyApproved;
 
     const { error } = await supabase
       .from('profiles')
@@ -121,32 +137,82 @@ const UserVerification: React.FC = () => {
     if (type === 'id') setIdStatus(nextStatus);
   };
 
+  const pickSingleFile = (accept: string) =>
+    new Promise<File | null>((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = accept;
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0] ?? null;
+        resolve(file);
+      };
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
+
+  const uploadVerificationFile = async (type: 'photo' | 'id', file: File) => {
+    if (!user?.id) throw new Error('You must be logged in.');
+
+    if (file.size > MAX_VERIFICATION_FILE_BYTES) {
+      throw new Error('File is too large. Max size is 10MB.');
+    }
+
+    if (type === 'photo' && !file.type.startsWith('image/')) {
+      throw new Error('Verification photo must be an image.');
+    }
+
+    if (
+      type === 'id' &&
+      !file.type.startsWith('image/') &&
+      file.type !== 'application/pdf'
+    ) {
+      throw new Error('ID must be an image or PDF.');
+    }
+
+    const safeName = sanitizeFileName(file.name);
+    const uniquePart =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const path = `${user.id}/${type}/${uniquePart}-${safeName}`;
+
+    const { error } = await supabase.storage
+      .from(VERIFICATION_MEDIA_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    return { path, originalFileName: file.name };
+  };
+
   const handlePhotoUpload = async () => {
     try {
       setLoading(true);
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          await updateVerificationStatus('photo', 'submitted', file.name);
-          toast({
-            title: 'Photo Submitted',
-            description: 'Your verification photo is now under review.',
-          });
-        }
-        setLoading(false);
-      };
-      input.click();
-      input.oncancel = () => setLoading(false);
+      const file = await pickSingleFile('image/*');
+      if (!file) return;
+
+      const uploaded = await uploadVerificationFile('photo', file);
+      await updateVerificationStatus(
+        'photo',
+        'submitted',
+        uploaded.originalFileName,
+        uploaded.path
+      );
+      toast({
+        title: 'Photo Submitted',
+        description: 'Your verification photo is now under review.',
+      });
     } catch (error) {
       console.error('Photo upload failed:', error);
       toast({
         title: 'Upload failed',
-        description: 'Could not submit verification photo.',
+        description: (error as Error)?.message || 'Could not submit verification photo.',
         variant: 'destructive',
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -154,29 +220,23 @@ const UserVerification: React.FC = () => {
   const handleIdUpload = async () => {
     try {
       setLoading(true);
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*,.pdf';
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          await updateVerificationStatus('id', 'submitted', file.name);
-          toast({
-            title: 'ID Submitted',
-            description: 'Your ID verification is now under review.',
-          });
-        }
-        setLoading(false);
-      };
-      input.click();
-      input.oncancel = () => setLoading(false);
+      const file = await pickSingleFile('image/*,.pdf');
+      if (!file) return;
+
+      const uploaded = await uploadVerificationFile('id', file);
+      await updateVerificationStatus('id', 'submitted', uploaded.originalFileName, uploaded.path);
+      toast({
+        title: 'ID Submitted',
+        description: 'Your ID verification is now under review.',
+      });
     } catch (error) {
       console.error('ID upload failed:', error);
       toast({
         title: 'Upload failed',
-        description: 'Could not submit ID document.',
+        description: (error as Error)?.message || 'Could not submit ID document.',
         variant: 'destructive',
       });
+    } finally {
       setLoading(false);
     }
   };

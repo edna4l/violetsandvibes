@@ -53,7 +53,6 @@ const DEFAULT_SETTINGS = {
     hideFromSearch: false,
   },
   safety: {
-    photoVerification: false,
     twoFactor: false,
     blockScreenshots: false,
     requireVerification: false,
@@ -116,7 +115,6 @@ const PRIVACY_ITEMS: Array<{ key: keyof SettingsState['privacy']; label: string;
 ];
 
 const SAFETY_ITEMS: Array<{ key: keyof SettingsState['safety']; label: string; description: string }> = [
-  { key: 'photoVerification', label: 'Photo Verification', description: 'Marks your profile as photo-verified for matching priority filters.' },
   { key: 'twoFactor', label: 'Two Factor', description: 'Saved security preference for account hardening.' },
   { key: 'blockScreenshots', label: 'Block Screenshots', description: 'Saved preference. Enforcement depends on platform support.' },
   { key: 'requireVerification', label: 'Require Verification', description: 'Only show photo-verified profiles in discovery.' },
@@ -483,6 +481,21 @@ const SettingsPage: React.FC = () => {
                     />
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-gray-700">
+                  Photo/ID verification status is managed on the Verification page.
+                </div>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => navigate('/verification')}
+                >
+                  Open Verification
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
