@@ -18,7 +18,7 @@ const BottomNavigation: React.FC = () => {
   const [lastScrollY, setLastScrollY] = useState(0);
   
   const navItems = [
-    { path: '/', icon: Compass, label: 'Discover' },
+    { path: '/discover', icon: Compass, label: 'Discover' },
     { path: '/matches', icon: Heart, label: 'Matches' },
     { path: '/chat', icon: MessageCircle, label: 'Chat' },
     { path: '/notifications', icon: Bell, label: 'Alerts' },

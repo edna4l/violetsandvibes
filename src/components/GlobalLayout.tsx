@@ -21,6 +21,12 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
 
   const handleMenuSelect = (action: string) => {
     switch (action) {
+      case 'heroes':
+        navigate('/heroes');
+        break;
+      case 'discover':
+        navigate('/discover');
+        break;
       case 'profile':
         navigate('/profile');
         break;
