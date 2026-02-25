@@ -7,12 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Edit, MapPin, Camera, Star, Loader2, UserPlus } from "lucide-react";
+import { Edit, MapPin, Camera, Star, Loader2, UserPlus, Heart, MessageCircle } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import MessageButton from "@/components/MessageButton";
 import ProfileMenu from "@/components/ProfileMenu";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 function calcAge(birthdate?: string | null) {
   if (!birthdate) return null;
@@ -75,6 +76,7 @@ const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   /**
    * Convention:
@@ -89,6 +91,9 @@ const ProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState<EditableProfileForm>(EMPTY_FORM);
+  const [hasLiked, setHasLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [matchConversationId, setMatchConversationId] = useState<string | null>(null);
 
   const isOwnProfile = !!user && !!profile && profile.id === user.id;
 
@@ -112,6 +117,46 @@ const ProfilePage: React.FC = () => {
     if (!profile || editing) return;
     setFormData(formFromProfile(profile));
   }, [profile, editing]);
+
+  useEffect(() => {
+    const loadRelationshipState = async () => {
+      const otherId = profile?.user_id || profile?.id;
+      if (!user || !otherId || otherId === user.id) {
+        setHasLiked(false);
+        setMatchConversationId(null);
+        return;
+      }
+
+      try {
+        const { data: likeRow, error: likeError } = await supabase
+          .from("likes")
+          .select("id")
+          .eq("liker_id", user.id)
+          .eq("liked_id", otherId)
+          .maybeSingle();
+
+        if (likeError) throw likeError;
+        setHasLiked(!!likeRow);
+
+        const a = user.id < otherId ? user.id : otherId;
+        const b = user.id < otherId ? otherId : user.id;
+
+        const { data: matchRow, error: matchError } = await supabase
+          .from("matches")
+          .select("id, conversation_id")
+          .eq("user1_id", a)
+          .eq("user2_id", b)
+          .maybeSingle();
+
+        if (matchError) throw matchError;
+        setMatchConversationId(matchRow?.conversation_id ?? null);
+      } catch (relationshipError) {
+        console.error("Failed to load like/match state:", relationshipError);
+      }
+    };
+
+    void loadRelationshipState();
+  }, [user?.id, profile?.id, profile?.user_id]);
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -178,6 +223,61 @@ const ProfilePage: React.FC = () => {
       setSaveError(message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleLike = async () => {
+    const otherId = profile?.user_id || profile?.id;
+    if (!user || !otherId || otherId === user.id) return;
+
+    try {
+      setLikeLoading(true);
+
+      const { error: likeError } = await supabase
+        .from("likes")
+        .insert({
+          liker_id: user.id,
+          liked_id: otherId,
+        });
+
+      // If unique constraint already exists, treat as already liked.
+      if (likeError && likeError.code !== "23505") throw likeError;
+      setHasLiked(true);
+
+      const a = user.id < otherId ? user.id : otherId;
+      const b = user.id < otherId ? otherId : user.id;
+
+      const { data: matchRow, error: matchError } = await supabase
+        .from("matches")
+        .select("id, conversation_id")
+        .eq("user1_id", a)
+        .eq("user2_id", b)
+        .maybeSingle();
+
+      if (matchError) throw matchError;
+
+      const nextConversationId = matchRow?.conversation_id ?? null;
+      setMatchConversationId(nextConversationId);
+
+      if (nextConversationId) {
+        toast({
+          title: "It's a match 💜",
+          description: "You can message them now.",
+        });
+      } else {
+        toast({
+          title: "Liked",
+          description: "We’ll let you know if it’s a match.",
+        });
+      }
+    } catch (likeSubmitError: any) {
+      console.error("Error liking profile:", likeSubmitError);
+      toast({
+        title: "Could not like profile",
+        description: likeSubmitError?.message || "Please try again.",
+      });
+    } finally {
+      setLikeLoading(false);
     }
   };
 
@@ -477,11 +577,27 @@ const ProfilePage: React.FC = () => {
               </Button>
             </>
           ) : (
-            <MessageButton
-              userId={profile.id}
-              userName={displayName}
-              className="w-full"
-            />
+            <>
+              <Button
+                className="w-full"
+                onClick={() => void handleLike()}
+                disabled={likeLoading || hasLiked}
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                {likeLoading ? "Liking..." : hasLiked ? "Liked" : "Like"}
+              </Button>
+
+              {matchConversationId ? (
+                <Button
+                  variant="outline"
+                  className="w-full border-white/20 text-white hover:bg-white/10"
+                  onClick={() => navigate(`/chat?c=${matchConversationId}`)}
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Message
+                </Button>
+              ) : null}
+            </>
           )}
         </div>
       </div>
