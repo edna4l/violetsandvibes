@@ -1,169 +1,760 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Calendar, Plus, ExternalLink, Clock, MapPin } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Clock,
+  Download,
+  ExternalLink,
+  Link2,
+  Loader2,
+  MapPin,
+  RefreshCw,
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
-interface CalendarEvent {
+type Provider = "google" | "outlook";
+
+type ProviderStatus = {
+  connected: boolean;
+  providerAccountEmail: string | null;
+  providerCalendarId: string | null;
+  expiresAt: string | null;
+  updatedAt: string | null;
+};
+
+type CalendarStatusResponse = {
+  providers: Record<Provider, ProviderStatus>;
+  connectedCount: number;
+  hasAnyConnection: boolean;
+};
+
+type CalendarEventRow = {
   id: string;
   title: string;
-  date: string;
-  time: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string;
+  source: "local" | "google" | "outlook";
+  source_event_id: string | null;
+  sync_state: "pending" | "synced" | "error";
+  sync_error: string | null;
+  created_at: string;
+};
+
+type CreateEventForm = {
+  title: string;
+  description: string;
   location: string;
-  attendees: number;
-  type: 'pride' | 'social' | 'date' | 'community';
-  synced: boolean;
-}
+  startsAt: string;
+  endsAt: string;
+};
+
+const defaultProviderStatus: Record<Provider, ProviderStatus> = {
+  google: {
+    connected: false,
+    providerAccountEmail: null,
+    providerCalendarId: null,
+    expiresAt: null,
+    updatedAt: null,
+  },
+  outlook: {
+    connected: false,
+    providerAccountEmail: null,
+    providerCalendarId: null,
+    expiresAt: null,
+    updatedAt: null,
+  },
+};
+
+const formatInputDateTime = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+};
+
+const initialCreateForm = (): CreateEventForm => {
+  const start = new Date();
+  start.setHours(start.getHours() + 2, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(end.getHours() + 1);
+
+  return {
+    title: "",
+    description: "",
+    location: "",
+    startsAt: formatInputDateTime(start),
+    endsAt: formatInputDateTime(end),
+  };
+};
+
+const toUtcStamp = (dateInput: string | Date) => {
+  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours()
+  )}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+};
+
+const formatDateTime = (iso: string) =>
+  new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+
+const sourceBadgeClass: Record<CalendarEventRow["source"], string> = {
+  local: "bg-pink-500/20 text-pink-100 border-pink-300/40",
+  google: "bg-emerald-500/20 text-emerald-100 border-emerald-300/40",
+  outlook: "bg-blue-500/20 text-blue-100 border-blue-300/40",
+};
+
+const syncBadgeClass: Record<CalendarEventRow["sync_state"], string> = {
+  pending: "bg-yellow-500/20 text-yellow-100 border-yellow-300/40",
+  synced: "bg-green-500/20 text-green-100 border-green-300/40",
+  error: "bg-rose-500/20 text-rose-100 border-rose-300/40",
+};
+
+const escapeIcsValue = (value: string) =>
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+
+const buildGoogleUrl = (event: CalendarEventRow) => {
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    details: event.description || "",
+    location: event.location || "",
+    dates: `${toUtcStamp(event.starts_at)}/${toUtcStamp(event.ends_at)}`,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+};
+
+const buildOutlookUrl = (event: CalendarEventRow) => {
+  const params = new URLSearchParams({
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: event.title,
+    body: event.description || "",
+    location: event.location || "",
+    startdt: new Date(event.starts_at).toISOString(),
+    enddt: new Date(event.ends_at).toISOString(),
+  });
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+};
+
+const downloadIcs = (event: CalendarEventRow) => {
+  const nowStamp = toUtcStamp(new Date());
+  const startStamp = toUtcStamp(event.starts_at);
+  const endStamp = toUtcStamp(event.ends_at);
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Violets and Vibes//Events//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${event.id}@violetsandvibes.com`,
+    `DTSTAMP:${nowStamp}`,
+    `DTSTART:${startStamp}`,
+    `DTEND:${endStamp}`,
+    `SUMMARY:${escapeIcsValue(event.title)}`,
+    `DESCRIPTION:${escapeIcsValue(event.description || "")}`,
+    `LOCATION:${escapeIcsValue(event.location || "")}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${event.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
 
 const CalendarIntegration: React.FC = () => {
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    {
-      id: '1',
-      title: 'Pride Brunch',
-      date: 'Tomorrow',
-      time: '11:00 AM',
-      location: 'Rainbow Cafe',
-      attendees: 12,
-      type: 'pride',
-      synced: true
-    },
-    {
-      id: '2',
-      title: 'Lesbian Book Club',
-      date: 'Friday',
-      time: '7:00 PM',
-      location: 'Central Library',
-      attendees: 8,
-      type: 'community',
-      synced: false
-    },
-    {
-      id: '3',
-      title: 'Coffee Date with Sam',
-      date: 'Saturday',
-      time: '2:00 PM',
-      location: 'Bean There Cafe',
-      attendees: 2,
-      type: 'date',
-      synced: true
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [status, setStatus] = useState<CalendarStatusResponse>({
+    providers: defaultProviderStatus,
+    connectedCount: 0,
+    hasAnyConnection: false,
+  });
+  const [events, setEvents] = useState<CalendarEventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<Provider | null>(null);
+  const [form, setForm] = useState<CreateEventForm>(initialCreateForm);
+  const [autoSynced, setAutoSynced] = useState(false);
+
+  const loadStatus = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("calendar-status");
+    if (error) throw error;
+
+    const result = data as Partial<CalendarStatusResponse>;
+    const providers = {
+      google: {
+        ...defaultProviderStatus.google,
+        ...(result?.providers?.google || {}),
+      },
+      outlook: {
+        ...defaultProviderStatus.outlook,
+        ...(result?.providers?.outlook || {}),
+      },
+    };
+
+    setStatus({
+      providers,
+      connectedCount: Number(result?.connectedCount || 0),
+      hasAnyConnection: !!result?.hasAnyConnection,
+    });
+  }, []);
+
+  const loadEvents = useCallback(async () => {
+    if (!user) {
+      setEvents([]);
+      return;
     }
-  ]);
 
-  const [connectedCalendars, setConnectedCalendars] = useState([
-    { name: 'Google Calendar', connected: true },
-    { name: 'Apple Calendar', connected: false },
-    { name: 'Outlook', connected: false }
-  ]);
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .select(
+        "id, title, description, location, starts_at, ends_at, source, source_event_id, sync_state, sync_error, created_at"
+      )
+      .eq("user_id", user.id)
+      .order("starts_at", { ascending: true })
+      .limit(500);
 
-  const getEventColor = (type: string) => {
-    switch (type) {
-      case 'pride': return 'bg-pink-100 text-pink-700 border-pink-200';
-      case 'social': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'date': return 'bg-red-100 text-red-700 border-red-200';
-      case 'community': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    if (error) throw error;
+    setEvents((data || []) as CalendarEventRow[]);
+  }, [user]);
+
+  const loadAll = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await Promise.all([loadStatus(), loadEvents()]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadEvents, loadStatus, user]);
+
+  const runSync = useCallback(
+    async (payload?: Record<string, unknown>, options?: { silent?: boolean }) => {
+      if (!user) return;
+
+      setSyncing(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("calendar-sync", {
+          body: payload || {},
+        });
+
+        if (error) throw error;
+
+        const result = (data || {}) as {
+          pushed?: number;
+          imported?: number;
+          skipped?: number;
+          errors?: string[];
+        };
+
+        await loadAll();
+
+        if (!options?.silent) {
+          const pushed = result.pushed || 0;
+          const imported = result.imported || 0;
+          const errorCount = result.errors?.length || 0;
+
+          toast({
+            title: "Calendar sync complete",
+            description: `${pushed} pushed • ${imported} imported${
+              errorCount > 0 ? ` • ${errorCount} issues` : ""
+            }`,
+          });
+        }
+
+        if ((result.errors?.length || 0) > 0 && !options?.silent) {
+          console.warn("calendar-sync warnings:", result.errors);
+        }
+      } catch (error: any) {
+        if (!options?.silent) {
+          toast({
+            variant: "destructive",
+            title: "Sync failed",
+            description: error?.message || "Could not sync calendars.",
+          });
+        }
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [loadAll, toast, user]
+  );
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (loading || autoSynced || !status.hasAnyConnection) return;
+    setAutoSynced(true);
+    void runSync(undefined, { silent: true });
+  }, [autoSynced, loading, runSync, status.hasAnyConnection]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`vv-calendar-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_events",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadEvents, user?.id]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const statusParam = url.searchParams.get("calendar_connect");
+    const provider = url.searchParams.get("provider");
+    const reason = url.searchParams.get("reason");
+
+    if (!statusParam) return;
+
+    if (statusParam === "success") {
+      toast({
+        title: "Calendar connected",
+        description: `${provider || "Provider"} connected successfully.`,
+      });
+      void loadAll();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Calendar connection failed",
+        description: reason || "Could not connect provider.",
+      });
+    }
+
+    url.searchParams.delete("calendar_connect");
+    url.searchParams.delete("provider");
+    url.searchParams.delete("reason");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  }, [loadAll, toast]);
+
+  const connectProvider = async (provider: Provider) => {
+    setConnectingProvider(provider);
+    try {
+      const { data, error } = await supabase.functions.invoke("calendar-oauth-start", {
+        body: {
+          provider,
+          returnPath: "/calendar",
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error("No OAuth URL returned.");
+      window.location.href = data.url as string;
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Connection failed",
+        description: error?.message || `Could not connect ${provider}.`,
+      });
+    } finally {
+      setConnectingProvider(null);
     }
   };
 
-  const syncEvent = (eventId: string) => {
-    setEvents(prev => 
-      prev.map(event => 
-        event.id === eventId ? { ...event, synced: true } : event
-      )
-    );
+  const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user) return;
+
+    const title = form.title.trim();
+    if (!title) {
+      toast({
+        variant: "destructive",
+        title: "Title required",
+        description: "Add a title for this event.",
+      });
+      return;
+    }
+
+    const startsAt = new Date(form.startsAt);
+    const endsAt = new Date(form.endsAt);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      toast({
+        variant: "destructive",
+        title: "Invalid date/time",
+        description: "Check your event start and end time.",
+      });
+      return;
+    }
+
+    if (endsAt <= startsAt) {
+      toast({
+        variant: "destructive",
+        title: "Invalid time range",
+        description: "Event end time must be after start time.",
+      });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data: insertedRow, error } = await supabase
+        .from("calendar_events")
+        .insert({
+          user_id: user.id,
+          title,
+          description: form.description.trim() || null,
+          location: form.location.trim() || null,
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          source: "local",
+          sync_state: status.connectedCount > 0 ? "pending" : "synced",
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      setForm(initialCreateForm());
+      toast({
+        title: "Event created",
+        description: status.connectedCount > 0
+          ? "Saved locally. Syncing to connected calendars now."
+          : "Saved locally. Connect a calendar to sync externally.",
+      });
+
+      await loadEvents();
+
+      if (status.connectedCount > 0 && insertedRow?.id) {
+        await runSync({ eventId: insertedRow.id }, { silent: true });
+        toast({
+          title: "Calendar sync complete",
+          description: "Your new event was pushed to connected calendars.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Could not create event",
+        description: error?.message || "Please try again.",
+      });
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const connectCalendar = (calendarName: string) => {
-    setConnectedCalendars(prev =>
-      prev.map(cal => 
-        cal.name === calendarName ? { ...cal, connected: true } : cal
-      )
-    );
-  };
+  const upcomingEvents = useMemo(() => {
+    const now = Date.now();
+    return events
+      .filter((event) => new Date(event.ends_at).getTime() >= now)
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  }, [events]);
+
+  const providerRows: Array<{ key: Provider; name: string }> = [
+    { key: "google", name: "Google Calendar" },
+    { key: "outlook", name: "Outlook Calendar" },
+  ];
 
   return (
-    <div className="p-4 space-y-6 max-w-md mx-auto pb-20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Calendar className="w-6 h-6 text-purple-600" />
-          <h2 className="wedding-heading rainbow-header">Calendar</h2>
+    <div className="p-4 space-y-6 max-w-4xl mx-auto pb-20">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-6 h-6 text-purple-300" />
+          <h2 className="wedding-heading rainbow-header text-2xl">Calendar</h2>
         </div>
-        <Button size="sm" className="bg-gradient-to-r from-pink-500 to-purple-500">
-          <Plus className="w-4 h-4 mr-1" />
-          Add Event
+
+        <Button
+          variant="outline"
+          className="border-white/20 text-white hover:bg-white/10"
+          onClick={() => void runSync()}
+          disabled={syncing || loading}
+        >
+          {syncing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Syncing…
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Sync Now
+            </>
+          )}
         </Button>
       </div>
 
-      {/* Connected Calendars */}
-      <Card>
+      <Card className="bg-black/30 border-white/15">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Connected Calendars</CardTitle>
+          <CardTitle className="text-sm text-white flex items-center gap-2">
+            <Link2 className="w-4 h-4" />
+            Connected Calendars
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {connectedCalendars.map((calendar) => (
-            <div key={calendar.name} className="flex items-center justify-between">
-              <span className="text-sm">{calendar.name}</span>
-              {calendar.connected ? (
-                <Badge className="bg-green-100 text-green-700">Connected</Badge>
-              ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => connectCalendar(calendar.name)}
-                >
-                  Connect
-                </Button>
-              )}
+        <CardContent className="space-y-3">
+          {providerRows.map((row) => {
+            const provider = status.providers[row.key];
+            return (
+              <div key={row.key} className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm text-white/95">{row.name}</div>
+                  <div className="text-xs text-white/60 truncate">
+                    {provider.connected
+                      ? provider.providerAccountEmail || "Connected"
+                      : "Not connected"}
+                  </div>
+                </div>
+
+                {provider.connected ? (
+                  <Badge className="bg-green-500/20 text-green-100 border-green-300/40">Connected</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void connectProvider(row.key)}
+                    disabled={connectingProvider === row.key}
+                  >
+                    {connectingProvider === row.key ? "Opening…" : "Connect"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs text-white/60">
+              Apple Calendar uses .ics export. Two-way sync is available for Google and Outlook.
             </div>
-          ))}
+            <Badge className="bg-white/10 border-white/20 text-white">
+              {status.connectedCount} connected
+            </Badge>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Upcoming Events */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Upcoming Events</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {events.map((event) => (
-            <div key={event.id} className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-medium text-sm">{event.title}</h3>
-                  <div className="flex items-center space-x-2 text-xs text-gray-600 mt-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{event.date} at {event.time}</span>
+      <Tabs defaultValue="events" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-violet-950/60 border border-white/15">
+          <TabsTrigger value="events" className="text-white data-[state=active]:bg-violet-600">
+            Upcoming Events
+          </TabsTrigger>
+          <TabsTrigger value="create" className="text-white data-[state=active]:bg-violet-600">
+            Create Event
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="events" className="space-y-4 mt-4">
+          {loading ? (
+            <Card className="bg-black/30 border-white/15">
+              <CardContent className="p-6 text-white/80 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading events…
+              </CardContent>
+            </Card>
+          ) : upcomingEvents.length === 0 ? (
+            <Card className="bg-black/30 border-white/15">
+              <CardContent className="p-6 text-white/70">No upcoming events yet.</CardContent>
+            </Card>
+          ) : (
+            upcomingEvents.map((event) => (
+              <Card key={event.id} className="bg-black/30 border-white/15">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-white font-semibold text-base truncate">{event.title}</h3>
+                      {event.description ? (
+                        <p className="text-sm text-white/75 mt-1 whitespace-pre-wrap">{event.description}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex gap-2 shrink-0">
+                      <Badge className={sourceBadgeClass[event.source]} variant="outline">
+                        {event.source}
+                      </Badge>
+                      <Badge className={syncBadgeClass[event.sync_state]} variant="outline">
+                        {event.sync_state}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs text-gray-600 mt-1">
-                    <MapPin className="w-3 h-3" />
-                    <span>{event.location}</span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/80">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-pink-300" />
+                      <span>{formatDateTime(event.starts_at)}</span>
+                    </div>
+                    {event.location ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-purple-300" />
+                        <span className="truncate">{event.location}</span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {event.sync_state === "error" && event.sync_error ? (
+                    <div className="text-xs text-rose-100 bg-rose-500/15 border border-rose-400/30 rounded-md px-3 py-2 flex items-start gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>{event.sync_error}</span>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(buildGoogleUrl(event), "_blank", "noopener,noreferrer")}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      Google
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(buildOutlookUrl(event), "_blank", "noopener,noreferrer")}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      Outlook
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadIcs(event)}>
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Apple (.ics)
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="create" className="mt-4">
+          <Card className="bg-black/30 border-white/15">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-white flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-pink-300" />
+                Create a New Event
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleCreateEvent}>
+                <div className="space-y-2">
+                  <Label htmlFor="event-title" className="text-white/90">
+                    Title
+                  </Label>
+                  <Input
+                    id="event-title"
+                    value={form.title}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Queer Meetup Night"
+                    className="bg-violet-900/30 border-violet-400/30 text-white placeholder:text-white/50"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-start" className="text-white/90">
+                      Starts
+                    </Label>
+                    <Input
+                      id="event-start"
+                      type="datetime-local"
+                      value={form.startsAt}
+                      onChange={(e) => setForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+                      className="bg-violet-900/30 border-violet-400/30 text-white"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="event-end" className="text-white/90">
+                      Ends
+                    </Label>
+                    <Input
+                      id="event-end"
+                      type="datetime-local"
+                      value={form.endsAt}
+                      onChange={(e) => setForm((prev) => ({ ...prev, endsAt: e.target.value }))}
+                      className="bg-violet-900/30 border-violet-400/30 text-white"
+                      required
+                    />
                   </div>
                 </div>
-                <Badge className={getEventColor(event.type)} variant="outline">
-                  {event.type}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{event.attendees} attending</span>
-                {!event.synced ? (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => syncEvent(event.id)}
-                    className="text-xs"
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    Sync
-                  </Button>
-                ) : (
-                  <Badge className="bg-green-100 text-green-700 text-xs">Synced</Badge>
-                )}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+
+                <div className="space-y-2">
+                  <Label htmlFor="event-location" className="text-white/90">
+                    Location (optional)
+                  </Label>
+                  <Input
+                    id="event-location"
+                    value={form.location}
+                    onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
+                    placeholder="Downtown Community Center"
+                    className="bg-violet-900/30 border-violet-400/30 text-white placeholder:text-white/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="event-description" className="text-white/90">
+                    Description (optional)
+                  </Label>
+                  <Textarea
+                    id="event-description"
+                    value={form.description}
+                    onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add event details, expectations, and anything attendees should know."
+                    className="bg-violet-900/30 border-violet-400/30 text-white placeholder:text-white/50 min-h-[120px]"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={creating}>
+                  {creating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving event…
+                    </>
+                  ) : (
+                    "Create Event"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
