@@ -9,6 +9,7 @@ import { authService, AuthUser } from '@/lib/auth';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { useProfileStatus } from '@/hooks/useProfileStatus';
+import { useToast } from '@/hooks/use-toast';
 
 const SignInPage: React.FC = () => {
   const location = useLocation();
@@ -17,6 +18,7 @@ const SignInPage: React.FC = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { status } = useProfileStatus();
+  const { toast } = useToast();
 
   const params = new URLSearchParams(location.search);
   const redirect = params.get('redirect');
@@ -43,6 +45,27 @@ const SignInPage: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const socialError = params.get('social_error');
+    if (!socialError) return;
+
+    const provider = params.get('provider') || 'social provider';
+    const humanReason = socialError.replace(/_/g, ' ');
+
+    toast({
+      title: `${provider} login failed`,
+      description: humanReason,
+      variant: 'destructive',
+    });
+
+    params.delete('social_error');
+    params.delete('provider');
+    const next = params.toString();
+    const cleanUrl = `${location.pathname}${next ? `?${next}` : ''}`;
+    window.history.replaceState({}, '', cleanUrl);
+  }, [location.pathname, location.search, toast]);
 
   if (isLoading) {
     return (
