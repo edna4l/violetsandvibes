@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,93 @@ import PaymentPreferences from '@/components/PaymentPreferences';
 import SubscriptionManagement from '@/components/SubscriptionManagement';
 import BillingHistory from '@/components/BillingHistory';
 import PricingTiers from '@/components/PricingTiers';
+import { supabase } from '@/lib/supabase';
+
+const DEFAULT_SETTINGS = {
+  notifications: {
+    matches: true,
+    messages: true,
+    likes: false,
+    events: true,
+    marketing: false,
+    pushNotifications: true,
+    emailNotifications: true,
+    smsNotifications: false,
+  },
+  privacy: {
+    showOnline: true,
+    showDistance: true,
+    showAge: true,
+    profileDiscoverable: true,
+    showReadReceipts: false,
+    incognitoMode: false,
+    hideFromSearch: false,
+  },
+  safety: {
+    photoVerification: false,
+    twoFactor: false,
+    blockScreenshots: false,
+    requireVerification: false,
+    autoBlockSuspicious: true,
+  },
+  app: {
+    darkMode: false,
+    reducedMotion: false,
+    highContrast: false,
+    largeText: false,
+    autoPlayVideos: true,
+    soundEffects: true,
+  },
+  matching: {
+    ageRange: [18, 35],
+    maxDistance: 50,
+    showMeOnPride: true,
+    prioritizeVerified: false,
+    hideAlreadySeen: true,
+  },
+} as const;
+
+type SettingsState = {
+  notifications: Record<keyof typeof DEFAULT_SETTINGS.notifications, boolean>;
+  privacy: Record<keyof typeof DEFAULT_SETTINGS.privacy, boolean>;
+  safety: Record<keyof typeof DEFAULT_SETTINGS.safety, boolean>;
+  app: Record<keyof typeof DEFAULT_SETTINGS.app, boolean>;
+  matching: {
+    ageRange: [number, number];
+    maxDistance: number;
+    showMeOnPride: boolean;
+    prioritizeVerified: boolean;
+    hideAlreadySeen: boolean;
+  };
+};
+
+const NOTIFICATION_ITEMS: Array<{ key: keyof SettingsState['notifications']; label: string }> = [
+  { key: 'matches', label: 'Matches' },
+  { key: 'messages', label: 'Messages' },
+  { key: 'likes', label: 'Likes' },
+  { key: 'events', label: 'Events' },
+  { key: 'marketing', label: 'Marketing' },
+  { key: 'pushNotifications', label: 'Push Notifications' },
+  { key: 'emailNotifications', label: 'Email Notifications' },
+  { key: 'smsNotifications', label: 'SMS Notifications' },
+];
+
+const createDefaultSettings = (): SettingsState => ({
+  notifications: { ...DEFAULT_SETTINGS.notifications },
+  privacy: { ...DEFAULT_SETTINGS.privacy },
+  safety: { ...DEFAULT_SETTINGS.safety },
+  app: { ...DEFAULT_SETTINGS.app },
+  matching: { ...DEFAULT_SETTINGS.matching },
+});
+
+function mergeBooleanSettings<T extends Record<string, boolean>>(defaults: T, source: Record<string, any>) {
+  const merged = { ...defaults };
+  (Object.keys(defaults) as Array<keyof T>).forEach((key) => {
+    const candidate = source?.[key as string];
+    if (typeof candidate === 'boolean') merged[key] = candidate;
+  });
+  return merged;
+}
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,92 +122,172 @@ const SettingsPage: React.FC = () => {
   const { user, signOut } = useAuth();
   
   // Mock subscription state - would come from context/database
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier>('free');
+  const [currentTier] = useState<SubscriptionTier>('free');
   
-  // Enhanced settings state
-  const [settings, setSettings] = useState({
-    notifications: {
-      matches: true,
-      messages: true,
-      likes: false,
-      events: true,
-      marketing: false,
-      pushNotifications: true,
-      emailNotifications: true,
-      smsNotifications: false
-    },
-    privacy: {
-      showOnline: true,
-      showDistance: true,
-      showAge: true,
-      profileDiscoverable: true,
-      showReadReceipts: false,
-      incognitoMode: false,
-      hideFromSearch: false
-    },
-    safety: {
-      photoVerification: false,
-      twoFactor: false,
-      blockScreenshots: false,
-      requireVerification: false,
-      autoBlockSuspicious: true
-    },
-    app: {
-      darkMode: false,
-      reducedMotion: false,
-      highContrast: false,
-      largeText: false,
-      autoPlayVideos: true,
-      soundEffects: true
-    },
-    matching: {
-      ageRange: [18, 35],
-      maxDistance: 50,
-      showMeOnPride: true,
-      prioritizeVerified: false,
-      hideAlreadySeen: true
-    }
-  });
-
-  const tierInfo = {
-    free: { name: 'Free', color: 'bg-gray-100 text-gray-800' },
-    premium: { name: 'Premium', color: 'bg-blue-100 text-blue-800' },
-    elite: { name: 'Elite', color: 'bg-purple-100 text-purple-800' }
-  };
+  const [settings, setSettings] = useState<SettingsState>(() => createDefaultSettings());
+  const [loadingGeneral, setLoadingGeneral] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isHydrated, setIsHydrated] = useState(false);
+  const persistTimerRef = useRef<number | null>(null);
+  const basePrivacyRef = useRef<Record<string, any>>({});
+  const baseSafetyRef = useRef<Record<string, any>>({});
 
   const handleUpgrade = () => {
     navigate('/subscription');
   };
 
-  const updateNotificationSetting = (key: string, value: boolean) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      if (!user?.id) {
+        setSettings(createDefaultSettings());
+        setLoadingGeneral(false);
+        setIsHydrated(false);
+        setSaveStatus('idle');
+        return;
+      }
+
+      setLoadingGeneral(true);
+      setSaveStatus('idle');
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('privacy_settings, safety_settings')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        const privacySettings = (data?.privacy_settings && typeof data.privacy_settings === 'object')
+          ? (data.privacy_settings as Record<string, any>)
+          : {};
+        const safetySettings = (data?.safety_settings && typeof data.safety_settings === 'object')
+          ? (data.safety_settings as Record<string, any>)
+          : {};
+
+        basePrivacyRef.current = privacySettings;
+        baseSafetyRef.current = safetySettings;
+
+        const next = createDefaultSettings();
+        next.notifications = mergeBooleanSettings(next.notifications, privacySettings.notifications || {});
+        next.privacy = mergeBooleanSettings(next.privacy, privacySettings);
+        next.safety = mergeBooleanSettings(next.safety, safetySettings);
+        next.app = mergeBooleanSettings(next.app, privacySettings.app || {});
+        next.matching = {
+          ...next.matching,
+          ...(privacySettings.matching || {}),
+        };
+
+        if (!Array.isArray(next.matching.ageRange) || next.matching.ageRange.length !== 2) {
+          next.matching.ageRange = [...DEFAULT_SETTINGS.matching.ageRange] as [number, number];
+        }
+        if (typeof next.matching.maxDistance !== 'number') {
+          next.matching.maxDistance = DEFAULT_SETTINGS.matching.maxDistance;
+        }
+
+        setSettings(next);
+        setIsHydrated(true);
+      } catch (err: any) {
+        console.error('Failed to load settings:', err);
+        if (!cancelled) {
+          setSettings(createDefaultSettings());
+          setIsHydrated(true);
+          setSaveStatus('error');
+          toast({
+            title: 'Settings load issue',
+            description: err?.message || 'Could not load saved settings.',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (!cancelled) setLoadingGeneral(false);
+      }
+    };
+
+    void loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, toast]);
+
+  useEffect(() => {
+    if (!user?.id || !isHydrated || loadingGeneral) return;
+
+    if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
+
+    setSaveStatus('saving');
+    persistTimerRef.current = window.setTimeout(async () => {
+      try {
+        const privacyPayload = {
+          ...basePrivacyRef.current,
+          ...settings.privacy,
+          notifications: settings.notifications,
+          app: settings.app,
+          matching: settings.matching,
+        };
+        const safetyPayload = {
+          ...baseSafetyRef.current,
+          ...settings.safety,
+        };
+
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            privacy_settings: privacyPayload,
+            safety_settings: safetyPayload,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+
+        basePrivacyRef.current = privacyPayload;
+        baseSafetyRef.current = safetyPayload;
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error('Failed to save settings:', err);
+        setSaveStatus('error');
+      }
+    }, 450);
+
+    return () => {
+      if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
+    };
+  }, [settings, user?.id, isHydrated, loadingGeneral]);
+
+  const updateNotificationSetting = (key: keyof SettingsState['notifications'], value: boolean) => {
     setSettings(prev => ({
       ...prev,
       notifications: { ...prev.notifications, [key]: value }
     }));
   };
 
-  const updatePrivacySetting = (key: string, value: boolean) => {
+  const updatePrivacySetting = (key: keyof SettingsState['privacy'], value: boolean) => {
     setSettings(prev => ({
       ...prev,
       privacy: { ...prev.privacy, [key]: value }
     }));
   };
 
-  const updateSafetySetting = (key: string, value: boolean) => {
+  const updateSafetySetting = (key: keyof SettingsState['safety'], value: boolean) => {
     setSettings(prev => ({
       ...prev,
       safety: { ...prev.safety, [key]: value }
     }));
   };
 
-  const updateAppSetting = (key: string, value: boolean) => {
+  const updateAppSetting = (key: keyof SettingsState['app'], value: boolean) => {
     setSettings(prev => ({
       ...prev,
       app: { ...prev.app, [key]: value }
     }));
   };
 
-  const updateMatchingSetting = (key: string, value: boolean) => {
+  const updateMatchingSetting = (key: 'showMeOnPride' | 'prioritizeVerified' | 'hideAlreadySeen', value: boolean) => {
     setSettings(prev => ({
       ...prev,
       matching: { ...prev.matching, [key]: value }
@@ -142,8 +309,21 @@ const SettingsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Settings</h1>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Settings</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              {loadingGeneral
+                ? 'Loading settings...'
+                : saveStatus === 'saving'
+                ? 'Saving changes...'
+                : saveStatus === 'saved'
+                ? 'All changes saved'
+                : saveStatus === 'error'
+                ? 'Save issue. Changes may not persist.'
+                : 'Changes save automatically'}
+            </p>
+          </div>
           <Button variant="ghost" onClick={() => navigate(-1)}>
             Done
           </Button>
@@ -167,12 +347,13 @@ const SettingsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(settings.notifications).map(([key, value]) => (
+                {NOTIFICATION_ITEMS.map(({ key, label }) => (
                   <div key={key} className="flex justify-between items-center">
-                    <span>{formatSettingName(key)}</span>
+                    <span>{label}</span>
                     <Switch 
-                      checked={value}
+                      checked={settings.notifications[key]}
                       onCheckedChange={(checked) => updateNotificationSetting(key, checked)}
+                      disabled={loadingGeneral}
                     />
                   </div>
                 ))}
@@ -193,7 +374,8 @@ const SettingsPage: React.FC = () => {
                     <span>{formatSettingName(key)}</span>
                     <Switch 
                       checked={value}
-                      onCheckedChange={(checked) => updateAppSetting(key, checked)}
+                      onCheckedChange={(checked) => updateAppSetting(key as keyof SettingsState['app'], checked)}
+                      disabled={loadingGeneral}
                     />
                   </div>
                 ))}
@@ -209,12 +391,13 @@ const SettingsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(settings.matching).filter(([key]) => typeof settings.matching[key] === 'boolean').map(([key, value]) => (
+                {Object.entries(settings.matching).filter(([key]) => typeof settings.matching[key as keyof SettingsState['matching']] === 'boolean').map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center">
                     <span>{formatSettingName(key)}</span>
                     <Switch 
-                      checked={value}
-                      onCheckedChange={(checked) => updateMatchingSetting(key, checked)}
+                      checked={Boolean(value)}
+                      onCheckedChange={(checked) => updateMatchingSetting(key as 'showMeOnPride' | 'prioritizeVerified' | 'hideAlreadySeen', checked)}
+                      disabled={loadingGeneral}
                     />
                   </div>
                 ))}
@@ -237,7 +420,8 @@ const SettingsPage: React.FC = () => {
                     <span>{formatSettingName(key)}</span>
                     <Switch 
                       checked={value}
-                      onCheckedChange={(checked) => updatePrivacySetting(key, checked)}
+                      onCheckedChange={(checked) => updatePrivacySetting(key as keyof SettingsState['privacy'], checked)}
+                      disabled={loadingGeneral}
                     />
                   </div>
                 ))}
@@ -258,7 +442,8 @@ const SettingsPage: React.FC = () => {
                     <span>{formatSettingName(key)}</span>
                     <Switch 
                       checked={value}
-                      onCheckedChange={(checked) => updateSafetySetting(key, checked)}
+                      onCheckedChange={(checked) => updateSafetySetting(key as keyof SettingsState['safety'], checked)}
+                      disabled={loadingGeneral}
                     />
                   </div>
                 ))}
