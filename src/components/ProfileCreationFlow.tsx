@@ -62,6 +62,13 @@ function stripPhotos(profile: ProfileDraft) {
   return rest;
 }
 
+function persistedPhotoUrls(photos: string[] | undefined | null) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .map((p) => `${p ?? ""}`.trim())
+    .filter((p) => !!p && !p.startsWith("blob:") && !p.startsWith("data:"));
+}
+
 function computeBirthdateISO(ageStr: string): string | null {
   const ageNum = Number.parseInt(ageStr || "0", 10);
   if (!Number.isFinite(ageNum) || ageNum <= 0) return null;
@@ -167,7 +174,9 @@ const ProfileCreationFlow: React.FC = () => {
         return { ok: true };
 
       case 3:
-        if (!profile.photos || profile.photos.length === 0) return { ok: false, message: "Add at least 1 photo to continue." };
+        if (persistedPhotoUrls(profile.photos).length === 0) {
+          return { ok: false, message: "Add at least 1 uploaded photo to continue." };
+        }
         return { ok: true };
 
       default:
@@ -233,6 +242,7 @@ const ProfileCreationFlow: React.FC = () => {
     setSaving(true);
     try {
       const birthdateISO = computeBirthdateISO(profile.age);
+      const photos = persistedPhotoUrls(profile.photos);
 
       const profileData = {
         id: user.id,
@@ -245,7 +255,7 @@ const ProfileCreationFlow: React.FC = () => {
         gender_identity: profile.genderIdentity || null,
         sexual_orientation: profile.sexualOrientation || null,
         interests: profile.interests || [],
-        photos: profile.photos || [],
+        photos,
         lifestyle_interests: profile.lifestyle || {},
         privacy_settings: profile.privacy || {},
         safety_settings: profile.safety || {},
@@ -289,6 +299,7 @@ const ProfileCreationFlow: React.FC = () => {
     setSaving(true);
     try {
       const birthdateISO = computeBirthdateISO(profile.age);
+      const photos = persistedPhotoUrls(profile.photos);
 
       const profileData = {
         id: user.id,
@@ -301,7 +312,7 @@ const ProfileCreationFlow: React.FC = () => {
         gender_identity: profile.genderIdentity || null,
         sexual_orientation: profile.sexualOrientation || null,
         interests: profile.interests || [],
-        photos: profile.photos || [],
+        photos,
         lifestyle_interests: profile.lifestyle || {},
         privacy_settings: profile.privacy || {},
         safety_settings: profile.safety || {},
