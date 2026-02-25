@@ -289,7 +289,8 @@ const ProfileCreationFlow: React.FC = () => {
         const redirect = params.get("redirect");
         const target = redirect && redirect.startsWith("/") ? redirect : "/social";
         setShowFinish(false);
-        navigate(target, { replace: true });
+        const next = encodeURIComponent(target);
+        navigate(`/verification?redirect=${next}`, { replace: true });
       }, 1200);
     } catch (error: any) {
       console.error("Error saving profile:", error);
