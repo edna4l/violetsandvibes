@@ -23,6 +23,8 @@ type UiMatch = {
   photo: string | null;
   location: string | null;
   createdAt: string;
+  lastMessageText: string | null;
+  lastMessageAt: string | null;
   isNewMatch: boolean;
 };
 
@@ -68,6 +70,8 @@ const MatchesView: React.FC = () => {
       photo: prof?.photos?.[0] ?? null,
       location: prof?.location ?? null,
       createdAt: row.created_at,
+      lastMessageText: null,
+      lastMessageAt: null,
       isNewMatch:
         !Number.isNaN(createdAtMs) && Date.now() - createdAtMs <= NEW_MATCH_WINDOW_MS,
     };
@@ -142,7 +146,45 @@ const MatchesView: React.FC = () => {
           return toUiMatch(m, user.id, prof);
         });
 
-        setMatches(uiRows);
+        const convoIds = uiRows
+          .map((m) => m.conversationId)
+          .filter(Boolean) as string[];
+
+        let nextRows = uiRows;
+        if (convoIds.length) {
+          const { data: msgRows, error: msgErr } = await supabase
+            .from("messages")
+            .select("conversation_id, body, created_at")
+            .in("conversation_id", convoIds)
+            .order("created_at", { ascending: false })
+            .limit(200);
+
+          if (msgErr) {
+            console.warn("latest messages lookup failed:", msgErr.message);
+          } else if (msgRows) {
+            const latestByConvo = new Map<string, { body: string; created_at: string }>();
+            for (const r of msgRows) {
+              if (!latestByConvo.has(r.conversation_id)) {
+                latestByConvo.set(r.conversation_id, {
+                  body: r.body,
+                  created_at: r.created_at,
+                });
+              }
+            }
+
+            nextRows = uiRows.map((m) =>
+              m.conversationId && latestByConvo.has(m.conversationId)
+                ? {
+                    ...m,
+                    lastMessageText: latestByConvo.get(m.conversationId)!.body,
+                    lastMessageAt: latestByConvo.get(m.conversationId)!.created_at,
+                  }
+                : m
+            );
+          }
+        }
+
+        setMatches(nextRows);
       } catch (e: any) {
         console.error("Failed to load matches:", e);
         setError(e?.message || "Failed to load matches");
@@ -375,10 +417,12 @@ const MatchesView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-white truncate">{match.name}</h3>
                     <span className="text-xs text-white/60 shrink-0">
-                      {timeAgo(match.createdAt)}
+                      {timeAgo(match.lastMessageAt || match.createdAt)}
                     </span>
                   </div>
-                  <p className="text-sm text-white/80 truncate">Tap to open chat</p>
+                  <p className="text-sm text-white/80 truncate">
+                    {match.lastMessageText || "Tap to open chat"}
+                  </p>
                   {match.location ? (
                     <p className="text-xs text-white/60 truncate">{match.location}</p>
                   ) : null}

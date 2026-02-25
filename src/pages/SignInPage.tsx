@@ -92,7 +92,7 @@ const SignInPage: React.FC = () => {
           {/* Heroes Page Content */}
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold mb-4 rainbow-header wedding-title">
-              Unleash Your Spirit with Violets and Vibes – Your Premier Online Lesbian Dating and Social Hub!
+              Unleash Your Spirit with Violets and Vibes – Your Premier Online Dating and Social Hub!
             </h1>
             
             {/* Feature Icons */}
