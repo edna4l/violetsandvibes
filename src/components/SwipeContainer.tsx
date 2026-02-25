@@ -49,7 +49,7 @@ const mapToSwipeProfile = (profile: ProfileRow): SwipeProfile => ({
   age: calculateAge(profile.birthdate),
   bio: profile.bio?.trim() || 'Looking to meet kind, aligned people in community.',
   photos: profile.photos && profile.photos.length > 0 ? profile.photos : ['/api/placeholder/400/600'],
-  location: profile.location?.trim() || 'Location not shared',
+  location: profile.location?.trim() || '',
   interests: profile.interests || [],
   pronouns: profile.gender_identity || undefined,
   identity: detectIdentity(profile),
