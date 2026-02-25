@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventCard from "./EventCard";
 import { Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -1038,24 +1037,13 @@ const SocialFeed: React.FC = () => {
   };
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-violet-900/70 border border-violet-400/30">
-          <TabsTrigger
-            value="feed"
-            className="wedding-heading text-white data-[state=active]:bg-violet-700 data-[state=active]:text-white"
-          >
-            Community Feed
-          </TabsTrigger>
-          <TabsTrigger
-            value="events"
-            className="wedding-heading text-white data-[state=active]:bg-violet-700 data-[state=active]:text-white"
-          >
-            Events
-          </TabsTrigger>
-        </TabsList>
+    <div className="p-4 w-full">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] gap-4 items-start">
+        <section className="space-y-4">
+          <div className="px-1">
+            <h2 className="wedding-heading text-2xl text-white">Community Feed</h2>
+          </div>
 
-        <TabsContent value="feed" className="space-y-4">
           {/* Create Post */}
           <Card className="bg-violet-950/80 border-violet-400/40 text-white backdrop-blur-sm">
             <CardContent className="p-4">
@@ -1067,9 +1055,7 @@ const SocialFeed: React.FC = () => {
                 maxLength={1000}
               />
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-white/80">
-                  {newPost.trim().length}/1000
-                </div>
+                <div className="text-xs text-white/80">{newPost.trim().length}/1000</div>
                 <Button
                   onClick={handleCreatePost}
                   disabled={!newPost.trim() || posting}
@@ -1078,9 +1064,7 @@ const SocialFeed: React.FC = () => {
                   {posting ? "Posting…" : "Share Post"}
                 </Button>
               </div>
-              {error && (
-                <div className="text-sm text-red-300 mt-2">{error}</div>
-              )}
+              {error && <div className="text-sm text-red-300 mt-2">{error}</div>}
             </CardContent>
           </Card>
 
@@ -1098,19 +1082,13 @@ const SocialFeed: React.FC = () => {
                 key={post.id}
                 className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm transition-all ${
                   post._optimistic ? "opacity-70" : ""
-                } ${
-                  highlightPostId === post.id
-                    ? "ring-2 ring-pink-300 vv-pulse-highlight"
-                    : ""
-                }`}
+                } ${highlightPostId === post.id ? "ring-2 ring-pink-300 vv-pulse-highlight" : ""}`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {(post.authorName || "M")[0]}
-                        </span>
+                        <span className="text-white font-semibold">{(post.authorName || "M")[0]}</span>
                       </div>
                       <div>
                         <p className="font-semibold text-white">{post.authorName}</p>
@@ -1126,9 +1104,7 @@ const SocialFeed: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <p className="text-white/90 mb-3 whitespace-pre-wrap">
-                    {post.body}
-                  </p>
+                  <p className="text-white/90 mb-3 whitespace-pre-wrap">{post.body}</p>
 
                   <div className="flex space-x-4 text-sm text-white/80">
                     <button
@@ -1164,9 +1140,7 @@ const SocialFeed: React.FC = () => {
                       {commentsLoadingByPost[post.id] ? (
                         <div className="text-sm text-white/60">Loading comments…</div>
                       ) : (commentsByPost[post.id] ?? []).length === 0 ? (
-                        <div className="text-sm text-white/60">
-                          No comments yet.
-                        </div>
+                        <div className="text-sm text-white/60">No comments yet.</div>
                       ) : (
                         commentsByPost[post.id].map((c) => {
                           const isReplying = replyToByPost[post.id] === c.id;
@@ -1191,8 +1165,16 @@ const SocialFeed: React.FC = () => {
                                   onClick={() => {
                                     console.log("Reply clicked", post.id, c.id);
                                     setReplyToByPost((prev) => {
-                                      const next = { ...prev, [post.id]: prev[post.id] === c.id ? null : c.id };
-                                      console.log("replyToByPost next:", next[post.id], "expected:", c.id);
+                                      const next = {
+                                        ...prev,
+                                        [post.id]: prev[post.id] === c.id ? null : c.id,
+                                      };
+                                      console.log(
+                                        "replyToByPost next:",
+                                        next[post.id],
+                                        "expected:",
+                                        c.id
+                                      );
                                       return next;
                                     });
                                   }}
@@ -1225,7 +1207,10 @@ const SocialFeed: React.FC = () => {
                                     type="button"
                                     size="sm"
                                     onClick={() => sendReply(post.id, c.id)}
-                                    disabled={commenting[post.id] || !((replyInputs[`${post.id}:${c.id}`] || "").trim())}
+                                    disabled={
+                                      commenting[post.id] ||
+                                      !((replyInputs[`${post.id}:${c.id}`] || "").trim())
+                                    }
                                   >
                                     Send
                                   </Button>
@@ -1269,65 +1254,56 @@ const SocialFeed: React.FC = () => {
               </Card>
             ))
           )}
-        </TabsContent>
+        </section>
 
-        <TabsContent value="events" className="space-y-4">
+        <aside className="space-y-4">
+          <div className="px-1">
+            <h2 className="wedding-heading text-2xl text-white">Events</h2>
+          </div>
+
           <Button
             onClick={() => setShowCreateEvent(!showCreateEvent)}
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 mb-4"
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Event
           </Button>
 
           {showCreateEvent && (
-            <Card className="bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200 mb-4">
+            <Card className="bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200">
               <CardContent className="p-4 space-y-3">
                 <Input
                   placeholder="Event title"
                   value={newEvent.title}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, title: e.target.value })
-                  }
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
                 />
                 <Textarea
                   placeholder="Event description"
                   value={newEvent.description}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, description: e.target.value })
-                  }
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     type="date"
                     value={newEvent.date}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, date: e.target.value })
-                    }
+                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                   />
                   <Input
                     type="time"
                     value={newEvent.time}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, time: e.target.value })
-                    }
+                    onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
                   />
                 </div>
                 <Input
                   placeholder="Location"
                   value={newEvent.location}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, location: e.target.value })
-                  }
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
                 />
                 <div className="flex space-x-2">
                   <Button onClick={handleCreateEvent} className="flex-1">
                     Create
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCreateEvent(false)}
-                  >
+                  <Button variant="outline" onClick={() => setShowCreateEvent(false)}>
                     Cancel
                   </Button>
                 </div>
@@ -1338,8 +1314,8 @@ const SocialFeed: React.FC = () => {
           {mockEvents.map((event) => (
             <EventCard key={event.id} event={event} onJoin={handleJoinEvent} />
           ))}
-        </TabsContent>
-      </Tabs>
+        </aside>
+      </div>
     </div>
   );
 };
