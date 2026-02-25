@@ -95,14 +95,14 @@ const LandingPreviewPage: React.FC = () => {
 
           <div className="mt-5 flex flex-wrap gap-3">
             <Button asChild className="btn-pride-celebrate">
-              <Link to="/signin">Join the Community</Link>
+              <Link to="/signin?redirect=%2Fsocial">Join the Community</Link>
             </Button>
             <Button
               asChild
               variant="outline"
               className="border-white/30 text-white hover:bg-white/10"
             >
-              <Link to="/signin">Sign In</Link>
+              <Link to="/signin?redirect=%2Fsocial">Sign In</Link>
             </Button>
             <Button
               variant="outline"
@@ -134,7 +134,7 @@ const LandingPreviewPage: React.FC = () => {
 
             <div className="mt-4">
               <Button asChild className="btn-pride">
-                <Link to="/signin">Create Your Profile</Link>
+                <Link to="/signin?redirect=%2Fsocial">Create Your Profile</Link>
               </Button>
             </div>
           </section>
@@ -281,7 +281,7 @@ const LandingPreviewPage: React.FC = () => {
             </p>
             <div className="mt-5">
               <Button asChild className="btn-pride-celebrate">
-                <Link to="/signin">Join Violets &amp; Vibes</Link>
+                <Link to="/signin?redirect=%2Fsocial">Join Violets &amp; Vibes</Link>
               </Button>
             </div>
           </section>

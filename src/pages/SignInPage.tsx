@@ -6,16 +6,21 @@ import LoginForm from '@/components/LoginForm';
 import CreateAccountForm from '@/components/CreateAccountForm';
 import { PasswordResetForm } from '@/components/PasswordResetForm';
 import { authService, AuthUser } from '@/lib/auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { useProfileStatus } from '@/hooks/useProfileStatus';
 
 const SignInPage: React.FC = () => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('login');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { status } = useProfileStatus();
+
+  const params = new URLSearchParams(location.search);
+  const redirect = params.get('redirect');
+  const redirectTarget = redirect && redirect.startsWith('/') ? redirect : '/social';
 
   useEffect(() => {
     const checkUser = async () => {
@@ -60,10 +65,11 @@ const SignInPage: React.FC = () => {
     }
 
     if (status === "incomplete") {
-      return <Navigate to="/create-new-profile" replace />;
+      const next = encodeURIComponent(redirectTarget);
+      return <Navigate to={`/create-new-profile?redirect=${next}`} replace />;
     }
 
-    return <Navigate to="/social" replace />;
+    return <Navigate to={redirectTarget} replace />;
   }
 
   return (
