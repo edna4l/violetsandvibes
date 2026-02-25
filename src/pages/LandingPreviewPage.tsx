@@ -2,12 +2,17 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
-import { ShieldCheck, Users, MessageCircle, Sparkles } from "lucide-react";
+import { ShieldCheck, Users, MessageCircle, Sparkles, Share2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const LandingPreviewPage: React.FC = () => {
   const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "support@violetsandvibes.com";
+  const canonicalUrl = "https://www.violetsandvibes.com/";
+  const shareMessage =
+    "Violets & Vibes: a safer, women-centered space for meaningful connection.";
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const { toast } = useToast();
 
   const openFeedbackEmail = () => {
     const subject = encodeURIComponent(
@@ -19,6 +24,32 @@ const LandingPreviewPage: React.FC = () => {
       feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"
     );
     window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+  };
+
+  const handleShareSite = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Violets & Vibes",
+          text: shareMessage,
+          url: canonicalUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${shareMessage}\n${canonicalUrl}`);
+      toast({
+        title: "Link copied",
+        description: "Share link copied to clipboard.",
+      });
+    } catch (error: any) {
+      if (error?.name === "AbortError") return;
+
+      toast({
+        title: "Could not share automatically",
+        description: canonicalUrl,
+      });
+    }
   };
 
   return (
@@ -72,6 +103,14 @@ const LandingPreviewPage: React.FC = () => {
               className="border-white/30 text-white hover:bg-white/10"
             >
               <Link to="/signin">Sign In</Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="border-white/30 text-white hover:bg-white/10"
+              onClick={() => void handleShareSite()}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share Violets &amp; Vibes
             </Button>
           </div>
         </header>

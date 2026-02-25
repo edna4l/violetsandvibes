@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Heart, Shield, Users, MessageCircle } from 'lucide-react';
 import LoginForm from '@/components/LoginForm';
 import CreateAccountForm from '@/components/CreateAccountForm';
 import { PasswordResetForm } from '@/components/PasswordResetForm';
 import { authService, AuthUser } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
-import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { useProfileStatus } from '@/hooks/useProfileStatus';
 
@@ -81,76 +79,75 @@ const SignInPage: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative z-10">
         <ResponsiveWrapper maxWidth="2xl" className="h-full py-8">
-          {/* Discover Page Header */}
-          <div className="glass-pride-strong padding-responsive mb-4 sm:mb-6 md:mb-8 relative">
-            <AnimatedLogo size="lg" className="mb-2 sm:mb-4" />
-            <div className="absolute top-4 left-4 w-3 h-3 sm:w-4 sm:h-4 bg-pink-400 rounded-full floating-orb opacity-70"></div>
-            <div className="absolute top-6 right-6 w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full floating-orb opacity-60" style={{animationDelay: '1s'}}></div>
-            <div className="absolute bottom-4 right-4 w-3 h-3 sm:w-4 sm:h-4 bg-indigo-400 rounded-full floating-orb opacity-80" style={{animationDelay: '2s'}}></div>
-          </div>
-
-          {/* Heroes Page Content */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4 rainbow-header wedding-title">
-              Unleash Your Spirit with Violets and Vibes – Your Premier Online Dating and Social Hub!
-            </h1>
-            
-            {/* Feature Icons */}
-            <div className="flex justify-center space-x-8 mb-12">
-              <div className="text-center">
-                <Heart className="w-12 h-12 text-pink-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-white">Connect</p>
-              </div>
-              <div className="text-center">
-                <Users className="w-12 h-12 text-purple-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-white">Community</p>
-              </div>
-              <div className="text-center">
-                <MessageCircle className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-white">Chat</p>
-              </div>
-              <div className="text-center">
-                <Shield className="w-12 h-12 text-blue-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-white">Safe</p>
-              </div>
-            </div>
-          </div>
-
           {/* Auth Forms */}
           <div className="flex justify-center">
-            <Card className="w-full max-w-md bg-black/90 border-purple-500/30">
-              <CardHeader className="text-center">
+            <div className="w-full max-w-xl rounded-[30px] border border-pink-200/30 bg-gradient-to-r from-fuchsia-500/20 via-indigo-500/15 to-pink-500/20 p-[1px] shadow-2xl">
+              <Card className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-[#17082f]/95 via-[#211047]/95 to-[#2d1048]/95">
+                <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-pink-400/20 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-14 right-4 h-28 w-28 rounded-full bg-indigo-400/20 blur-3xl" />
+
+                <div className="border-b border-white/15 p-5 sm:p-6 text-left sm:text-center">
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="h-1.5 flex-1 rounded-full bg-rose-400" />
+                    <span className="h-1.5 flex-1 rounded-full bg-orange-400" />
+                    <span className="h-1.5 flex-1 rounded-full bg-amber-300" />
+                    <span className="h-1.5 flex-1 rounded-full bg-emerald-400" />
+                    <span className="h-1.5 flex-1 rounded-full bg-sky-400" />
+                    <span className="h-1.5 flex-1 rounded-full bg-indigo-400" />
+                    <span className="h-1.5 flex-1 rounded-full bg-fuchsia-400" />
+                  </div>
+
+                  <h1 className="text-3xl sm:text-5xl font-bold rainbow-header wedding-title leading-tight">
+                    Unleash Your Spirit with Violets &amp; Vibes - Your Premier Online Dating and Social Hub!
+                  </h1>
+                  <p className="mt-3 text-pink-200 font-semibold text-base sm:text-2xl">
+                    A safer space for women to connect
+                  </p>
+                  <p className="mt-3 text-white/90 text-sm sm:text-lg">
+                    Women-centered • Inclusive • Safety-first
+                  </p>
+                  <p className="mt-2 text-white/85 text-sm sm:text-lg">
+                    Friendship, dating, and community with intention.
+                  </p>
+
+                  <div className="pointer-events-none absolute right-5 top-8 hidden sm:flex flex-col items-center text-pink-200/90">
+                    <span className="text-xl">💜</span>
+                    <span className="mt-1 text-lg text-violet-200/85">✨</span>
+                  </div>
+                </div>
+
+                <CardHeader className="text-center pt-5">
                 <CardTitle className="text-2xl text-white wedding-heading">
                   {showPasswordReset ? 'Reset Password' : 'Join the Community'}
                 </CardTitle>
-                <CardDescription className="text-white/70">
-                  {showPasswordReset 
-                    ? 'Enter your email to reset your password'
-                    : 'Sign in or create your account to get started'
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
                 {showPasswordReset ? (
-                  <PasswordResetForm onBack={() => setShowPasswordReset(false)} />
-                ) : (
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-purple-900/50">
-                      <TabsTrigger value="login" className="text-white data-[state=active]:bg-purple-600">Sign In</TabsTrigger>
-                      <TabsTrigger value="register" className="text-white data-[state=active]:bg-purple-600">Create Account</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="login">
-                      <LoginForm onForgotPassword={() => setShowPasswordReset(true)} />
-                    </TabsContent>
-                    
-                    <TabsContent value="register">
-                      <CreateAccountForm />
-                    </TabsContent>
-                  </Tabs>
-                )}
-              </CardContent>
-            </Card>
+                  <CardDescription className="text-white/70">
+                    Enter your email to reset your password
+                  </CardDescription>
+                ) : null}
+                </CardHeader>
+                <CardContent>
+                  {showPasswordReset ? (
+                    <PasswordResetForm onBack={() => setShowPasswordReset(false)} />
+                  ) : (
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 mb-6 bg-purple-900/50">
+                        <TabsTrigger value="login" className="text-white data-[state=active]:bg-purple-600">Sign In</TabsTrigger>
+                        <TabsTrigger value="register" className="text-white data-[state=active]:bg-purple-600">Create Account</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="login">
+                        <LoginForm onForgotPassword={() => setShowPasswordReset(true)} />
+                      </TabsContent>
+                      
+                      <TabsContent value="register">
+                        <CreateAccountForm />
+                      </TabsContent>
+                    </Tabs>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </ResponsiveWrapper>
       </div>

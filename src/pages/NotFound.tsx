@@ -1,5 +1,7 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import BrandPrideCard from "@/components/BrandPrideCard";
 
 const NotFound = () => {
   const location = useLocation();
@@ -12,13 +14,19 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center p-8 rounded-lg border border-border bg-card shadow-md animate-slide-in">
-        <h1 className="text-5xl font-bold mb-6 rainbow-header">404</h1>
-        <p className="text-xl text-card-foreground mb-6">Page not found</p>
-        <a href="/" className="text-primary hover:text-primary/80 underline transition-colors">
-          Return to Home
-        </a>
+    <div className="page-calm min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl">
+        <BrandPrideCard
+          title="404"
+          subtitle="Page not found"
+          points={["Women-centered", "Inclusive", "Safety-first"]}
+          description="That route does not exist. Jump back to the homepage."
+          cta={
+            <Button asChild className="btn-pride-celebrate">
+              <Link to="/">Return Home</Link>
+            </Button>
+          }
+        />
       </div>
     </div>
   );
