@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  DEFAULT_DISCOVER_FILTERS,
+  type DiscoverFilters,
+  normalizeDiscoverFilters,
+} from "@/lib/discoverFilters";
 
 export type ProfileRow = {
   id: string;
@@ -30,8 +35,10 @@ const DEFAULT_MATCHING_PREFERENCES: MatchingPreferences = {
 
 type DiscoverProfileRowRaw = ProfileRow & {
   updated_at?: string | null;
+  birthdate?: string | null;
   privacy_settings?: Record<string, any> | null;
   safety_settings?: Record<string, any> | null;
+  lifestyle_interests?: Record<string, any> | null;
 };
 
 const isTruthy = (value: unknown, fallback: boolean) =>
@@ -90,6 +97,26 @@ async function loadMySafetyPreferences(myId: string): Promise<ViewerSafetyPrefer
   };
 }
 
+async function loadMyDiscoverFilters(myId: string): Promise<DiscoverFilters> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("privacy_settings")
+    .eq("id", myId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Could not load discover filters. Falling back to defaults.", error.message);
+    return { ...DEFAULT_DISCOVER_FILTERS };
+  }
+
+  const privacy =
+    data?.privacy_settings && typeof data.privacy_settings === "object"
+      ? (data.privacy_settings as Record<string, any>)
+      : {};
+
+  return normalizeDiscoverFilters(privacy.discoverFilters);
+}
+
 async function loadSeenIds(myId: string): Promise<Set<string>> {
   const seenIds = new Set<string>();
 
@@ -121,14 +148,141 @@ async function loadSeenIds(myId: string): Promise<Set<string>> {
   return seenIds;
 }
 
+function calcAgeFromBirthdate(birthdate?: string | null) {
+  if (!birthdate) return null;
+  const d = new Date(birthdate);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+function normalizeToken(v: unknown) {
+  return `${v ?? ""}`.trim().toLowerCase();
+}
+
+function flattenLifestyleStrings(lifestyle: Record<string, any> | null | undefined) {
+  if (!lifestyle || typeof lifestyle !== "object") return [] as string[];
+
+  const values: string[] = [];
+  for (const raw of Object.values(lifestyle)) {
+    if (Array.isArray(raw)) {
+      raw.forEach((entry) => values.push(`${entry ?? ""}`));
+    } else if (typeof raw === "string") {
+      values.push(raw);
+    }
+  }
+  return values;
+}
+
+function collectProfileInterestTokens(row: DiscoverProfileRowRaw) {
+  const tokens = new Set<string>();
+
+  const addToken = (value: string) => {
+    const normalized = normalizeToken(value);
+    if (!normalized) return;
+    tokens.add(normalized);
+  };
+
+  (row.interests ?? []).forEach((entry) => {
+    const raw = `${entry ?? ""}`.trim();
+    if (!raw) return;
+    addToken(raw);
+    if (raw.includes(":")) {
+      addToken(raw.split(":").slice(1).join(":"));
+    }
+  });
+
+  flattenLifestyleStrings(row.lifestyle_interests).forEach((entry) => addToken(entry));
+  return tokens;
+}
+
+function inferPronouns(row: DiscoverProfileRowRaw) {
+  const pronouns = new Set<string>();
+
+  const add = (value: string) => {
+    const normalized = normalizeToken(value);
+    if (!normalized) return;
+    pronouns.add(normalized);
+  };
+
+  const identity = normalizeToken(row.gender_identity);
+  if (identity.includes("woman") || identity.includes("female") || identity.includes("she")) {
+    add("she/her");
+  }
+  if (
+    identity.includes("non-binary") ||
+    identity.includes("nonbinary") ||
+    identity.includes("genderfluid") ||
+    identity.includes("they")
+  ) {
+    add("they/them");
+  }
+  if (identity.includes("man") || identity.includes("male") || identity.includes("he")) {
+    add("he/him");
+  }
+
+  flattenLifestyleStrings(row.lifestyle_interests).forEach((entry) => {
+    const normalized = normalizeToken(entry);
+    if (normalized.includes("she/her")) add("she/her");
+    if (normalized.includes("they/them")) add("they/them");
+    if (normalized.includes("he/him")) add("he/him");
+  });
+
+  return pronouns;
+}
+
+function deriveLookingForTags(row: DiscoverProfileRowRaw) {
+  const tags = new Set<string>();
+  const terms = collectProfileInterestTokens(row);
+
+  const relationshipItems = Array.isArray(row.lifestyle_interests?.Relationship)
+    ? (row.lifestyle_interests?.Relationship as string[])
+    : [];
+  const relationship = relationshipItems.map((entry) => normalizeToken(entry));
+
+  if (
+    relationship.some((r) =>
+      ["exploring", "open to both", "polyamorous"].some((needle) => r.includes(needle))
+    ) ||
+    terms.has("dating")
+  ) {
+    tags.add("casual");
+  }
+
+  if (
+    relationship.some((r) => r.includes("monogamous")) ||
+    terms.has("relationship")
+  ) {
+    tags.add("serious");
+  }
+
+  if (
+    ["support groups", "book clubs", "coffee dates", "queer meetups", "volunteering", "mentoring"].some(
+      (v) => terms.has(v)
+    )
+  ) {
+    tags.add("friends");
+  }
+
+  if (["networking", "community organizing", "entrepreneurship"].some((v) => terms.has(v))) {
+    tags.add("networking");
+  }
+
+  return tags;
+}
+
 export async function fetchDiscoverProfiles(myId: string) {
   const matchingPrefs = await loadMyMatchingPreferences(myId);
   const safetyPrefs = await loadMySafetyPreferences(myId);
+  const discoverFilters = await loadMyDiscoverFilters(myId);
 
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, bio, location, photos, profile_completed, birthdate, interests, gender_identity, updated_at, privacy_settings, safety_settings"
+      "id, full_name, bio, location, photos, profile_completed, birthdate, interests, gender_identity, updated_at, privacy_settings, safety_settings, lifestyle_interests"
     )
     .neq("id", myId)
     .eq("profile_completed", true)
@@ -149,6 +303,46 @@ export async function fetchDiscoverProfiles(myId: string) {
     if (privacy.hideFromSearch === true) return false;
     if (privacy.incognitoMode === true) return false;
     if (matching && typeof matching === "object" && matching.showMeOnPride === false) return false;
+    return true;
+  });
+
+  rows = rows.filter((row) => {
+    const age = calcAgeFromBirthdate(row.birthdate);
+    const [minAge, maxAge] = discoverFilters.ageRange;
+    if (age != null && (age < minAge || age > maxAge)) return false;
+
+    const selectedInterests = discoverFilters.interests.map((v) => normalizeToken(v));
+    if (selectedInterests.length > 0) {
+      const availableTokens = collectProfileInterestTokens(row);
+      const hasMatch = selectedInterests.some((selected) => availableTokens.has(selected));
+      if (!hasMatch) return false;
+    }
+
+    const pronounFilters = discoverFilters.pronouns
+      .filter((p) => p !== "Any")
+      .map((p) => normalizeToken(p));
+    if (pronounFilters.length > 0) {
+      const profilePronouns = inferPronouns(row);
+      const pronounMatch = pronounFilters.some((p) => profilePronouns.has(p));
+      if (!pronounMatch) return false;
+    }
+
+    const lookingForFilters = discoverFilters.lookingFor.map((v) => normalizeToken(v));
+    if (lookingForFilters.length > 0) {
+      const profileTags = deriveLookingForTags(row);
+      const lookingForMatch = lookingForFilters.some((selected) => profileTags.has(selected));
+      if (!lookingForMatch) return false;
+    }
+
+    const distanceValue = Number(
+      (row.lifestyle_interests as any)?.distance_miles ??
+        (row.lifestyle_interests as any)?.distanceMiles ??
+        NaN
+    );
+    if (Number.isFinite(distanceValue) && distanceValue > discoverFilters.distanceMiles) {
+      return false;
+    }
+
     return true;
   });
 

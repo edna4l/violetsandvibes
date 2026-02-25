@@ -1,26 +1,119 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import {
+  DEFAULT_DISCOVER_FILTERS,
+  type DiscoverFilters,
+  loadDiscoverFilters,
+  saveDiscoverFilters,
+} from '@/lib/discoverFilters';
 
 const AdvancedFilters: React.FC = () => {
-  const [ageRange, setAgeRange] = useState([22, 35]);
-  const [distance, setDistance] = useState([25]);
-  const [interests, setInterests] = useState<string[]>(['Art', 'Music']);
-  const [pronouns, setPronouns] = useState<string[]>(['She/Her']);
-  const [relationshipType, setRelationshipType] = useState<string[]>(['Serious']);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_DISCOVER_FILTERS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const interestOptions = ['Art', 'Music', 'Travel', 'Books', 'Sports', 'Cooking', 'Gaming', 'Photography', 'Dancing', 'Hiking'];
   const pronounOptions = ['She/Her', 'They/Them', 'He/Him', 'Any'];
   const relationshipOptions = ['Casual', 'Serious', 'Friends', 'Networking'];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!user?.id) {
+        setFilters(DEFAULT_DISCOVER_FILTERS);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const loaded = await loadDiscoverFilters(user.id);
+        if (!cancelled) {
+          setFilters(loaded);
+        }
+      } catch (error) {
+        console.error('Failed to load discover filters:', error);
+        if (!cancelled) {
+          setFilters(DEFAULT_DISCOVER_FILTERS);
+          toast({
+            title: 'Could not load filters',
+            description: 'Using default values for now.',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, toast]);
 
   const toggleSelection = (item: string, list: string[], setter: (list: string[]) => void) => {
     if (list.includes(item)) {
       setter(list.filter(i => i !== item));
     } else {
       setter([...list, item]);
+    }
+  };
+
+  const togglePronoun = (item: string) => {
+    setFilters((prev) => {
+      if (item === 'Any') {
+        return { ...prev, pronouns: ['Any'] };
+      }
+
+      const withoutAny = prev.pronouns.filter((p) => p !== 'Any');
+      const exists = withoutAny.includes(item as any);
+      const next = exists
+        ? withoutAny.filter((p) => p !== item)
+        : [...withoutAny, item as any];
+
+      return {
+        ...prev,
+        pronouns: next.length > 0 ? (next as any) : ['Any'],
+      };
+    });
+  };
+
+  const applyFilters = async () => {
+    if (!user?.id) {
+      navigate('/signin?redirect=/filters', { replace: true });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await saveDiscoverFilters(user.id, filters);
+      toast({
+        title: 'Filters applied',
+        description: 'Discover results updated.',
+      });
+      navigate('/discover');
+    } catch (error: any) {
+      console.error('Failed to save filters:', error);
+      toast({
+        title: 'Could not apply filters',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -36,30 +129,32 @@ const AdvancedFilters: React.FC = () => {
           {/* Age Range */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Age Range: {ageRange[0]} - {ageRange[1]}
+              Age Range: {filters.ageRange[0]} - {filters.ageRange[1]}
             </label>
             <Slider
-              value={ageRange}
-              onValueChange={setAgeRange}
+              value={filters.ageRange}
+              onValueChange={(range) => setFilters((prev) => ({ ...prev, ageRange: [range[0], range[1]] }))}
               max={65}
               min={18}
               step={1}
               className="w-full"
+              disabled={loading || saving}
             />
           </div>
 
           {/* Distance */}
           <div>
             <label className="text-sm font-medium text-gray-300 mb-2 block">
-              Distance: {distance[0]} miles
+              Distance: {filters.distanceMiles} miles
             </label>
             <Slider
-              value={distance}
-              onValueChange={setDistance}
+              value={[filters.distanceMiles]}
+              onValueChange={(value) => setFilters((prev) => ({ ...prev, distanceMiles: value[0] ?? prev.distanceMiles }))}
               max={100}
               min={1}
               step={1}
               className="w-full"
+              disabled={loading || saving}
             />
           </div>
 
@@ -70,13 +165,17 @@ const AdvancedFilters: React.FC = () => {
               {interestOptions.map(interest => (
                 <Badge
                   key={interest}
-                  variant={interests.includes(interest) ? "default" : "outline"}
+                  variant={filters.interests.includes(interest) ? "default" : "outline"}
                   className={`cursor-pointer transition-all ${
-                    interests.includes(interest) 
+                    filters.interests.includes(interest) 
                       ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' 
                       : 'hover:bg-white/10 text-white border-white/30'
                   }`}
-                  onClick={() => toggleSelection(interest, interests, setInterests)}
+                  onClick={() =>
+                    toggleSelection(interest, filters.interests, (next) =>
+                      setFilters((prev) => ({ ...prev, interests: next }))
+                    )
+                  }
                 >
                   {interest}
                 </Badge>
@@ -91,13 +190,13 @@ const AdvancedFilters: React.FC = () => {
               {pronounOptions.map(pronoun => (
                 <Badge
                   key={pronoun}
-                  variant={pronouns.includes(pronoun) ? "default" : "outline"}
+                  variant={filters.pronouns.includes(pronoun as any) ? "default" : "outline"}
                   className={`cursor-pointer transition-all ${
-                    pronouns.includes(pronoun) 
+                    filters.pronouns.includes(pronoun as any) 
                       ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' 
                       : 'hover:bg-white/10 text-white border-white/30'
                   }`}
-                  onClick={() => toggleSelection(pronoun, pronouns, setPronouns)}
+                  onClick={() => togglePronoun(pronoun)}
                 >
                   {pronoun}
                 </Badge>
@@ -112,13 +211,17 @@ const AdvancedFilters: React.FC = () => {
               {relationshipOptions.map(type => (
                 <Badge
                   key={type}
-                  variant={relationshipType.includes(type) ? "default" : "outline"}
+                  variant={filters.lookingFor.includes(type as any) ? "default" : "outline"}
                   className={`cursor-pointer transition-all ${
-                    relationshipType.includes(type) 
+                    filters.lookingFor.includes(type as any) 
                       ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' 
                       : 'hover:bg-white/10 text-white border-white/30'
                   }`}
-                  onClick={() => toggleSelection(type, relationshipType, setRelationshipType)}
+                  onClick={() =>
+                    toggleSelection(type, filters.lookingFor, (next) =>
+                      setFilters((prev) => ({ ...prev, lookingFor: next as any }))
+                    )
+                  }
                 >
                   {type}
                 </Badge>
@@ -126,8 +229,12 @@ const AdvancedFilters: React.FC = () => {
             </div>
           </div>
 
-          <Button className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
-            Apply Filters
+          <Button
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+            disabled={loading || saving}
+            onClick={applyFilters}
+          >
+            {saving ? 'Applying...' : 'Apply Filters'}
           </Button>
         </CardContent>
       </Card>
