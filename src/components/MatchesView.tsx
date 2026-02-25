@@ -186,6 +186,23 @@ const MatchesView: React.FC = () => {
           });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "matches" },
+        (payload) => {
+          const row = (payload as any).new as MatchRow | undefined;
+          if (!row) return;
+          if (row.user1_id !== user.id && row.user2_id !== user.id) return;
+
+          setMatches((prev) =>
+            prev.map((m) =>
+              m.matchId === row.id
+                ? { ...m, conversationId: row.conversation_id }
+                : m
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -195,6 +212,10 @@ const MatchesView: React.FC = () => {
 
   const newMatches = useMemo(
     () => matches.filter((m) => m.isNewMatch),
+    [matches]
+  );
+  const oldMatches = useMemo(
+    () => matches.filter((m) => !m.isNewMatch),
     [matches]
   );
 
@@ -323,7 +344,7 @@ const MatchesView: React.FC = () => {
           Messages
         </h2>
         <div className="space-y-3">
-          {matches.map((match) => (
+          {oldMatches.map((match) => (
             <div
               key={match.matchId}
               className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
