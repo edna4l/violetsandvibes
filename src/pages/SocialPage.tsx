@@ -1,11 +1,9 @@
 import React from 'react';
 import SocialFeed from '@/components/SocialFeed';
-import BottomNavigation from '../components/BottomNavigation';
-import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 
 const SocialPage: React.FC = () => {
   return (
-    <div className="page-gradient min-h-screen flex flex-col relative">
+    <div className="page-gradient h-full flex flex-col relative">
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-pink-400/20 rounded-full floating-orb blur-xl"></div>
@@ -15,14 +13,11 @@ const SocialPage: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden relative z-10">
-        <ResponsiveWrapper maxWidth="full" className="h-full">
-          <div className="glass-pride rounded-2xl overflow-hidden">
-            <SocialFeed />
-          </div>
-        </ResponsiveWrapper>
+      <div className="flex-1 overflow-auto relative z-10 px-2 sm:px-4 md:px-6 pb-2">
+        <div className="glass-pride rounded-2xl overflow-hidden h-full max-w-7xl mx-auto">
+          <SocialFeed />
+        </div>
       </div>
-      <BottomNavigation />
     </div>
   );
 };
