@@ -7,11 +7,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Edit, MapPin, Camera, Star, Loader2, UserPlus, Heart, MessageCircle } from "lucide-react";
+import { Edit, MapPin, Camera, Star, Loader2, UserPlus } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import ProfileMenu from "@/components/ProfileMenu";
+import MessageButton from "@/components/MessageButton";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,11 +92,15 @@ const ProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState<EditableProfileForm>(EMPTY_FORM);
-  const [hasLiked, setHasLiked] = useState(false);
-  const [likeLoading, setLikeLoading] = useState(false);
-  const [matchConversationId, setMatchConversationId] = useState<string | null>(null);
 
   const isOwnProfile = !!user && !!profile && profile.id === user.id;
+  const [liked, setLiked] = useState(false);
+  const [matched, setMatched] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [likeError, setLikeError] = useState<string | null>(null);
+  const [matchConversationId, setMatchConversationId] = useState<string | null>(null);
+
+  const otherUserId = !isOwnProfile ? (profile?.id as string | undefined) : undefined;
 
   const displayName = useMemo(() => {
     return (
@@ -119,44 +124,50 @@ const ProfilePage: React.FC = () => {
   }, [profile, editing]);
 
   useEffect(() => {
-    const loadRelationshipState = async () => {
-      const otherId = profile?.user_id || profile?.id;
-      if (!user || !otherId || otherId === user.id) {
-        setHasLiked(false);
+    const run = async () => {
+      if (!user || !otherUserId) {
+        setLiked(false);
+        setMatched(false);
         setMatchConversationId(null);
         return;
       }
 
-      try {
-        const { data: likeRow, error: likeError } = await supabase
-          .from("likes")
-          .select("id")
-          .eq("liker_id", user.id)
-          .eq("liked_id", otherId)
-          .maybeSingle();
+      setLikeError(null);
 
-        if (likeError) throw likeError;
-        setHasLiked(!!likeRow);
+      // 1) Did I already like them?
+      const { data: likeRow, error: likeErr } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("liker_id", user.id)
+        .eq("liked_id", otherUserId)
+        .maybeSingle();
 
-        const a = user.id < otherId ? user.id : otherId;
-        const b = user.id < otherId ? otherId : user.id;
-
-        const { data: matchRow, error: matchError } = await supabase
-          .from("matches")
-          .select("id, conversation_id")
-          .eq("user1_id", a)
-          .eq("user2_id", b)
-          .maybeSingle();
-
-        if (matchError) throw matchError;
-        setMatchConversationId(matchRow?.conversation_id ?? null);
-      } catch (relationshipError) {
-        console.error("Failed to load like/match state:", relationshipError);
+      if (likeErr) {
+        console.warn("like lookup failed:", likeErr.message);
       }
+      setLiked(!!likeRow);
+
+      // 2) Are we matched?
+      // NOTE: this project stores matches as user1_id/user2_id.
+      const a = user.id < otherUserId ? user.id : otherUserId;
+      const b = user.id < otherUserId ? otherUserId : user.id;
+
+      const { data: matchRow, error: matchErr } = await supabase
+        .from("matches")
+        .select("id, conversation_id")
+        .eq("user1_id", a)
+        .eq("user2_id", b)
+        .maybeSingle();
+
+      if (matchErr) {
+        console.warn("match lookup failed:", matchErr.message);
+      }
+      setMatched(!!matchRow);
+      setMatchConversationId(matchRow?.conversation_id ?? null);
     };
 
-    void loadRelationshipState();
-  }, [user?.id, profile?.id, profile?.user_id]);
+    void run();
+  }, [user?.id, otherUserId]);
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -227,39 +238,72 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleLike = async () => {
-    const otherId = profile?.user_id || profile?.id;
-    if (!user || !otherId || otherId === user.id) return;
+    if (!user || !otherUserId) return;
 
     try {
       setLikeLoading(true);
+      setLikeError(null);
 
       const { error: likeError } = await supabase
         .from("likes")
         .insert({
           liker_id: user.id,
-          liked_id: otherId,
+          liked_id: otherUserId,
         });
 
       // If unique constraint already exists, treat as already liked.
       if (likeError && likeError.code !== "23505") throw likeError;
-      setHasLiked(true);
+      setLiked(true);
 
-      const a = user.id < otherId ? user.id : otherId;
-      const b = user.id < otherId ? otherId : user.id;
+      // Check whether they already liked me.
+      const { data: theirLike, error: theirLikeErr } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("liker_id", otherUserId)
+        .eq("liked_id", user.id)
+        .maybeSingle();
 
-      const { data: matchRow, error: matchError } = await supabase
+      if (theirLikeErr) {
+        console.warn("theirLike check failed:", theirLikeErr.message);
+      }
+
+      if (theirLike) {
+        // Keep canonical order in this project schema.
+        const a = user.id < otherUserId ? user.id : otherUserId;
+        const b = user.id < otherUserId ? otherUserId : user.id;
+
+        const { error: matchCreateErr } = await supabase
+          .from("matches")
+          .insert({
+            user1_id: a,
+            user2_id: b,
+          });
+
+        // Unique conflict means match already exists, which is okay.
+        if (matchCreateErr && matchCreateErr.code !== "23505") {
+          console.warn("match create failed:", matchCreateErr.message);
+        }
+      }
+
+      // Load match after like to capture conversation_id if present.
+      const a = user.id < otherUserId ? user.id : otherUserId;
+      const b = user.id < otherUserId ? otherUserId : user.id;
+
+      const { data: matchRow, error: matchLookupErr } = await supabase
         .from("matches")
         .select("id, conversation_id")
         .eq("user1_id", a)
         .eq("user2_id", b)
         .maybeSingle();
 
-      if (matchError) throw matchError;
+      if (matchLookupErr) {
+        console.warn("match lookup failed:", matchLookupErr.message);
+      }
 
-      const nextConversationId = matchRow?.conversation_id ?? null;
-      setMatchConversationId(nextConversationId);
+      setMatched(!!matchRow);
+      setMatchConversationId(matchRow?.conversation_id ?? null);
 
-      if (nextConversationId) {
+      if (matchRow) {
         toast({
           title: "It's a match 💜",
           description: "You can message them now.",
@@ -272,6 +316,7 @@ const ProfilePage: React.FC = () => {
       }
     } catch (likeSubmitError: any) {
       console.error("Error liking profile:", likeSubmitError);
+      setLikeError(likeSubmitError?.message || "Please try again.");
       toast({
         title: "Could not like profile",
         description: likeSubmitError?.message || "Please try again.",
@@ -577,27 +622,43 @@ const ProfilePage: React.FC = () => {
               </Button>
             </>
           ) : (
-            <>
-              <Button
-                className="w-full"
-                onClick={() => void handleLike()}
-                disabled={likeLoading || hasLiked}
-              >
-                <Heart className="w-4 h-4 mr-2" />
-                {likeLoading ? "Liking..." : hasLiked ? "Liked" : "Like"}
-              </Button>
+            <div className="space-y-3">
+              {matched ? (
+                <>
+                  <div className="text-sm text-white/80 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                    Matched 💜 You can message each other.
+                  </div>
 
-              {matchConversationId ? (
-                <Button
-                  variant="outline"
-                  className="w-full border-white/20 text-white hover:bg-white/10"
-                  onClick={() => navigate(`/chat?c=${matchConversationId}`)}
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Message
-                </Button>
-              ) : null}
-            </>
+                  <MessageButton
+                    userId={profile.id}
+                    userName={displayName}
+                    className="w-full"
+                  />
+                </>
+              ) : (
+                <>
+                  <Button
+                    className="w-full bg-pink-500 hover:bg-pink-600"
+                    onClick={handleLike}
+                    disabled={likeLoading || liked}
+                  >
+                    {likeLoading ? "Liking…" : liked ? "Liked 💜" : "Like this person 💜"}
+                  </Button>
+
+                  <MessageButton
+                    userId={profile.id}
+                    userName={displayName}
+                    className="w-full"
+                  />
+
+                  {likeError && (
+                    <div className="text-sm text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2">
+                      {likeError}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
