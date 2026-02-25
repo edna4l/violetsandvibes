@@ -94,9 +94,6 @@ const SignInPage: React.FC = () => {
             <h1 className="text-5xl font-bold mb-4 rainbow-header wedding-title">
               Unleash Your Spirit with Violets and Vibes – Your Premier Online Lesbian Dating and Social Hub!
             </h1>
-            <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-              Are you ready to connect with extraordinary individuals who share your passion for life and love? Join our dynamic community, where LGBT, LGBTQ+, and LGBTQIA+ advocates come together to forge meaningful relationships. At Violets and Vibes, we don't just celebrate diverse identities; we empower each other to thrive in a supportive and uplifting environment.<br/><br/>Don't miss your chance to be part of a network that values connection, friendship, and love. Together, let's create lasting bonds and a vibrant space where everyone can flourish! Join us today and start your journey towards building the relationships you deserve.
-            </p>
             
             {/* Feature Icons */}
             <div className="flex justify-center space-x-8 mb-12">

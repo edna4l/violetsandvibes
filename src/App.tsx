@@ -26,6 +26,7 @@ import ProfileCreationFlow from "@/components/ProfileCreationFlow";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SettingsPage from "./pages/SettingsPage";
+import LandingPreviewPage from "./pages/LandingPreviewPage";
 
 const queryClient = new QueryClient();
 
@@ -38,8 +39,9 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/signin" element={<SignInPage />} />
+            <Route path="/landing-preview" element={<LandingPreviewPage />} />
             <Route path="/" element={<GlobalLayout><Index /></GlobalLayout>} />
-            <Route path="/heroes" element={<GlobalLayout><HeroesPage /></GlobalLayout>} />
+            <Route path="/heroes" element={<HeroesPage />} />
             <Route
               path="/matches"
               element={
