@@ -18,6 +18,10 @@ type MatchingPreferences = {
   hideAlreadySeen: boolean;
 };
 
+type ViewerSafetyPreferences = {
+  requireVerification: boolean;
+};
+
 const DEFAULT_MATCHING_PREFERENCES: MatchingPreferences = {
   showMeOnPride: true,
   prioritizeVerified: false,
@@ -64,6 +68,28 @@ async function loadMyMatchingPreferences(myId: string): Promise<MatchingPreferen
   };
 }
 
+async function loadMySafetyPreferences(myId: string): Promise<ViewerSafetyPreferences> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("safety_settings")
+    .eq("id", myId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Could not load safety preferences. Falling back to defaults.", error.message);
+    return { requireVerification: false };
+  }
+
+  const safety =
+    data?.safety_settings && typeof data.safety_settings === "object"
+      ? (data.safety_settings as Record<string, any>)
+      : {};
+
+  return {
+    requireVerification: safety.requireVerification === true,
+  };
+}
+
 async function loadSeenIds(myId: string): Promise<Set<string>> {
   const seenIds = new Set<string>();
 
@@ -97,6 +123,7 @@ async function loadSeenIds(myId: string): Promise<Set<string>> {
 
 export async function fetchDiscoverProfiles(myId: string) {
   const matchingPrefs = await loadMyMatchingPreferences(myId);
+  const safetyPrefs = await loadMySafetyPreferences(myId);
 
   const { data, error } = await supabase
     .from("profiles")
@@ -114,10 +141,20 @@ export async function fetchDiscoverProfiles(myId: string) {
 
   // Respect each user's discoverability toggle. Missing setting defaults to visible.
   rows = rows.filter((row) => {
+    const privacy = row.privacy_settings && typeof row.privacy_settings === "object"
+      ? (row.privacy_settings as Record<string, any>)
+      : {};
     const matching = row.privacy_settings?.matching;
-    if (!matching || typeof matching !== "object") return true;
-    return matching.showMeOnPride !== false;
+    if (privacy.profileDiscoverable === false) return false;
+    if (privacy.hideFromSearch === true) return false;
+    if (privacy.incognitoMode === true) return false;
+    if (matching && typeof matching === "object" && matching.showMeOnPride === false) return false;
+    return true;
   });
+
+  if (safetyPrefs.requireVerification) {
+    rows = rows.filter((row) => row.safety_settings?.photoVerification === true);
+  }
 
   if (matchingPrefs.hideAlreadySeen) {
     const seenIds = await loadSeenIds(myId);
@@ -140,10 +177,10 @@ export async function fetchDiscoverProfiles(myId: string) {
     id: row.id,
     full_name: row.full_name,
     bio: row.bio,
-    location: row.location,
+    location: row.privacy_settings?.showDistance === false ? null : row.location,
     photos: row.photos,
     profile_completed: row.profile_completed,
-    birthdate: (row as any).birthdate ?? null,
+    birthdate: row.privacy_settings?.showAge === false ? null : (row as any).birthdate ?? null,
     interests: (row as any).interests ?? [],
     gender_identity: (row as any).gender_identity ?? null,
   })) as ProfileRow[];

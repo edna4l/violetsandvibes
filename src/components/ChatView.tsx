@@ -96,6 +96,7 @@ const ChatView: React.FC = () => {
   const [newDividerSeen, setNewDividerSeen] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherOnline, setOtherOnline] = useState(false);
+  const [showOnlineEnabled, setShowOnlineEnabled] = useState(true);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -469,6 +470,44 @@ const ChatView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPrivacy = async () => {
+      if (!user?.id) {
+        setShowOnlineEnabled(true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("privacy_settings")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        const privacy =
+          data?.privacy_settings && typeof data.privacy_settings === "object"
+            ? (data.privacy_settings as Record<string, any>)
+            : {};
+
+        setShowOnlineEnabled(privacy.showOnline !== false);
+      } catch (error) {
+        console.warn("Could not load showOnline preference for chat presence:", error);
+        if (!cancelled) setShowOnlineEnabled(true);
+      }
+    };
+
+    void loadPrivacy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Load thread when activeConversationId changes
   useEffect(() => {
     setNewDividerSeen(false);
@@ -526,7 +565,7 @@ const ChatView: React.FC = () => {
     });
 
     channel.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
+      if (status === "SUBSCRIBED" && showOnlineEnabled) {
         await channel.track({ user_id: user.id, online_at: new Date().toISOString() });
       }
     });
@@ -535,7 +574,7 @@ const ChatView: React.FC = () => {
       setOtherOnline(false);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, activeConversationId]);
+  }, [user?.id, activeConversationId, showOnlineEnabled]);
 
   useEffect(() => {
     if (!user || !activeConversationId) {

@@ -105,6 +105,24 @@ const APP_PREFERENCE_ITEMS: Array<{ key: keyof SettingsState['app']; label: stri
   { key: 'soundEffects', label: 'Sound Effects' },
 ];
 
+const PRIVACY_ITEMS: Array<{ key: keyof SettingsState['privacy']; label: string; description: string }> = [
+  { key: 'showOnline', label: 'Show Online', description: 'Controls whether others can see you online in chat presence.' },
+  { key: 'showDistance', label: 'Show Distance', description: 'Controls whether your location/distance is shown on discovery cards.' },
+  { key: 'showAge', label: 'Show Age', description: 'Controls whether your age is shown on discovery cards.' },
+  { key: 'profileDiscoverable', label: 'Profile Discoverable', description: 'If off, your profile is hidden from discovery.' },
+  { key: 'showReadReceipts', label: 'Show Read Receipts', description: 'Saved setting for chat read receipt behavior.' },
+  { key: 'incognitoMode', label: 'Incognito Mode', description: 'Hides your profile from discovery while enabled.' },
+  { key: 'hideFromSearch', label: 'Hide From Search', description: 'Removes your profile from discovery/search lists.' },
+];
+
+const SAFETY_ITEMS: Array<{ key: keyof SettingsState['safety']; label: string; description: string }> = [
+  { key: 'photoVerification', label: 'Photo Verification', description: 'Marks your profile as photo-verified for matching priority filters.' },
+  { key: 'twoFactor', label: 'Two Factor', description: 'Saved security preference for account hardening.' },
+  { key: 'blockScreenshots', label: 'Block Screenshots', description: 'Saved preference. Enforcement depends on platform support.' },
+  { key: 'requireVerification', label: 'Require Verification', description: 'Only show photo-verified profiles in discovery.' },
+  { key: 'autoBlockSuspicious', label: 'Auto Block Suspicious', description: 'Saved moderation preference for future enforcement hooks.' },
+];
+
 const createDefaultSettings = (): SettingsState => ({
   notifications: { ...DEFAULT_SETTINGS.notifications },
   privacy: { ...DEFAULT_SETTINGS.privacy },
@@ -427,12 +445,15 @@ const SettingsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(settings.privacy).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center">
-                    <span>{formatSettingName(key)}</span>
+                {PRIVACY_ITEMS.map(({ key, label, description }) => (
+                  <div key={key} className="flex justify-between items-start gap-4">
+                    <div className="space-y-1">
+                      <div>{label}</div>
+                      <div className="text-xs text-gray-600">{description}</div>
+                    </div>
                     <Switch 
-                      checked={value}
-                      onCheckedChange={(checked) => updatePrivacySetting(key as keyof SettingsState['privacy'], checked)}
+                      checked={settings.privacy[key]}
+                      onCheckedChange={(checked) => updatePrivacySetting(key, checked)}
                       disabled={loadingGeneral}
                     />
                   </div>
@@ -449,12 +470,15 @@ const SettingsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(settings.safety).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center">
-                    <span>{formatSettingName(key)}</span>
+                {SAFETY_ITEMS.map(({ key, label, description }) => (
+                  <div key={key} className="flex justify-between items-start gap-4">
+                    <div className="space-y-1">
+                      <div>{label}</div>
+                      <div className="text-xs text-gray-600">{description}</div>
+                    </div>
                     <Switch 
-                      checked={value}
-                      onCheckedChange={(checked) => updateSafetySetting(key as keyof SettingsState['safety'], checked)}
+                      checked={settings.safety[key]}
+                      onCheckedChange={(checked) => updateSafetySetting(key, checked)}
                       disabled={loadingGeneral}
                     />
                   </div>

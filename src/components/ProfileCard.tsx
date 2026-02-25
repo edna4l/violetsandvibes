@@ -7,7 +7,7 @@ interface Profile {
   age?: number | null;
   bio: string;
   photos: string[];
-  location: string;
+  location?: string;
   interests?: string[];
   pronouns?: string;
   identity?: 'lesbian' | 'bisexual' | 'pansexual' | 'transgender' | 'rainbow';
@@ -69,10 +69,12 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             {profile.name}
             {typeof profile.age === 'number' && profile.age > 0 ? `, ${profile.age}` : ''}
           </h2>
-          <div className="flex items-center text-sm opacity-90 mb-2 hover:opacity-100 transition-opacity duration-300">
-            <MapPin className="w-4 h-4 mr-1" />
-            {profile.location}
-          </div>
+          {profile.location ? (
+            <div className="flex items-center text-sm opacity-90 mb-2 hover:opacity-100 transition-opacity duration-300">
+              <MapPin className="w-4 h-4 mr-1" />
+              {profile.location}
+            </div>
+          ) : null}
           {profile.pronouns ? (
             <div className="text-sm glass-pride px-3 py-1 rounded-full inline-block hover:scale-110 transition-transform duration-300 border border-white/30">
               {profile.pronouns}
