@@ -84,12 +84,6 @@ function derivePostTitle(body: string) {
   );
 }
 
-function collapsedPreview(body: string, max = 220) {
-  const text = `${body ?? ""}`;
-  if (text.length <= max) return text;
-  return `${text.slice(0, max).trimEnd()}…`;
-}
-
 const SocialFeed: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -970,11 +964,13 @@ const SocialFeed: React.FC = () => {
       )
     );
     setExpandedBodyByPostId((prev) => {
-      if (nextCollapsed) return prev;
       const next = { ...prev };
       delete next[postId];
       return next;
     });
+    if (nextCollapsed && expandedPostIdRef.current === postId) {
+      setExpandedPostId(null);
+    }
 
     try {
       const { error: updateError } = await supabase
@@ -1344,7 +1340,8 @@ const SocialFeed: React.FC = () => {
               const isBodyExpanded = !!expandedBodyByPostId[post.id];
               const isEditingPost = editingPostId === post.id;
               const postActionLoading = !!postActionLoadingById[post.id];
-              const shouldShowCollapsedBody = isCollapsed && !isBodyExpanded && !isEditingPost;
+              const isCollapsedCardView =
+                isCollapsed && !isBodyExpanded && !isEditingPost;
 
               return (
                 <Card
@@ -1354,16 +1351,24 @@ const SocialFeed: React.FC = () => {
                     post._optimistic ? "opacity-70" : ""
                   } ${highlightPostId === post.id ? "ring-2 ring-pink-300 vv-pulse-highlight" : ""}`}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader className={isCollapsedCardView ? "p-3 pb-1" : "p-4 pb-2"}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <div
+                          className={`bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center ${
+                            isCollapsedCardView ? "w-8 h-8" : "w-10 h-10"
+                          }`}
+                        >
                           <span className="text-white font-semibold">{(post.authorName || "M")[0]}</span>
                         </div>
                         <div>
-                          <p className="font-semibold text-white">{post.authorName}</p>
-                          <p className="text-sm text-white/70">{timeAgo(post.created_at)}</p>
-                          {post.edited_at ? (
+                          <p className={`${isCollapsedCardView ? "text-sm" : ""} font-semibold text-white`}>
+                            {post.authorName}
+                          </p>
+                          <p className={`${isCollapsedCardView ? "text-xs" : "text-sm"} text-white/70`}>
+                            {timeAgo(post.created_at)}
+                          </p>
+                          {post.edited_at && !isCollapsedCardView ? (
                             <p className="text-xs text-white/50">edited {timeAgo(post.edited_at)}</p>
                           ) : null}
                         </div>
@@ -1376,7 +1381,7 @@ const SocialFeed: React.FC = () => {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
+                  <CardContent className={isCollapsedCardView ? "px-3 pb-3 pt-1" : "p-4 pt-0"}>
                     {isEditingPost ? (
                       <div className="mb-3 space-y-2">
                         <Textarea
@@ -1410,19 +1415,25 @@ const SocialFeed: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        <p className="text-white/90 mb-3 whitespace-pre-wrap">
-                          {shouldShowCollapsedBody
-                            ? collapsedPreview(post.body)
-                            : post.body}
-                        </p>
+                        {!isCollapsedCardView ? (
+                          <p className="text-white/90 mb-3 whitespace-pre-wrap">
+                            {post.body}
+                          </p>
+                        ) : null}
 
                         {isCollapsed && (
-                          <div className="mb-3 flex flex-wrap items-center gap-2">
-                            <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/75">
-                              {isManuallyCollapsed
-                                ? "Collapsed by author"
-                                : "Auto-collapsed after 24h"}
-                            </span>
+                          <div className={`${isCollapsedCardView ? "mb-1" : "mb-3"} flex flex-wrap items-center gap-2`}>
+                            {!isCollapsedCardView ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/75">
+                                {isManuallyCollapsed
+                                  ? "Collapsed by author"
+                                  : "Auto-collapsed after 24h"}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-white/65">
+                                {isManuallyCollapsed ? "Collapsed" : "Auto-collapsed"}
+                              </span>
+                            )}
                             <button
                               type="button"
                               className="text-xs text-pink-200 hover:text-pink-100 underline"
@@ -1440,7 +1451,7 @@ const SocialFeed: React.FC = () => {
                       </>
                     )}
 
-                    <div className="flex space-x-4 text-sm text-white/80">
+                    <div className={`flex ${isCollapsedCardView ? "space-x-3 text-xs" : "space-x-4 text-sm"} text-white/80`}>
                       <button
                         disabled={post._optimistic || isEditingPost}
                         className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -1456,6 +1467,12 @@ const SocialFeed: React.FC = () => {
                         className="hover:text-pink-300"
                         type="button"
                         onClick={() => {
+                          if (isCollapsedCardView) {
+                            setExpandedBodyByPostId((prev) => ({
+                              ...prev,
+                              [post.id]: true,
+                            }));
+                          }
                           const nextPostId = expandedPostId === post.id ? null : post.id;
                           setExpandedPostId(nextPostId);
 
@@ -1469,7 +1486,7 @@ const SocialFeed: React.FC = () => {
                     </div>
 
                     {isOwnPost && !post._optimistic && !isEditingPost && (
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                      <div className={`${isCollapsedCardView ? "mt-1 gap-2" : "mt-2 gap-3"} flex flex-wrap items-center text-xs`}>
                         <button
                           type="button"
                           className="text-white/80 hover:text-white disabled:opacity-50"
@@ -1499,7 +1516,7 @@ const SocialFeed: React.FC = () => {
                       </div>
                     )}
 
-                    {expandedPostId === post.id && (
+                    {expandedPostId === post.id && !isCollapsedCardView && (
                       <div className="mt-4 border-t border-white/20 pt-3 space-y-3">
                       {/* Existing Comments */}
                       {commentsLoadingByPost[post.id] ? (
