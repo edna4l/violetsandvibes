@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchDiscoverProfiles, type ProfileRow } from "@/lib/profiles";
 import { DiscoverProfileCard } from "@/components/DiscoverProfileCard";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import BrandPrideCard from "@/components/BrandPrideCard";
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -37,7 +40,24 @@ const Index: React.FC = () => {
   return (
     <div className="page-calm min-h-screen p-4">
       <div className="max-w-4xl mx-auto relative z-10">
-        <h1 className="text-white text-2xl font-semibold mb-4">Discover</h1>
+        <BrandPrideCard
+          title="Discover"
+          subtitle="Find your people and feel the vibe"
+          points={["Women-centered", "Inclusive", "Safety-first"]}
+          description="Meet people who value real connection and community."
+          className="mb-5"
+          cta={
+            user ? (
+              <Button asChild className="btn-pride-celebrate">
+                <Link to="/social">Go to Social</Link>
+              </Button>
+            ) : (
+              <Button asChild className="btn-pride-celebrate">
+                <Link to="/signin">Sign In to Start</Link>
+              </Button>
+            )
+          }
+        />
 
         {loading ? (
           <div className="text-white/70 relative z-10">Loading profiles...</div>
