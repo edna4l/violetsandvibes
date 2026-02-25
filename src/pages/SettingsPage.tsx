@@ -257,16 +257,19 @@ const SettingsPage: React.FC = () => {
           ...settings.safety,
         };
 
-        const { error } = await supabase
+        const { data: updatedRow, error } = await supabase
           .from('profiles')
-          .upsert({
-            id: user.id,
+          .update({
             privacy_settings: privacyPayload,
             safety_settings: safetyPayload,
             updated_at: new Date().toISOString(),
-          });
+          })
+          .eq('id', user.id)
+          .select('id')
+          .maybeSingle();
 
         if (error) throw error;
+        if (!updatedRow) throw new Error('Profile record not found');
 
         basePrivacyRef.current = privacyPayload;
         baseSafetyRef.current = safetyPayload;

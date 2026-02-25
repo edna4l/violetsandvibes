@@ -111,14 +111,17 @@ export async function saveDiscoverFilters(userId: string, filters: DiscoverFilte
     discoverFilters: normalized,
   };
 
-  const { error } = await supabase
+  const { data: updatedRow, error } = await supabase
     .from("profiles")
-    .upsert({
-      id: userId,
+    .update({
       privacy_settings: nextPrivacy,
       updated_at: new Date().toISOString(),
-    });
+    })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
 
   if (error) throw error;
+  if (!updatedRow) throw new Error("Profile record not found");
   return normalized;
 }
