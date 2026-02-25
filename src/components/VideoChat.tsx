@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Camera, Settings } from 'lucide-react';
+import { APP_PREFERENCES_EVENT, getAutoPlayVideosEnabled } from '@/lib/appPreferences';
 
 interface VideoChatProps {
   matchName?: string;
@@ -13,6 +14,7 @@ const VideoChat: React.FC<VideoChatProps> = ({ matchName = "Alex", onEndCall }) 
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [autoPlayVideos, setAutoPlayVideos] = useState<boolean>(() => getAutoPlayVideosEnabled());
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -25,6 +27,18 @@ const VideoChat: React.FC<VideoChatProps> = ({ matchName = "Alex", onEndCall }) 
     }
     return () => clearInterval(interval);
   }, [isCallActive]);
+
+  useEffect(() => {
+    const syncAutoPlayPreference = () => {
+      setAutoPlayVideos(getAutoPlayVideosEnabled());
+    };
+
+    syncAutoPlayPreference();
+    window.addEventListener(APP_PREFERENCES_EVENT, syncAutoPlayPreference as EventListener);
+    return () => {
+      window.removeEventListener(APP_PREFERENCES_EVENT, syncAutoPlayPreference as EventListener);
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -76,7 +90,7 @@ const VideoChat: React.FC<VideoChatProps> = ({ matchName = "Alex", onEndCall }) 
         <video
           ref={remoteVideoRef}
           className="w-full h-full object-cover"
-          autoPlay
+          autoPlay={autoPlayVideos}
           playsInline
         />
         <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center">
@@ -94,7 +108,7 @@ const VideoChat: React.FC<VideoChatProps> = ({ matchName = "Alex", onEndCall }) 
         <video
           ref={localVideoRef}
           className="w-full h-full object-cover"
-          autoPlay
+          autoPlay={autoPlayVideos}
           playsInline
           muted
         />

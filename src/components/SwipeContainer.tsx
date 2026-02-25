@@ -1,88 +1,160 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import ProfileCard from './ProfileCard';
 import { useSwipeLimit } from '@/hooks/useSwipeLimit';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-interface Profile {
+import { useAuth } from '@/hooks/useAuth';
+import { fetchDiscoverProfiles, type ProfileRow } from '@/lib/profiles';
+import { supabase } from '@/lib/supabase';
+
+interface SwipeProfile {
   id: string;
   name: string;
-  age: number;
+  age?: number | null;
   bio: string;
   photos: string[];
   location: string;
-  interests: string[];
-  pronouns: string;
+  interests?: string[];
+  pronouns?: string;
   identity?: 'lesbian' | 'bisexual' | 'pansexual' | 'transgender' | 'rainbow';
 }
 
-// Mock data with identity information
-const mockProfiles: Profile[] = [
-  {
-    id: '1',
-    name: 'Alex',
-    age: 28,
-    bio: 'Artist and coffee enthusiast. Love hiking and finding hidden gems in the city. Looking for someone to share adventures with! 🌈✨',
-    photos: ['/api/placeholder/400/600'],
-    location: 'Brooklyn, NY',
-    interests: ['Art', 'Coffee', 'Hiking', 'Photography', 'Music', 'Travel'],
-    pronouns: 'she/her',
-    identity: 'lesbian'
-  },
-  {
-    id: '2', 
-    name: 'Sam',
-    age: 25,
-    bio: 'Bookworm by day, DJ by night. Always down for deep conversations or dancing until sunrise. Feminist and proud! 💜',
-    photos: ['/api/placeholder/400/600'],
-    location: 'Manhattan, NY',
-    interests: ['Reading', 'Music', 'Dancing', 'Activism', 'Cooking', 'Yoga'],
-    pronouns: 'they/them',
-    identity: 'bisexual'
-  },
-  {
-    id: '3',
-    name: 'Riley',
-    age: 30,
-    bio: 'Software engineer who loves rock climbing and indie films. Seeking genuine connections and meaningful conversations. 🏳️‍🌈',
-    photos: ['/api/placeholder/400/600'],
-    location: 'Queens, NY',
-    interests: ['Tech', 'Climbing', 'Films', 'Gaming', 'Fitness', 'Cats'],
-    pronouns: 'she/they',
-    identity: 'pansexual'
-  }
-];
+const calculateAge = (birthdate?: string | null) => {
+  if (!birthdate) return null;
+  const d = new Date(birthdate);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+};
+
+const detectIdentity = (profile: ProfileRow): SwipeProfile['identity'] => {
+  const identityText = [profile.gender_identity, ...(profile.interests || [])]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (identityText.includes('lesbian')) return 'lesbian';
+  if (identityText.includes('bisexual') || identityText.includes('bi ')) return 'bisexual';
+  if (identityText.includes('pansexual') || identityText.includes('pan ')) return 'pansexual';
+  if (identityText.includes('trans')) return 'transgender';
+  return 'rainbow';
+};
+
+const mapToSwipeProfile = (profile: ProfileRow): SwipeProfile => ({
+  id: profile.id,
+  name: profile.full_name?.trim() || 'Member',
+  age: calculateAge(profile.birthdate),
+  bio: profile.bio?.trim() || 'Looking to meet kind, aligned people in community.',
+  photos: profile.photos && profile.photos.length > 0 ? profile.photos : ['/api/placeholder/400/600'],
+  location: profile.location?.trim() || 'Location not shared',
+  interests: profile.interests || [],
+  pronouns: profile.gender_identity || undefined,
+  identity: detectIdentity(profile),
+});
 
 const SwipeContainer: React.FC = () => {
-  const [profiles, setProfiles] = useState(mockProfiles);
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState<SwipeProfile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submittingLike, setSubmittingLike] = useState(false);
   const { isLimitReached, remainingSwipes, incrementSwipe, isUnlimited } = useSwipeLimit();
+
+  useEffect(() => {
+    const run = async () => {
+      if (!user?.id) {
+        setProfiles([]);
+        setCurrentIndex(0);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const rows = await fetchDiscoverProfiles(user.id);
+        setProfiles(rows.map(mapToSwipeProfile));
+        setCurrentIndex(0);
+      } catch (loadError: any) {
+        console.error('Failed to load swipe profiles:', loadError);
+        setError(loadError?.message || 'Could not load profiles');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
+  }, [user?.id]);
+
+  const advance = () => {
+    setCurrentIndex((prev) => prev + 1);
+  };
+
   const handleSwipeLeft = () => {
     if (isLimitReached) return;
     if (!incrementSwipe()) return;
-    
-    if (currentIndex < profiles.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setProfiles([]);
-    }
+
+    advance();
   };
 
-  const handleSwipeRight = () => {
+  const handleSwipeRight = async () => {
     if (isLimitReached) return;
     if (!incrementSwipe()) return;
-    
-    console.log('Matched with:', profiles[currentIndex]?.name);
-    if (currentIndex < profiles.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setProfiles([]);
+
+    const currentProfile = profiles[currentIndex];
+    if (!user?.id || !currentProfile?.id) {
+      advance();
+      return;
+    }
+
+    setSubmittingLike(true);
+    try {
+      const { error: likeError } = await supabase.from('likes').insert({
+        liker_id: user.id,
+        liked_id: currentProfile.id,
+      });
+
+      // unique violation means this user was already liked before.
+      if (likeError && likeError.code !== '23505') throw likeError;
+    } catch (likeError: any) {
+      console.error('Failed to like profile during swipe:', likeError);
+    } finally {
+      setSubmittingLike(false);
+      advance();
     }
   };
 
   const currentProfile = profiles[currentIndex];
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center glass-pride-strong p-8 m-4 rounded-xl">
+        <div className="text-center p-8">
+          <h2 className="text-2xl font-bold text-white mb-2">Loading profiles...</h2>
+          <p className="text-white/80">Getting people you have not seen yet.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center glass-pride-strong p-8 m-4 rounded-xl">
+        <div className="text-center p-8 max-w-md">
+          <h2 className="text-2xl font-bold text-white mb-2">Could not load profiles</h2>
+          <p className="text-white/80 mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()} className="btn-pride">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Show limit reached message
   if (isLimitReached && !isUnlimited) {
@@ -135,12 +207,8 @@ const SwipeContainer: React.FC = () => {
       
       <ProfileCard
         profile={currentProfile}
-        onSwipeLeft={handleSwipeLeft}
-        onSwipeRight={handleSwipeRight}
-        style={{
-          transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.1}deg)`,
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-        }}
+        onSwipeLeft={submittingLike ? () => {} : handleSwipeLeft}
+        onSwipeRight={submittingLike ? () => {} : (() => { void handleSwipeRight(); })}
       />
     </div>
   );
