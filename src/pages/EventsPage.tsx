@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
-import { BottomNavigation } from '@/components/BottomNavigation';
 
 const EventsPage: React.FC = () => {
   return (
@@ -18,7 +17,7 @@ const EventsPage: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden relative z-10 pb-20">
+      <div className="flex-1 overflow-hidden relative z-10">
         <ResponsiveWrapper maxWidth="2xl" className="h-full">
           <div className="glass-pride rounded-2xl overflow-hidden">
             <div className="p-3 border-b border-white/15 flex justify-end">
@@ -34,9 +33,6 @@ const EventsPage: React.FC = () => {
           </div>
         </ResponsiveWrapper>
       </div>
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </div>
   );
 };
