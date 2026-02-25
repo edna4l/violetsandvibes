@@ -122,15 +122,20 @@ const UserVerification: React.FC = () => {
     // Explicit approved flag should only be true after full approval workflow.
     nextSafety.photoVerification = computed.fullyApproved;
 
-    const { error } = await supabase
+    const { data: updatedRow, error } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
+      .update({
         safety_settings: nextSafety,
         updated_at: now,
-      });
+      })
+      .eq('id', user.id)
+      .select('id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (!updatedRow) {
+      throw new Error('Profile record not found. Please complete your profile first.');
+    }
 
     setExistingSafetySettings(nextSafety);
     if (type === 'photo') setPhotoStatus(nextStatus);
