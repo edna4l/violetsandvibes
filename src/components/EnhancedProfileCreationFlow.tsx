@@ -35,6 +35,13 @@ function isMissingFullNameColumnError(error: unknown): boolean {
   return message.includes("Could not find the 'full_name' column") || message.includes('Could not find the "full_name" column');
 }
 
+function persistedPhotoUrls(photos: string[] | undefined | null) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .map((p) => `${p ?? ''}`.trim())
+    .filter((p) => !!p && !p.startsWith('blob:') && !p.startsWith('data:'));
+}
+
 const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = ({ 
   onComplete, 
   onCancel,
@@ -138,9 +145,11 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
     
     setAutoSaving(true);
     try {
+      const mergedPhotos = persistedPhotoUrls((updates as any)?.photos ?? (profile as any).photos);
       const profileData = {
         ...profile,
         ...updates,
+        photos: mergedPhotos,
         updated_at: new Date().toISOString()
       };
       
@@ -164,7 +173,7 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
       case 2:
         return profile.interests.length > 0;
       case 4:
-        return profile.photos.length > 0;
+        return persistedPhotoUrls((profile as any).photos).length > 0;
       default:
         return true;
     }
@@ -178,6 +187,7 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
       const age = parseInt(profile.age);
       const birthdate = new Date();
       birthdate.setFullYear(birthdate.getFullYear() - age);
+      const photos = persistedPhotoUrls((profile as any).photos);
 
       const profileData = {
         id: user.id,
@@ -190,7 +200,7 @@ const EnhancedProfileCreationFlow: React.FC<EnhancedProfileCreationFlowProps> = 
         gender_identity: profile.genderIdentity,
         sexual_orientation: profile.sexualOrientation,
         interests: profile.interests,
-        photos: profile.photos,
+        photos,
         lifestyle_interests: profile.lifestyle || {},
         privacy_settings: profile.privacy,
         safety_settings: profile.safety || {},

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Camera } from 'lucide-react';
-import { AlternativePhotoUpload } from './AlternativePhotoUpload';
+import { MultiPhotoUpload } from './MultiPhotoUpload';
 
 interface PhotosStepProps {
   profile: any;
@@ -19,7 +19,7 @@ const PhotosStep: React.FC<PhotosStepProps> = ({ profile, onUpdate }) => {
         <p className="text-white/70">Add photos that show your personality</p>
       </div>
 
-      <AlternativePhotoUpload 
+      <MultiPhotoUpload
         photos={profile.photos || []}
         onPhotosChange={handlePhotosChange}
         maxPhotos={6}
@@ -35,7 +35,7 @@ const PhotosStep: React.FC<PhotosStepProps> = ({ profile, onUpdate }) => {
           <li>• Clear face photos get 3x more matches</li>
           <li>• Show your personality and interests</li>
           <li>• No inappropriate or offensive content</li>
-          <li>• Photos will be previewed locally until saved</li>
+          <li>• Photos are uploaded and saved to your profile</li>
         </ul>
       </div>
     </div>
