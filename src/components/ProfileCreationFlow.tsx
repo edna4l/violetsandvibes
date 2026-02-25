@@ -32,6 +32,7 @@ type ProfileDraft = {
   genderIdentity: string;
   sexualOrientation: string;
   showPronouns: boolean;
+  pridePins: string[];
   interests: string[];
   photos: string[];
   lifestyle: Record<string, any>;
@@ -111,6 +112,7 @@ const ProfileCreationFlow: React.FC = () => {
     genderIdentity: "",
     sexualOrientation: "",
     showPronouns: false,
+    pridePins: [],
     interests: [],
     photos: [],
     lifestyle: {},
@@ -243,6 +245,10 @@ const ProfileCreationFlow: React.FC = () => {
     try {
       const birthdateISO = computeBirthdateISO(profile.age);
       const photos = persistedPhotoUrls(profile.photos);
+      const lifestyleInterests = {
+        ...(profile.lifestyle || {}),
+        pride_pins: Array.isArray(profile.pridePins) ? profile.pridePins : [],
+      };
 
       const profileData = {
         id: user.id,
@@ -256,7 +262,7 @@ const ProfileCreationFlow: React.FC = () => {
         sexual_orientation: profile.sexualOrientation || null,
         interests: profile.interests || [],
         photos,
-        lifestyle_interests: profile.lifestyle || {},
+        lifestyle_interests: lifestyleInterests,
         privacy_settings: profile.privacy || {},
         safety_settings: profile.safety || {},
         profile_completed: true,
@@ -300,6 +306,10 @@ const ProfileCreationFlow: React.FC = () => {
     try {
       const birthdateISO = computeBirthdateISO(profile.age);
       const photos = persistedPhotoUrls(profile.photos);
+      const lifestyleInterests = {
+        ...(profile.lifestyle || {}),
+        pride_pins: Array.isArray(profile.pridePins) ? profile.pridePins : [],
+      };
 
       const profileData = {
         id: user.id,
@@ -313,7 +323,7 @@ const ProfileCreationFlow: React.FC = () => {
         sexual_orientation: profile.sexualOrientation || null,
         interests: profile.interests || [],
         photos,
-        lifestyle_interests: profile.lifestyle || {},
+        lifestyle_interests: lifestyleInterests,
         privacy_settings: profile.privacy || {},
         safety_settings: profile.safety || {},
         profile_completed: false,

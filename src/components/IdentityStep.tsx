@@ -21,6 +21,39 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
     { name: 'Asexual', color: 'bg-gradient-to-r from-gray-700 to-purple-400' },
     { name: 'Genderfluid', color: 'bg-gradient-to-r from-pink-300 to-blue-300' }
   ];
+  const selectedPridePins: string[] = Array.isArray(profile.pridePins) ? profile.pridePins : [];
+
+  const togglePridePin = (pinName: string) => {
+    const nextPins = selectedPridePins.includes(pinName)
+      ? selectedPridePins.filter((name) => name !== pinName)
+      : [...selectedPridePins, pinName];
+
+    onUpdate({ pridePins: nextPins });
+  };
+
+  const addCustomGenderIdentity = () => {
+    const value = window.prompt('Enter your custom gender identity:');
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+    onUpdate({ genderIdentity: trimmed });
+  };
+
+  const addCustomOrientation = () => {
+    const value = window.prompt('Enter your custom sexual orientation:');
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+    onUpdate({ sexualOrientation: trimmed });
+  };
+
+  const customGenderIdentity =
+    profile.genderIdentity && !genderOptions.includes(profile.genderIdentity)
+      ? profile.genderIdentity
+      : null;
+
+  const customOrientation =
+    profile.sexualOrientation && !orientationOptions.includes(profile.sexualOrientation)
+      ? profile.sexualOrientation
+      : null;
 
   return (
     <div className="space-y-6">
@@ -42,10 +75,15 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
             </Button>
           ))}
         </div>
-        <Button variant="ghost" className="mt-2 text-sm">
+        <Button variant="ghost" className="mt-2 text-sm" onClick={addCustomGenderIdentity} type="button">
           <Plus className="w-4 h-4 mr-1" />
           Add custom identity
         </Button>
+        {customGenderIdentity ? (
+          <p className="text-xs text-white/70 mt-1">
+            Selected custom identity: {customGenderIdentity}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -62,10 +100,15 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
             </Button>
           ))}
         </div>
-        <Button variant="ghost" className="mt-2 text-sm">
+        <Button variant="ghost" className="mt-2 text-sm" onClick={addCustomOrientation} type="button">
           <Plus className="w-4 h-4 mr-1" />
           Add custom identity
         </Button>
+        {customOrientation ? (
+          <p className="text-xs text-white/70 mt-1">
+            Selected custom orientation: {customOrientation}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -85,12 +128,17 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
         <p className="text-sm text-white/70 mb-4">
           Select pins that represent your identity, community, and what you're looking for. These help you connect with like-minded people!
         </p>
+        <p className="text-xs text-white/55 mb-4">
+          Tap to select or unselect.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {prideFlags.map((flag) => (
             <Button
               key={flag.name}
-              variant="outline"
+              type="button"
+              variant={selectedPridePins.includes(flag.name) ? "default" : "outline"}
               className="justify-start"
+              onClick={() => togglePridePin(flag.name)}
             >
               <div className={`w-4 h-4 rounded mr-2 ${flag.color}`}></div>
               {flag.name}

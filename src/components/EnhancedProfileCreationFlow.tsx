@@ -56,6 +56,11 @@ function computeBirthdateISO(ageValue: unknown): string | null {
 }
 
 function toDbProfileData(profile: any, user: any, profileCompleted: boolean) {
+  const lifestyleInterests = {
+    ...(profile.lifestyle || {}),
+    pride_pins: Array.isArray(profile.pridePins) ? profile.pridePins : [],
+  };
+
   return {
     id: user.id,
     full_name: profile.name?.trim() || null,
@@ -68,7 +73,7 @@ function toDbProfileData(profile: any, user: any, profileCompleted: boolean) {
     sexual_orientation: profile.sexualOrientation?.trim() || null,
     interests: Array.isArray(profile.interests) ? profile.interests : [],
     photos: persistedPhotoUrls(profile.photos),
-    lifestyle_interests: profile.lifestyle || {},
+    lifestyle_interests: lifestyleInterests,
     privacy_settings: profile.privacy || {},
     safety_settings: profile.safety || {},
     profile_completed: profileCompleted,
@@ -102,6 +107,7 @@ const EnhancedProfileCreationFlow = forwardRef<
     genderIdentity: '',
     sexualOrientation: '',
     showPronouns: false,
+    pridePins: [],
     interests: [],
     photos: [],
     lifestyle: {},
@@ -136,6 +142,9 @@ const EnhancedProfileCreationFlow = forwardRef<
         genderIdentity: existingProfile.gender_identity || '',
         sexualOrientation: existingProfile.sexual_orientation || '',
         showPronouns: false,
+        pridePins: Array.isArray((existingProfile.lifestyle_interests as any)?.pride_pins)
+          ? (existingProfile.lifestyle_interests as any).pride_pins
+          : [],
         interests: existingProfile.interests || [],
         photos: existingProfile.photos || [],
         lifestyle: existingProfile.lifestyle_interests || {},
