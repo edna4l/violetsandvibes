@@ -29,6 +29,8 @@ import SubscriptionManagement from '@/components/SubscriptionManagement';
 import BillingHistory from '@/components/BillingHistory';
 import PricingTiers from '@/components/PricingTiers';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/components/theme-provider';
+import { applyAppPreferences, DEFAULT_APP_PREFERENCES, normalizeAppPreferences } from '@/lib/appPreferences';
 
 const DEFAULT_SETTINGS = {
   notifications: {
@@ -58,12 +60,7 @@ const DEFAULT_SETTINGS = {
     autoBlockSuspicious: true,
   },
   app: {
-    darkMode: false,
-    reducedMotion: false,
-    highContrast: false,
-    largeText: false,
-    autoPlayVideos: true,
-    soundEffects: true,
+    ...DEFAULT_APP_PREFERENCES,
   },
   matching: {
     ageRange: [18, 35],
@@ -99,6 +96,15 @@ const NOTIFICATION_ITEMS: Array<{ key: keyof SettingsState['notifications']; lab
   { key: 'smsNotifications', label: 'SMS Notifications' },
 ];
 
+const APP_PREFERENCE_ITEMS: Array<{ key: keyof SettingsState['app']; label: string }> = [
+  { key: 'darkMode', label: 'Dark Mode' },
+  { key: 'reducedMotion', label: 'Reduced Motion' },
+  { key: 'highContrast', label: 'High Contrast' },
+  { key: 'largeText', label: 'Large Text' },
+  { key: 'autoPlayVideos', label: 'Auto Play Videos' },
+  { key: 'soundEffects', label: 'Sound Effects' },
+];
+
 const createDefaultSettings = (): SettingsState => ({
   notifications: { ...DEFAULT_SETTINGS.notifications },
   privacy: { ...DEFAULT_SETTINGS.privacy },
@@ -120,6 +126,7 @@ const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const { setTheme } = useTheme();
   
   // Mock subscription state - would come from context/database
   const [currentTier] = useState<SubscriptionTier>('free');
@@ -175,7 +182,7 @@ const SettingsPage: React.FC = () => {
         next.notifications = mergeBooleanSettings(next.notifications, privacySettings.notifications || {});
         next.privacy = mergeBooleanSettings(next.privacy, privacySettings);
         next.safety = mergeBooleanSettings(next.safety, safetySettings);
-        next.app = mergeBooleanSettings(next.app, privacySettings.app || {});
+        next.app = normalizeAppPreferences(privacySettings.app || {});
         next.matching = {
           ...next.matching,
           ...(privacySettings.matching || {}),
@@ -258,6 +265,11 @@ const SettingsPage: React.FC = () => {
       if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
     };
   }, [settings, user?.id, isHydrated, loadingGeneral]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    applyAppPreferences(settings.app, setTheme);
+  }, [settings.app, setTheme, isHydrated]);
 
   const updateNotificationSetting = (key: keyof SettingsState['notifications'], value: boolean) => {
     setSettings(prev => ({
@@ -369,12 +381,12 @@ const SettingsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {Object.entries(settings.app).map(([key, value]) => (
+                {APP_PREFERENCE_ITEMS.map(({ key, label }) => (
                   <div key={key} className="flex justify-between items-center">
-                    <span>{formatSettingName(key)}</span>
+                    <span>{label}</span>
                     <Switch 
-                      checked={value}
-                      onCheckedChange={(checked) => updateAppSetting(key as keyof SettingsState['app'], checked)}
+                      checked={settings.app[key]}
+                      onCheckedChange={(checked) => updateAppSetting(key, checked)}
                       disabled={loadingGeneral}
                     />
                   </div>

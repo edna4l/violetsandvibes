@@ -457,6 +457,34 @@
   }
 }
 
+html.vv-reduced-motion *,
+html.vv-reduced-motion *::before,
+html.vv-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+html.vv-high-contrast body {
+  filter: contrast(1.14) saturate(1.06);
+}
+
+html.vv-high-contrast :focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 2px;
+}
+
+html.vv-large-text {
+  font-size: 17px;
+}
+
+@media (max-width: 640px) {
+  html.vv-large-text {
+    font-size: 16.5px;
+  }
+}
+
 @keyframes vvPulse {
   0%   { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.45); }
   70%  { box-shadow: 0 0 0 10px rgba(236, 72, 153, 0.00); }

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
+import AppPreferencesBootstrapper from "@/components/AppPreferencesBootstrapper";
 import { GlobalLayout } from "@/components/GlobalLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProfileGate } from "@/components/ProfileGate";
@@ -33,6 +34,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <ThemeProvider defaultTheme="light">
     <QueryClientProvider client={queryClient}>
+      <AppPreferencesBootstrapper />
       <TooltipProvider>
         <Toaster />
         <Sonner />

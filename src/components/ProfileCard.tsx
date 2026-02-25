@@ -4,12 +4,12 @@ import { Heart, X, MapPin, Sparkles, Star } from 'lucide-react';
 interface Profile {
   id: string;
   name: string;
-  age: number;
+  age?: number | null;
   bio: string;
   photos: string[];
   location: string;
-  interests: string[];
-  pronouns: string;
+  interests?: string[];
+  pronouns?: string;
   identity?: 'lesbian' | 'bisexual' | 'pansexual' | 'transgender' | 'rainbow';
 }
 
@@ -66,15 +66,18 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         {/* Name and Age with Enhanced Typography */}
         <div className="absolute bottom-4 left-4 text-white">
           <h2 className="text-3xl font-bold mb-1 drop-shadow-lg hover:drop-shadow-2xl transition-all duration-300">
-            {profile.name}, {profile.age}
+            {profile.name}
+            {typeof profile.age === 'number' && profile.age > 0 ? `, ${profile.age}` : ''}
           </h2>
           <div className="flex items-center text-sm opacity-90 mb-2 hover:opacity-100 transition-opacity duration-300">
             <MapPin className="w-4 h-4 mr-1" />
             {profile.location}
           </div>
-          <div className="text-sm glass-pride px-3 py-1 rounded-full inline-block hover:scale-110 transition-transform duration-300 border border-white/30">
-            {profile.pronouns}
-          </div>
+          {profile.pronouns ? (
+            <div className="text-sm glass-pride px-3 py-1 rounded-full inline-block hover:scale-110 transition-transform duration-300 border border-white/30">
+              {profile.pronouns}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -84,7 +87,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         
         {/* Enhanced Interests with Staggered Animation */}
         <div className="flex flex-wrap gap-2 mb-4">
-          {profile.interests.slice(0, 6).map((interest, index) => (
+          {(profile.interests ?? []).slice(0, 6).map((interest, index) => (
             <span 
               key={index}
               className="glass-pride text-white/90 px-3 py-1 rounded-full text-sm font-medium flex items-center border border-white/20 hover:border-white/40 hover:scale-105 transition-all duration-300"
