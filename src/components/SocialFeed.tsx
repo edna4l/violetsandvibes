@@ -15,6 +15,9 @@ type PostRow = {
   title: string | null;
   body: string;
   created_at: string;
+  updated_at: string | null;
+  edited_at: string | null;
+  collapsed_by_author: boolean;
 };
 
 type FeedPost = PostRow & {
@@ -60,7 +63,32 @@ function timeAgo(iso: string) {
   return `${days}d ago`;
 }
 
+function isMissingPostMetadataColumnError(error: unknown) {
+  const message = (error as { message?: string })?.message ?? "";
+  return (
+    message.includes("collapsed_by_author") ||
+    message.includes("updated_at") ||
+    message.includes("edited_at")
+  );
+}
+
 const EXPANDED_KEY = "vv_expanded_post_v1";
+const POST_AUTO_COLLAPSE_MS = 24 * 60 * 60 * 1000;
+
+function derivePostTitle(body: string) {
+  return (
+    body
+      .split("\n")
+      .find((line) => line.trim().length > 0)
+      ?.slice(0, 80) || "Post"
+  );
+}
+
+function collapsedPreview(body: string, max = 220) {
+  const text = `${body ?? ""}`;
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).trimEnd()}…`;
+}
 
 const SocialFeed: React.FC = () => {
   const { user } = useAuth();
@@ -72,6 +100,10 @@ const SocialFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostBody, setEditingPostBody] = useState("");
+  const [postActionLoadingById, setPostActionLoadingById] = useState<Record<string, boolean>>({});
+  const [expandedBodyByPostId, setExpandedBodyByPostId] = useState<Record<string, boolean>>({});
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(() => {
@@ -180,11 +212,32 @@ const SocialFeed: React.FC = () => {
 
     try {
       // 1) Load posts
-      const { data: postRows, error: postsError } = await supabase
+      let postRows: any[] | null = null;
+
+      const withMetadata = await supabase
         .from("posts")
-        .select("id, author_id, title, body, created_at")
+        .select("id, author_id, title, body, created_at, updated_at, edited_at, collapsed_by_author")
         .order("created_at", { ascending: false })
         .limit(30);
+
+      let postsError = withMetadata.error;
+      postRows = withMetadata.data ?? [];
+
+      if (postsError && isMissingPostMetadataColumnError(postsError)) {
+        const fallback = await supabase
+          .from("posts")
+          .select("id, author_id, title, body, created_at")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        postsError = fallback.error;
+        postRows = (fallback.data ?? []).map((row: any) => ({
+          ...row,
+          updated_at: null,
+          edited_at: null,
+          collapsed_by_author: false,
+        }));
+      }
 
       if (postsError) throw postsError;
 
@@ -311,6 +364,7 @@ const SocialFeed: React.FC = () => {
 
       const hydrated: FeedPost[] = basePosts.map((p) => ({
         ...p,
+        collapsed_by_author: !!p.collapsed_by_author,
         authorName:
           p.author_id === user.id
             ? "You"
@@ -721,16 +775,16 @@ const SocialFeed: React.FC = () => {
     const body = newPost.trim();
     if (!body) return;
 
-    const title =
-      body
-        .split("\n")
-        .find((line) => line.trim().length > 0)
-        ?.slice(0, 80) || "Post";
+    const title = derivePostTitle(body);
 
     setPosting(true);
     setError(null);
 
     const tempId = `temp_${Date.now()}`;
+    const newPostId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `post_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     const optimisticPost: FeedPost = {
       id: tempId,
@@ -738,6 +792,9 @@ const SocialFeed: React.FC = () => {
       title,
       body,
       created_at: new Date().toISOString(),
+      updated_at: null,
+      edited_at: null,
+      collapsed_by_author: false,
       authorName: "You",
       likeCount: 0,
       commentCount: 0,
@@ -753,15 +810,61 @@ const SocialFeed: React.FC = () => {
       const { data, error: insertError } = await supabase
         .from("posts")
         .insert({
+          id: newPostId,
           author_id: user.id,
           title,
           body,
         })
-        .select("id, author_id, title, body, created_at")
+        .select("id, author_id, title, body, created_at, updated_at, edited_at, collapsed_by_author")
         .single();
 
-      if (insertError) throw insertError;
-      if (!data) throw new Error("Post insert returned no data.");
+      let savedRow: any = data;
+      let savedRowError: any = insertError;
+
+      if (savedRowError && isMissingPostMetadataColumnError(savedRowError)) {
+        const fallbackLookup = await supabase
+          .from("posts")
+          .select("id, author_id, title, body, created_at")
+          .eq("id", newPostId)
+          .maybeSingle();
+
+        if (fallbackLookup.error) {
+          savedRowError = fallbackLookup.error;
+          savedRow = null;
+        } else if (fallbackLookup.data) {
+          savedRowError = null;
+          savedRow = {
+            ...fallbackLookup.data,
+            updated_at: null,
+            edited_at: null,
+            collapsed_by_author: false,
+          };
+        } else {
+          const fallbackInsert = await supabase
+            .from("posts")
+            .insert({
+              id: newPostId,
+              author_id: user.id,
+              title,
+              body,
+            })
+            .select("id, author_id, title, body, created_at")
+            .single();
+
+          savedRowError = fallbackInsert.error;
+          savedRow = fallbackInsert.data
+          ? {
+              ...fallbackInsert.data,
+              updated_at: null,
+              edited_at: null,
+              collapsed_by_author: false,
+            }
+          : null;
+        }
+      }
+
+      if (savedRowError) throw savedRowError;
+      if (!savedRow) throw new Error("Post insert returned no data.");
 
       // Replace the optimistic post with the real row
       setPosts((prev) =>
@@ -769,8 +872,8 @@ const SocialFeed: React.FC = () => {
           p.id === tempId
             ? {
                 ...p,
-                ...data,
-                title: data.title ?? title, // keep a string fallback
+                ...savedRow,
+                title: savedRow.title ?? title, // keep a string fallback
                 _optimistic: false,
               }
             : p
@@ -789,6 +892,162 @@ const SocialFeed: React.FC = () => {
       setNewPost(body); // restore text
     } finally {
       setPosting(false);
+    }
+  };
+
+  const startEditPost = (post: FeedPost) => {
+    setError(null);
+    setEditingPostId(post.id);
+    setEditingPostBody(post.body);
+    setExpandedBodyByPostId((prev) => ({ ...prev, [post.id]: true }));
+  };
+
+  const cancelEditPost = () => {
+    setEditingPostId(null);
+    setEditingPostBody("");
+  };
+
+  const saveEditedPost = async (postId: string) => {
+    if (!user) return;
+
+    const body = editingPostBody.trim();
+    if (!body) {
+      setError("Post text cannot be empty.");
+      return;
+    }
+
+    const title = derivePostTitle(body);
+    const editedAt = new Date().toISOString();
+
+    setPostActionLoadingById((prev) => ({ ...prev, [postId]: true }));
+    setError(null);
+
+    // optimistic update
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              body,
+              title,
+              edited_at: editedAt,
+              updated_at: editedAt,
+            }
+          : p
+      )
+    );
+
+    try {
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({ body, title })
+        .eq("id", postId)
+        .eq("author_id", user.id);
+
+      if (updateError) throw updateError;
+
+      setEditingPostId(null);
+      setEditingPostBody("");
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not save post changes.");
+      await loadFeed();
+    } finally {
+      setPostActionLoadingById((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const toggleManualPostCollapse = async (postId: string, nextCollapsed: boolean) => {
+    if (!user) return;
+
+    setPostActionLoadingById((prev) => ({ ...prev, [postId]: true }));
+    setError(null);
+
+    // optimistic
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, collapsed_by_author: nextCollapsed } : p
+      )
+    );
+    setExpandedBodyByPostId((prev) => {
+      if (nextCollapsed) return prev;
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+
+    try {
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({ collapsed_by_author: nextCollapsed })
+        .eq("id", postId)
+        .eq("author_id", user.id);
+
+      if (updateError) throw updateError;
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not update post collapse.");
+      await loadFeed();
+    } finally {
+      setPostActionLoadingById((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    if (!user) return;
+    if (!window.confirm("Delete this post? This cannot be undone.")) return;
+
+    setPostActionLoadingById((prev) => ({ ...prev, [postId]: true }));
+    setError(null);
+
+    // optimistic remove
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setCommentsByPost((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+    setCommentInputs((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+    setCommentErrorByPost((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+    setCommentsLoadingByPost((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+    setReplyToByPost((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+    if (expandedPostId === postId) {
+      setExpandedPostId(null);
+    }
+    if (editingPostId === postId) {
+      cancelEditPost();
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", postId)
+        .eq("author_id", user.id);
+
+      if (deleteError) throw deleteError;
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not delete post.");
+      await loadFeed();
+    } finally {
+      setPostActionLoadingById((prev) => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -1076,66 +1335,172 @@ const SocialFeed: React.FC = () => {
               No posts yet. Be the first to share something 💜
             </div>
           ) : (
-            posts.map((post) => (
-              <Card
-                id={`post-${post.id}`}
-                key={post.id}
-                className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm transition-all ${
-                  post._optimistic ? "opacity-70" : ""
-                } ${highlightPostId === post.id ? "ring-2 ring-pink-300 vv-pulse-highlight" : ""}`}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold">{(post.authorName || "M")[0]}</span>
+            posts.map((post) => {
+              const isOwnPost = post.author_id === user?.id;
+              const isAutoCollapsed =
+                Date.now() - new Date(post.created_at).getTime() >= POST_AUTO_COLLAPSE_MS;
+              const isManuallyCollapsed = !!post.collapsed_by_author;
+              const isCollapsed = isAutoCollapsed || isManuallyCollapsed;
+              const isBodyExpanded = !!expandedBodyByPostId[post.id];
+              const isEditingPost = editingPostId === post.id;
+              const postActionLoading = !!postActionLoadingById[post.id];
+              const shouldShowCollapsedBody = isCollapsed && !isBodyExpanded && !isEditingPost;
+
+              return (
+                <Card
+                  id={`post-${post.id}`}
+                  key={post.id}
+                  className={`bg-violet-950/75 border-violet-400/40 text-white backdrop-blur-sm transition-all ${
+                    post._optimistic ? "opacity-70" : ""
+                  } ${highlightPostId === post.id ? "ring-2 ring-pink-300 vv-pulse-highlight" : ""}`}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-semibold">{(post.authorName || "M")[0]}</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white">{post.authorName}</p>
+                          <p className="text-sm text-white/70">{timeAgo(post.created_at)}</p>
+                          {post.edited_at ? (
+                            <p className="text-xs text-white/50">edited {timeAgo(post.edited_at)}</p>
+                          ) : null}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-white">{post.authorName}</p>
-                        <p className="text-sm text-white/70">{timeAgo(post.created_at)}</p>
+
+                      {post._optimistic && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/80">
+                          Posting…
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {isEditingPost ? (
+                      <div className="mb-3 space-y-2">
+                        <Textarea
+                          value={editingPostBody}
+                          onChange={(e) => setEditingPostBody(e.target.value)}
+                          maxLength={1000}
+                          className="bg-violet-900/70 border-violet-500/50 text-white placeholder:text-white/70"
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-white/70">{editingPostBody.trim().length}/1000</div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => saveEditedPost(post.id)}
+                              disabled={postActionLoading || !editingPostBody.trim()}
+                            >
+                              {postActionLoading ? "Saving…" : "Save"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEditPost}
+                              disabled={postActionLoading}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        <p className="text-white/90 mb-3 whitespace-pre-wrap">
+                          {shouldShowCollapsedBody
+                            ? collapsedPreview(post.body)
+                            : post.body}
+                        </p>
+
+                        {isCollapsed && (
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/75">
+                              {isManuallyCollapsed
+                                ? "Collapsed by author"
+                                : "Auto-collapsed after 24h"}
+                            </span>
+                            <button
+                              type="button"
+                              className="text-xs text-pink-200 hover:text-pink-100 underline"
+                              onClick={() =>
+                                setExpandedBodyByPostId((prev) => ({
+                                  ...prev,
+                                  [post.id]: !prev[post.id],
+                                }))
+                              }
+                            >
+                              {isBodyExpanded ? "Collapse view" : "Show full post"}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div className="flex space-x-4 text-sm text-white/80">
+                      <button
+                        disabled={post._optimistic || isEditingPost}
+                        className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          post.likedByMe ? "text-pink-300" : ""
+                        }`}
+                        onClick={() => toggleLike(post.id, post.likedByMe)}
+                        type="button"
+                      >
+                        {post.likedByMe ? "💜" : "🤍"} {post.likeCount}
+                      </button>
+
+                      <button
+                        className="hover:text-pink-300"
+                        type="button"
+                        onClick={() => {
+                          const nextPostId = expandedPostId === post.id ? null : post.id;
+                          setExpandedPostId(nextPostId);
+
+                          if (nextPostId === post.id && !commentsByPost[post.id]) {
+                            loadComments(post.id);
+                          }
+                        }}
+                      >
+                        💬 {post.commentCount}
+                      </button>
                     </div>
 
-                    {post._optimistic && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/80">
-                        Posting…
-                      </span>
+                    {isOwnPost && !post._optimistic && !isEditingPost && (
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                        <button
+                          type="button"
+                          className="text-white/80 hover:text-white disabled:opacity-50"
+                          disabled={postActionLoading}
+                          onClick={() => startEditPost(post)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-white/80 hover:text-white disabled:opacity-50"
+                          disabled={postActionLoading}
+                          onClick={() =>
+                            toggleManualPostCollapse(post.id, !isManuallyCollapsed)
+                          }
+                        >
+                          {isManuallyCollapsed ? "Uncollapse" : "Collapse"}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-300 hover:text-red-200 disabled:opacity-50"
+                          disabled={postActionLoading}
+                          onClick={() => deletePost(post.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     )}
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-white/90 mb-3 whitespace-pre-wrap">{post.body}</p>
 
-                  <div className="flex space-x-4 text-sm text-white/80">
-                    <button
-                      disabled={post._optimistic}
-                      className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        post.likedByMe ? "text-pink-300" : ""
-                      }`}
-                      onClick={() => toggleLike(post.id, post.likedByMe)}
-                      type="button"
-                    >
-                      {post.likedByMe ? "💜" : "🤍"} {post.likeCount}
-                    </button>
-
-                    <button
-                      className="hover:text-pink-300"
-                      type="button"
-                      onClick={() => {
-                        const nextPostId = expandedPostId === post.id ? null : post.id;
-                        setExpandedPostId(nextPostId);
-
-                        if (nextPostId === post.id && !commentsByPost[post.id]) {
-                          loadComments(post.id);
-                        }
-                      }}
-                    >
-                      💬 {post.commentCount}
-                    </button>
-                  </div>
-
-                  {expandedPostId === post.id && (
-                    <div className="mt-4 border-t border-white/20 pt-3 space-y-3">
+                    {expandedPostId === post.id && (
+                      <div className="mt-4 border-t border-white/20 pt-3 space-y-3">
                       {/* Existing Comments */}
                       {commentsLoadingByPost[post.id] ? (
                         <div className="text-sm text-white/60">Loading comments…</div>
@@ -1248,11 +1613,12 @@ const SocialFeed: React.FC = () => {
                           Comment
                         </Button>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </section>
 
