@@ -94,6 +94,16 @@ const App = () => (
               }
             />
             <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <ProfileGate>
+                    <GlobalLayout><EventsPage /></GlobalLayout>
+                  </ProfileGate>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/notifications"
               element={
                 <ProtectedRoute>

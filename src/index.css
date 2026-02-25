@@ -427,6 +427,23 @@
   @apply flex flex-col sm:flex-row gap-4 sm:gap-6;
 }
 
+/* Social page: single column in portrait, two columns in landscape/desktop */
+.social-feed-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .social-feed-columns {
+    grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .social-feed-columns {
+    grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lesbian-gradient,
   .bisexual-gradient,
