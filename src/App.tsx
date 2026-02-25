@@ -40,7 +40,8 @@ const App = () => (
           <Routes>
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/landing-preview" element={<LandingPreviewPage />} />
-            <Route path="/" element={<GlobalLayout><Index /></GlobalLayout>} />
+            <Route path="/" element={<HeroesPage />} />
+            <Route path="/discover" element={<GlobalLayout><Index /></GlobalLayout>} />
             <Route path="/heroes" element={<HeroesPage />} />
             <Route
               path="/matches"

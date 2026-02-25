@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
-import { Menu, Settings, User, Heart, LogOut, Bell, Compass, MessageCircle, Users, Calendar, Video, Filter, Shield } from 'lucide-react';
+import { Menu, Settings, User, Heart, LogOut, Bell, Compass, MessageCircle, Users, Calendar, Video, Filter, Shield, Sparkles } from 'lucide-react';
 
 interface HeaderDropdownProps {
   onMenuSelect?: (action: string) => void;
@@ -93,9 +93,17 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
         <DropdownMenuLabel className="text-black font-semibold">
           Violets & Vibes
         </DropdownMenuLabel>
+
+        <DropdownMenuItem
+          onClick={() => handleMenuClick('heroes', '/heroes')}
+          className="text-black hover:bg-gray-100 cursor-pointer"
+        >
+          <Sparkles className="mr-2 h-4 w-4" />
+          Heroes
+        </DropdownMenuItem>
         
         <DropdownMenuItem 
-          onClick={() => handleMenuClick('discover', '/')}
+          onClick={() => handleMenuClick('discover', '/discover')}
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
           <Compass className="mr-2 h-4 w-4" />
