@@ -20,6 +20,16 @@ export interface SignUpData {
   password: string;
 }
 
+export type SocialOAuthProvider =
+  | 'google'
+  | 'facebook'
+  | 'linkedin_oidc'
+  | 'twitter'
+  | 'azure'
+  | 'github';
+
+export type CustomSocialProvider = 'tiktok' | 'snapchat';
+
 export const authService = {
   async signUp(data: SignUpData) {
     const { data: authData, error } = await supabase.auth.signUp({
@@ -104,26 +114,52 @@ export const authService = {
     if (error) throw error;
   },
 
-  async signInWithGoogle() {
+  async signInWithSocial(provider: SocialOAuthProvider, redirectPath = '/social') {
+    const safeRedirectPath =
+      typeof redirectPath === 'string' && redirectPath.startsWith('/')
+        ? redirectPath
+        : '/social';
+
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: provider as any,
       options: {
-        redirectTo: `${window.location.origin}/social`
-      }
+        redirectTo: `${window.location.origin}${safeRedirectPath}`,
+      },
     });
     if (error) throw error;
     return data;
   },
 
-  async signInWithGitHub() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/social`
-      }
+  async signInWithCustomSocial(provider: CustomSocialProvider, redirectPath = '/social') {
+    const safeRedirectPath =
+      typeof redirectPath === 'string' && redirectPath.startsWith('/')
+        ? redirectPath
+        : '/social';
+
+    const functionNameByProvider: Record<CustomSocialProvider, string> = {
+      tiktok: 'tiktok-oauth-start',
+      snapchat: 'snapchat-oauth-start',
+    };
+
+    const functionName = functionNameByProvider[provider];
+    const { data, error } = await supabase.functions.invoke(functionName, {
+      body: { returnPath: safeRedirectPath },
     });
     if (error) throw error;
+
+    const url = data?.url as string | undefined;
+    if (!url) throw new Error('No OAuth URL returned from server.');
+
+    window.location.href = url;
     return data;
+  },
+
+  async signInWithGoogle() {
+    return this.signInWithSocial('google');
+  },
+
+  async signInWithGitHub() {
+    return this.signInWithSocial('github');
   },
 
   async updateProfile(updates: { name?: string; email?: string }) {
