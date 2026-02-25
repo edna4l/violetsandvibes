@@ -272,16 +272,30 @@ const ProfilePage: React.FC = () => {
         const a = user.id < otherUserId ? user.id : otherUserId;
         const b = user.id < otherUserId ? otherUserId : user.id;
 
-        const { error: matchCreateErr } = await supabase
+        const { data: createdMatch, error: matchCreateErr } = await supabase
           .from("matches")
-          .insert({
-            user1_id: a,
-            user2_id: b,
-          });
+          .insert({ user1_id: a, user2_id: b })
+          .select("id, conversation_id, user1_id, user2_id")
+          .single();
 
         // Unique conflict means match already exists, which is okay.
         if (matchCreateErr && matchCreateErr.code !== "23505") {
           console.warn("match create failed:", matchCreateErr.message);
+        }
+
+        // If we created it AND it has no conversation yet, create + attach one
+        if (createdMatch?.id && !createdMatch.conversation_id) {
+          try {
+            const { ensureConversationForMatch } = await import("@/lib/chat");
+            const convoId = await ensureConversationForMatch({
+              matchId: createdMatch.id,
+              user1_id: createdMatch.user1_id,
+              user2_id: createdMatch.user2_id,
+            });
+            setMatchConversationId(convoId);
+          } catch (e: any) {
+            console.warn("ensureConversationForMatch failed:", e?.message);
+          }
         }
       }
 
