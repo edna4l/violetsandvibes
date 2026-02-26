@@ -286,6 +286,26 @@ const LandingPreviewPage: React.FC = () => {
             </div>
           </section>
         </main>
+
+        <footer className="mt-6 text-center text-sm text-white/70">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link className="hover:text-white underline underline-offset-4" to="/privacy">
+              Privacy Policy
+            </Link>
+            <Link className="hover:text-white underline underline-offset-4" to="/terms">
+              Terms of Service
+            </Link>
+            <Link className="hover:text-white underline underline-offset-4" to="/data-deletion">
+              Data Deletion
+            </Link>
+            <a
+              className="hover:text-white underline underline-offset-4"
+              href={`mailto:${contactEmail}`}
+            >
+              Contact
+            </a>
+          </div>
+        </footer>
       </div>
     </div>
   );

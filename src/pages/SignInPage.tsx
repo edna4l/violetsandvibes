@@ -6,7 +6,7 @@ import LoginForm from '@/components/LoginForm';
 import CreateAccountForm from '@/components/CreateAccountForm';
 import { PasswordResetForm } from '@/components/PasswordResetForm';
 import { authService, AuthUser } from '@/lib/auth';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { useProfileStatus } from '@/hooks/useProfileStatus';
 import { useToast } from '@/hooks/use-toast';
@@ -176,6 +176,19 @@ const SignInPage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+            </div>
+          </div>
+          <div className="mt-4 text-center text-xs sm:text-sm text-white/70">
+            <div className="flex items-center justify-center gap-4">
+              <Link className="hover:text-white underline underline-offset-4" to="/privacy">
+                Privacy Policy
+              </Link>
+              <Link className="hover:text-white underline underline-offset-4" to="/terms">
+                Terms of Service
+              </Link>
+              <Link className="hover:text-white underline underline-offset-4" to="/data-deletion">
+                Data Deletion
+              </Link>
             </div>
           </div>
         </ResponsiveWrapper>

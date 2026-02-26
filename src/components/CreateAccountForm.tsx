@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authService, SignUpData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { SocialLoginButtons } from '@/components/SocialLoginButtons';
 
 interface FormData extends SignUpData {
   confirmPassword: string;
@@ -144,8 +143,6 @@ const CreateAccountForm: React.FC = () => {
           {isLoading ? 'Creating Account...' : 'Create Account'}
         </Button>
       </form>
-      
-      <SocialLoginButtons />
     </div>
   );
 };

@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authService, LoginData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { SocialLoginButtons } from '@/components/SocialLoginButtons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface LoginFormProps {
@@ -101,8 +100,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
           {isLoading ? 'Signing in...' : 'Sign In'}
         </Button>
       </form>
-      
-      <SocialLoginButtons />
     </div>
   );
 };
