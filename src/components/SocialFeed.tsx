@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +43,31 @@ type HydratedComment = CommentRow & {
   _optimistic?: boolean;
 };
 
+type CalendarEventRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string;
+  source: "local" | "google" | "outlook";
+  sync_state: "pending" | "synced" | "error";
+};
+
+type FeedEvent = {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  attendees: number;
+  maxAttendees: number;
+  tags: string[];
+  organizer: string;
+  isAttending: boolean;
+};
+
 function incMap(map: Map<string, number>, key: string, delta: number) {
   const next = new Map(map);
   next.set(key, Math.max(0, (next.get(key) ?? 0) + delta));
@@ -82,6 +107,22 @@ function derivePostTitle(body: string) {
       .find((line) => line.trim().length > 0)
       ?.slice(0, 80) || "Post"
   );
+}
+
+function formatEventDate(iso: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function formatEventTimeRange(startIso: string, endIso: string) {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${formatter.format(new Date(startIso))} - ${formatter.format(new Date(endIso))}`;
 }
 
 const SocialFeed: React.FC = () => {
@@ -129,56 +170,11 @@ const SocialFeed: React.FC = () => {
     date: "",
     time: "",
     location: "",
-    maxAttendees: 10,
   });
-
-  const mockEvents = useMemo(
-    () => [
-      {
-        id: "1",
-        title: "Pride Book Club Meetup",
-        description:
-          'Join us for our monthly book discussion! This month we\'re reading "Red: A Crayon\'s Story"',
-        date: "March 15, 2024",
-        time: "7:00 PM",
-        location: "Rainbow Café, Downtown",
-        attendees: 8,
-        maxAttendees: 15,
-        tags: ["Books", "Community", "Discussion"],
-        organizer: "Sarah Chen",
-        isAttending: false,
-      },
-      {
-        id: "2",
-        title: "Queer Hiking Adventure",
-        description:
-          "Let's explore nature together! Family-friendly hike with beautiful views.",
-        date: "March 18, 2024",
-        time: "9:00 AM",
-        location: "Sunset Trail, Mountain Park",
-        attendees: 12,
-        maxAttendees: 20,
-        tags: ["Outdoors", "Hiking", "Nature"],
-        organizer: "Alex Rivera",
-        isAttending: true,
-      },
-      {
-        id: "3",
-        title: "Lesbian Speed Dating Night",
-        description:
-          "Meet new people in a fun, relaxed environment! Ages 25-40.",
-        date: "March 22, 2024",
-        time: "6:30 PM",
-        location: "The Rainbow Room",
-        attendees: 24,
-        maxAttendees: 30,
-        tags: ["Dating", "Social", "Networking"],
-        organizer: "Maya Patel",
-        isAttending: false,
-      },
-    ],
-    []
-  );
+  const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [creatingEvent, setCreatingEvent] = useState(false);
 
   // Persist whenever it changes
   useEffect(() => {
@@ -382,6 +378,65 @@ const SocialFeed: React.FC = () => {
     }
   }, [user?.id]);
 
+  const loadEvents = useCallback(async () => {
+    if (!user) {
+      setEvents([]);
+      setEventsLoading(false);
+      setEventsError(null);
+      return;
+    }
+
+    setEventsLoading(true);
+    setEventsError(null);
+
+    try {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("calendar_events")
+        .select("id, title, description, location, starts_at, ends_at, source, sync_state")
+        .eq("user_id", user.id)
+        .gte("ends_at", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(50);
+
+      if (error) throw error;
+
+      const mapped = ((data ?? []) as CalendarEventRow[]).map((event) => {
+        const tags = [
+          event.source === "local"
+            ? "Community"
+            : event.source === "google"
+              ? "Google"
+              : "Outlook",
+        ];
+
+        if (event.sync_state === "pending") tags.push("Syncing");
+        if (event.sync_state === "error") tags.push("Sync Error");
+
+        return {
+          id: event.id,
+          title: event.title,
+          description: event.description || "No description provided.",
+          date: formatEventDate(event.starts_at),
+          time: formatEventTimeRange(event.starts_at, event.ends_at),
+          location: event.location || "Location TBD",
+          attendees: 1,
+          maxAttendees: 10,
+          tags,
+          organizer: "You",
+          isAttending: true,
+        } as FeedEvent;
+      });
+
+      setEvents(mapped);
+    } catch (e: any) {
+      console.error(e);
+      setEventsError(e?.message || "Failed to load events");
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [user?.id]);
+
   const loadComments = async (postId: string) => {
     if (!user) return;
 
@@ -496,6 +551,11 @@ const SocialFeed: React.FC = () => {
     if (!user) return;
     void loadFeedRef.current();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadEvents();
+  }, [loadEvents, user?.id]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -762,6 +822,30 @@ const SocialFeed: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`vv-social-events-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "calendar_events",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadEvents, user?.id]);
 
   const handleCreatePost = async () => {
     if (!user) return;
@@ -1274,17 +1358,55 @@ const SocialFeed: React.FC = () => {
     }
   };
 
-  const handleCreateEvent = () => {
-    console.log("Creating event:", newEvent);
-    setNewEvent({
-      title: "",
-      description: "",
-      date: "",
-      time: "",
-      location: "",
-      maxAttendees: 10,
-    });
-    setShowCreateEvent(false);
+  const handleCreateEvent = async () => {
+    if (!user) return;
+
+    const title = newEvent.title.trim();
+    if (!title || !newEvent.date || !newEvent.time) {
+      setEventsError("Title, date, and time are required.");
+      return;
+    }
+
+    const startsAt = new Date(`${newEvent.date}T${newEvent.time}`);
+    if (Number.isNaN(startsAt.getTime())) {
+      setEventsError("Invalid date or time.");
+      return;
+    }
+
+    const endsAt = new Date(startsAt);
+    endsAt.setHours(endsAt.getHours() + 1);
+
+    setCreatingEvent(true);
+    setEventsError(null);
+    try {
+      const { error } = await supabase.from("calendar_events").insert({
+        user_id: user.id,
+        title,
+        description: newEvent.description.trim() || null,
+        location: newEvent.location.trim() || null,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        source: "local",
+        sync_state: "pending",
+      });
+
+      if (error) throw error;
+
+      setNewEvent({
+        title: "",
+        description: "",
+        date: "",
+        time: "",
+        location: "",
+      });
+      setShowCreateEvent(false);
+      await loadEvents();
+    } catch (e: any) {
+      console.error(e);
+      setEventsError(e?.message || "Could not create event.");
+    } finally {
+      setCreatingEvent(false);
+    }
   };
 
   const handleJoinEvent = (eventId: string) => {
@@ -1691,10 +1813,18 @@ const SocialFeed: React.FC = () => {
                   onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
                 />
                 <div className="flex space-x-2">
-                  <Button onClick={handleCreateEvent} className="flex-1">
-                    Create
+                  <Button
+                    onClick={() => void handleCreateEvent()}
+                    className="flex-1"
+                    disabled={creatingEvent}
+                  >
+                    {creatingEvent ? "Creating…" : "Create"}
                   </Button>
-                  <Button variant="outline" onClick={() => setShowCreateEvent(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCreateEvent(false)}
+                    disabled={creatingEvent}
+                  >
                     Cancel
                   </Button>
                 </div>
@@ -1702,9 +1832,17 @@ const SocialFeed: React.FC = () => {
             </Card>
           )}
 
-          {mockEvents.map((event) => (
-            <EventCard key={event.id} event={event} onJoin={handleJoinEvent} />
-          ))}
+          {eventsError ? <div className="text-sm text-red-300">{eventsError}</div> : null}
+
+          {eventsLoading ? (
+            <div className="text-white/80">Loading events…</div>
+          ) : events.length === 0 ? (
+            <div className="text-white/80">No upcoming events yet. Create one to get started.</div>
+          ) : (
+            events.map((event) => (
+              <EventCard key={event.id} event={event} onJoin={handleJoinEvent} />
+            ))
+          )}
         </aside>
       </div>
     </div>

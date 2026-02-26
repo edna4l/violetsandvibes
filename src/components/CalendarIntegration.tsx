@@ -15,12 +15,12 @@ import {
   ExternalLink,
   Link2,
   Loader2,
-  MapPin,
   RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import EventCard from "./EventCard";
 
 type Provider = "google" | "outlook";
 
@@ -115,6 +115,21 @@ const formatDateTime = (iso: string) =>
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
+
+const formatEventDate = (iso: string) =>
+  new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(iso));
+
+const formatEventTimeRange = (startIso: string, endIso: string) => {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${formatter.format(new Date(startIso))} - ${formatter.format(new Date(endIso))}`;
+};
 
 const sourceBadgeClass: Record<CalendarEventRow["source"], string> = {
   local: "bg-pink-500/20 text-pink-100 border-pink-300/40",
@@ -487,6 +502,33 @@ const CalendarIntegration: React.FC = () => {
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
   }, [events]);
 
+  const toEventCardModel = useCallback((event: CalendarEventRow) => {
+    const tags = [
+      event.source === "local"
+        ? "Community"
+        : event.source === "google"
+          ? "Google"
+          : "Outlook",
+    ];
+
+    if (event.sync_state === "pending") tags.push("Syncing");
+    if (event.sync_state === "error") tags.push("Sync Error");
+
+    return {
+      id: event.id,
+      title: event.title,
+      description: event.description || "No description provided.",
+      date: formatEventDate(event.starts_at),
+      time: formatEventTimeRange(event.starts_at, event.ends_at),
+      location: event.location || "Location TBD",
+      attendees: 1,
+      maxAttendees: 10,
+      tags,
+      organizer: "You",
+      isAttending: true,
+    };
+  }, []);
+
   const providerRows: Array<{ key: Provider; name: string }> = [
     { key: "google", name: "Google Calendar" },
     { key: "outlook", name: "Outlook Calendar" },
@@ -592,70 +634,58 @@ const CalendarIntegration: React.FC = () => {
             </Card>
           ) : (
             upcomingEvents.map((event) => (
-              <Card key={event.id} className="bg-black/30 border-white/15">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-white font-semibold text-base truncate">{event.title}</h3>
-                      {event.description ? (
-                        <p className="text-sm text-white/75 mt-1 whitespace-pre-wrap">{event.description}</p>
-                      ) : null}
+              <div key={event.id} className="space-y-2">
+                <EventCard event={toEventCardModel(event)} />
+
+                <Card className="bg-black/30 border-white/15">
+                  <CardContent className="p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 text-sm text-white/80">
+                        <Clock className="w-4 h-4 text-pink-300" />
+                        <span>{formatDateTime(event.starts_at)}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge className={sourceBadgeClass[event.source]} variant="outline">
+                          {event.source}
+                        </Badge>
+                        <Badge className={syncBadgeClass[event.sync_state]} variant="outline">
+                          {event.sync_state}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2 shrink-0">
-                      <Badge className={sourceBadgeClass[event.source]} variant="outline">
-                        {event.source}
-                      </Badge>
-                      <Badge className={syncBadgeClass[event.sync_state]} variant="outline">
-                        {event.sync_state}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-white/80">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-pink-300" />
-                      <span>{formatDateTime(event.starts_at)}</span>
-                    </div>
-                    {event.location ? (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-purple-300" />
-                        <span className="truncate">{event.location}</span>
+                    {event.sync_state === "error" && event.sync_error ? (
+                      <div className="text-xs text-rose-100 bg-rose-500/15 border border-rose-400/30 rounded-md px-3 py-2 flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>{event.sync_error}</span>
                       </div>
                     ) : null}
-                  </div>
 
-                  {event.sync_state === "error" && event.sync_error ? (
-                    <div className="text-xs text-rose-100 bg-rose-500/15 border border-rose-400/30 rounded-md px-3 py-2 flex items-start gap-2">
-                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span>{event.sync_error}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(buildGoogleUrl(event), "_blank", "noopener,noreferrer")}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                        Google
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(buildOutlookUrl(event), "_blank", "noopener,noreferrer")}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                        Outlook
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => downloadIcs(event)}>
+                        <Download className="w-3.5 h-3.5 mr-1" />
+                        Apple (.ics)
+                      </Button>
                     </div>
-                  ) : null}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(buildGoogleUrl(event), "_blank", "noopener,noreferrer")}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                      Google
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(buildOutlookUrl(event), "_blank", "noopener,noreferrer")}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                      Outlook
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => downloadIcs(event)}>
-                      <Download className="w-3.5 h-3.5 mr-1" />
-                      Apple (.ics)
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             ))
           )}
         </TabsContent>
