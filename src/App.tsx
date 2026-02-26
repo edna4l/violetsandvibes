@@ -29,6 +29,9 @@ import ProfileEditPage from "./pages/ProfileEditPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SettingsPage from "./pages/SettingsPage";
 import LandingPreviewPage from "./pages/LandingPreviewPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import DataDeletionPage from "./pages/DataDeletionPage";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,9 @@ const App = () => (
           <Routes>
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/landing-preview" element={<LandingPreviewPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsOfServicePage />} />
+            <Route path="/data-deletion" element={<DataDeletionPage />} />
             <Route path="/" element={<HeroesPage />} />
             <Route
               path="/discover"
