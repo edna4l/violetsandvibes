@@ -24,6 +24,7 @@ type UiMatch = {
   location: string | null;
   createdAt: string;
   isNewMatch: boolean;
+  hasUnread: boolean;
   lastMessageText?: string | null;
   lastMessageAt?: string | null;
 };
@@ -70,6 +71,7 @@ const MatchesView: React.FC = () => {
       photo: prof?.photos?.[0] ?? null,
       location: prof?.location ?? null,
       createdAt: row.created_at,
+      hasUnread: false,
       lastMessageText: null,
       lastMessageAt: null,
       isNewMatch:
@@ -81,6 +83,12 @@ const MatchesView: React.FC = () => {
     if (!user) return;
 
     try {
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.matchId === match.matchId ? { ...m, hasUnread: false } : m
+        )
+      );
+
       let conversationId = match.conversationId;
       if (!conversationId) {
         conversationId = await getOrCreateDirectConversation(user.id, match.otherUserId);
@@ -119,6 +127,18 @@ const MatchesView: React.FC = () => {
           setMatches([]);
           return;
         }
+
+        const { data: memRows, error: memErr } = await supabase
+          .from("conversation_members")
+          .select("conversation_id, last_read_at")
+          .eq("user_id", user.id);
+
+        if (memErr) throw memErr;
+
+        const lastReadByConvo = new Map<string, string | null>();
+        (memRows ?? []).forEach((m: any) => {
+          lastReadByConvo.set(m.conversation_id, m.last_read_at ?? null);
+        });
 
         const otherUserIds = Array.from(
           new Set(
@@ -182,6 +202,30 @@ const MatchesView: React.FC = () => {
             });
           }
         }
+
+        uiRows.forEach((m) => {
+          if (!m.conversationId) {
+            m.hasUnread = false;
+            return;
+          }
+
+          const lastReadAt = lastReadByConvo.get(m.conversationId) ?? null;
+          m.hasUnread =
+            !!m.lastMessageAt &&
+            (!lastReadAt ||
+              new Date(m.lastMessageAt).getTime() > new Date(lastReadAt).getTime());
+        });
+
+        uiRows.sort((a, b) => {
+          if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
+          const ta = a.lastMessageAt
+            ? new Date(a.lastMessageAt).getTime()
+            : new Date(a.createdAt).getTime();
+          const tb = b.lastMessageAt
+            ? new Date(b.lastMessageAt).getTime()
+            : new Date(b.createdAt).getTime();
+          return tb - ta;
+        });
 
         setMatches(uiRows);
       } catch (e: any) {
@@ -253,10 +297,6 @@ const MatchesView: React.FC = () => {
 
   const newMatches = useMemo(
     () => matches.filter((m) => m.isNewMatch),
-    [matches]
-  );
-  const oldMatches = useMemo(
-    () => matches.filter((m) => !m.isNewMatch),
     [matches]
   );
 
@@ -385,7 +425,7 @@ const MatchesView: React.FC = () => {
           Messages
         </h2>
         <div className="space-y-3">
-          {oldMatches.map((match) => (
+          {matches.map((match) => (
             <div
               key={match.matchId}
               className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
@@ -400,18 +440,23 @@ const MatchesView: React.FC = () => {
               }}
             >
               <div className="flex items-center space-x-3">
-                {match.photo ? (
-                  <img
-                    src={match.photo}
-                    alt={match.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
-                    {match.name.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <div className="relative">
+                  {match.photo ? (
+                    <img
+                      src={match.photo}
+                      alt={match.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
+                      {match.name.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  {match.hasUnread && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-white truncate">{match.name}</h3>
