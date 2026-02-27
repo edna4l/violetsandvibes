@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, CheckCircle2, XCircle, RefreshCw, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 
 interface AdminPanelProps {
   user: any;
@@ -24,6 +25,30 @@ type QueueItem = {
 
 type DecisionTarget = 'photo' | 'id' | 'both';
 type DecisionType = 'approve' | 'reject';
+
+const resolveFunctionErrorMessage = async (error: unknown) => {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context.status;
+    try {
+      const payload = await error.context.json();
+      const details =
+        (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+          ? payload.error
+          : null) ??
+        (payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string'
+          ? payload.message
+          : null);
+
+      if (details) return `${details} (HTTP ${status})`;
+      return `${error.message} (HTTP ${status})`;
+    } catch {
+      return `${error.message} (HTTP ${status})`;
+    }
+  }
+
+  if (error instanceof Error) return error.message;
+  return 'Could not load verification queue.';
+};
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -56,7 +81,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
     });
 
     if (error) {
-      const message = error.message || 'Could not load verification queue.';
+      const message = await resolveFunctionErrorMessage(error);
       if (message.toLowerCase().includes('admin access required')) {
         setIsAdmin(false);
         setQueue([]);
@@ -103,10 +128,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
             : 'Decision saved.',
       });
     } catch (error) {
+      const message = await resolveFunctionErrorMessage(error);
       console.error('Failed to save verification decision:', error);
       toast({
         title: 'Decision failed',
-        description: (error as Error)?.message || 'Please try again.',
+        description: message || 'Please try again.',
         variant: 'destructive',
       });
     } finally {
