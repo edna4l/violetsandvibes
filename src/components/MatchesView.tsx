@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { fetchMyMatches, type MatchRow } from "@/lib/matches";
 import { getOrCreateDirectConversation } from "@/lib/messaging";
+import { loadBlockedUserIdSet } from "@/lib/safety";
 
 type MatchProfileRow = {
   id: string;
@@ -54,6 +55,11 @@ const MatchesView: React.FC = () => {
   const [matches, setMatches] = useState<UiMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  const blockedUserIdsKey = useMemo(
+    () => Array.from(blockedUserIds).sort().join(","),
+    [blockedUserIds]
+  );
 
   const toUiMatch = (
     row: MatchRow,
@@ -114,6 +120,7 @@ const MatchesView: React.FC = () => {
       setMatches([]);
       setError(null);
       setLoading(false);
+      setBlockedUserIds(new Set());
       return;
     }
 
@@ -122,8 +129,19 @@ const MatchesView: React.FC = () => {
       setError(null);
 
       try {
+        const blockedSet = await loadBlockedUserIdSet(user.id);
+        const nextBlockedKey = Array.from(blockedSet).sort().join(",");
+        if (nextBlockedKey !== blockedUserIdsKey) {
+          setBlockedUserIds(blockedSet);
+        }
+
         const rows = await fetchMyMatches(user.id);
-        if (rows.length === 0) {
+        const visibleRows = rows.filter((row) => {
+          const otherUserId = row.user1_id === user.id ? row.user2_id : row.user1_id;
+          return !blockedSet.has(otherUserId);
+        });
+
+        if (visibleRows.length === 0) {
           setMatches([]);
           return;
         }
@@ -142,7 +160,7 @@ const MatchesView: React.FC = () => {
 
         const otherUserIds = Array.from(
           new Set(
-            rows.map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
+            visibleRows.map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
           )
         );
 
@@ -160,7 +178,7 @@ const MatchesView: React.FC = () => {
         const profileById = new Map<string, MatchProfileRow>();
         profileRows.forEach((p) => profileById.set(p.id, p));
 
-        const uiRows = rows.map((m: MatchRow) => {
+        const uiRows = visibleRows.map((m: MatchRow) => {
           const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
           const prof = profileById.get(otherUserId);
           return toUiMatch(m, user.id, prof);
@@ -237,7 +255,7 @@ const MatchesView: React.FC = () => {
     };
 
     void run();
-  }, [user?.id]);
+  }, [user?.id, blockedUserIdsKey]);
 
   useEffect(() => {
     if (!user) return;
@@ -253,6 +271,7 @@ const MatchesView: React.FC = () => {
           if (row.user1_id !== user.id && row.user2_id !== user.id) return;
 
           const otherUserId = row.user1_id === user.id ? row.user2_id : row.user1_id;
+          if (blockedUserIds.has(otherUserId)) return;
           const { data: profileRow } = await supabase
             .from("profiles")
             .select("id, full_name, username, photos, location")
@@ -293,7 +312,7 @@ const MatchesView: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, toast]);
+  }, [user?.id, toast, blockedUserIdsKey]);
 
   const newMatches = useMemo(
     () => matches.filter((m) => m.isNewMatch),

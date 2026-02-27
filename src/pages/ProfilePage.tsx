@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Edit, MapPin, Camera, Star, Loader2, UserPlus } from "lucide-react";
+import { Ban, Edit, MapPin, Camera, Star, Loader2, UserPlus } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -99,6 +99,8 @@ const ProfilePage: React.FC = () => {
   const [likeLoading, setLikeLoading] = useState(false);
   const [likeError, setLikeError] = useState<string | null>(null);
   const [matchConversationId, setMatchConversationId] = useState<string | null>(null);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const otherUserId = !isOwnProfile ? (profile?.id as string | undefined) : undefined;
 
@@ -167,6 +169,38 @@ const ProfilePage: React.FC = () => {
     };
 
     void run();
+  }, [user?.id, otherUserId]);
+
+  useEffect(() => {
+    const loadBlockState = async () => {
+      if (!user?.id || !otherUserId) {
+        setIsBlocked(false);
+        return;
+      }
+
+      try {
+        const { data: ownRow, error: ownErr } = await supabase
+          .from("profiles")
+          .select("safety_settings")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (ownErr) throw ownErr;
+
+        const safety =
+          ownRow?.safety_settings && typeof ownRow.safety_settings === "object"
+            ? (ownRow.safety_settings as Record<string, any>)
+            : {};
+
+        const blockedIds = toStringArray(safety.blocked_user_ids);
+        setIsBlocked(blockedIds.includes(otherUserId));
+      } catch (loadError) {
+        console.warn("Could not load block state:", loadError);
+        setIsBlocked(false);
+      }
+    };
+
+    void loadBlockState();
   }, [user?.id, otherUserId]);
 
   const handleChange = (
@@ -320,6 +354,74 @@ const ProfilePage: React.FC = () => {
       });
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    if (!user?.id || !otherUserId) return;
+
+    try {
+      setBlockLoading(true);
+
+      const { data: ownRow, error: ownErr } = await supabase
+        .from("profiles")
+        .select("safety_settings")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (ownErr) throw ownErr;
+
+      const safety =
+        ownRow?.safety_settings && typeof ownRow.safety_settings === "object"
+          ? (ownRow.safety_settings as Record<string, any>)
+          : {};
+
+      const blockedSet = new Set(toStringArray(safety.blocked_user_ids));
+      const willBlock = !blockedSet.has(otherUserId);
+
+      if (willBlock) {
+        blockedSet.add(otherUserId);
+      } else {
+        blockedSet.delete(otherUserId);
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { error: updateErr } = await supabase
+        .from("profiles")
+        .update({
+          safety_settings: {
+            ...safety,
+            blocked_user_ids: Array.from(blockedSet),
+            blocked_users_updated_at: nowIso,
+          },
+          updated_at: nowIso,
+        })
+        .eq("id", user.id);
+
+      if (updateErr) throw updateErr;
+
+      setIsBlocked(willBlock);
+      if (willBlock) {
+        toast({
+          title: "User blocked",
+          description: `${displayName} has been blocked.`,
+        });
+      } else {
+        toast({
+          title: "User unblocked",
+          description: `${displayName} has been unblocked.`,
+        });
+      }
+    } catch (blockError: any) {
+      console.error("Could not update block status:", blockError);
+      toast({
+        title: "Block update failed",
+        description: blockError?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBlockLoading(false);
     }
   };
 
@@ -620,7 +722,31 @@ const ProfilePage: React.FC = () => {
             </>
           ) : (
             <div className="space-y-3">
-              {matched ? (
+              <Button
+                variant="outline"
+                className={`w-full ${
+                  isBlocked
+                    ? "border-emerald-300/30 text-emerald-100 hover:bg-emerald-500/10"
+                    : "border-red-300/40 text-red-100 hover:bg-red-500/10"
+                }`}
+                onClick={handleToggleBlock}
+                disabled={blockLoading}
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                {blockLoading
+                  ? "Updating…"
+                  : isBlocked
+                    ? "Unblock user"
+                    : "Block user"}
+              </Button>
+
+              {isBlocked ? (
+                <div className="text-sm text-white/80 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  You blocked this user. Unblock to see messaging and match actions again.
+                </div>
+              ) : null}
+
+              {isBlocked ? null : matched ? (
                 <>
                   <div className="text-sm text-white/80 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
                     Matched 💜 You can message each other.
