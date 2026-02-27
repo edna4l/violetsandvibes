@@ -11,6 +11,7 @@ import {
   loadEffectiveSubscriptionTierForUser,
   saveSubscriptionTierForUser,
 } from '@/lib/subscriptionTier';
+import { supabase } from '@/lib/supabase';
 
 const SubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -89,26 +90,44 @@ const SubscriptionPage: React.FC = () => {
 
     try {
       setProcessingTier(tier);
-      await saveSubscriptionTierForUser(user.id, tier);
-      setCurrentTier(tier);
+      if (tier === 'free') {
+        await saveSubscriptionTierForUser(user.id, tier);
+        setCurrentTier(tier);
 
-      toast({
-        title:
-          tier === 'free'
-            ? 'Switched to Free'
-            : `Subscribed to ${tier.charAt(0).toUpperCase() + tier.slice(1)}!`,
-        description:
-          tier === 'free'
-            ? 'Your plan has been updated.'
-            : 'Your upgraded access is now active.',
+        toast({
+          title: 'Switched to Free',
+          description: 'Your plan has been updated.',
+        });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('handle-payment', {
+        body: {
+          action: 'create_subscription',
+          tier,
+          billingPeriod,
+        },
       });
 
-      navigate('/verification?redirect=/social');
-    } catch (error: any) {
-      console.error('Failed to update subscription tier:', error);
+      if (error) throw error;
+
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
       toast({
-        title: 'Subscription update failed',
-        description: error?.message || 'Please try again.',
+        title: 'Checkout required',
+        description:
+          'Subscription checkout is not configured yet. Paid tiers stay locked until payment is enabled.',
+      });
+    } catch (error: any) {
+      console.error('Failed to start subscription checkout:', error);
+      toast({
+        title: 'Subscription checkout failed',
+        description:
+          error?.message ||
+          'Could not start checkout. Paid tiers remain locked.',
         variant: 'destructive',
       });
     } finally {

@@ -62,8 +62,7 @@ const UserVerification: React.FC = () => {
   const hasVioletsVerifiedAccess =
     isAdminBypass ||
     subscriptionTier === 'premium' ||
-    subscriptionTier === 'elite' ||
-    existingSafetySettings.violets_verified_unlocked === true;
+    subscriptionTier === 'elite';
 
   useEffect(() => {
     let cancelled = false;
