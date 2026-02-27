@@ -116,8 +116,19 @@ const SubscriptionPage: React.FC = () => {
 
       if (error) throw error;
 
-      if (data?.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      if (data?.checkoutUrl || data?.checkout_url) {
+        const checkoutUrl = data?.checkoutUrl || data?.checkout_url;
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      if (data?.success) {
+        await saveSubscriptionTierForUser(user.id, tier);
+        setCurrentTier(tier);
+        toast({
+          title: 'Plan updated',
+          description: data?.message || `You are now on ${SUBSCRIPTION_TIER_LABELS[tier]}.`,
+        });
         return;
       }
 
