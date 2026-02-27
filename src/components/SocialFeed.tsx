@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import EventCard from "./EventCard";
-import { Plus } from "lucide-react";
+import { Plus, ShieldAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "react-router-dom";
@@ -1420,6 +1420,15 @@ const SocialFeed: React.FC = () => {
           <div className="px-1">
             <h2 className="wedding-heading text-2xl text-white">Community Feed</h2>
           </div>
+
+          <Card className="bg-violet-950/75 border-violet-400/35 text-white backdrop-blur-sm">
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xs sm:text-sm text-white/90 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-pink-200 shrink-0" />
+                Conversations here are expected to remain respectful and aligned with community standards.
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Create Post */}
           <Card className="bg-violet-950/80 border-violet-400/40 text-white backdrop-blur-sm">
