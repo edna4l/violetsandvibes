@@ -55,14 +55,6 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
   ];
 
   const handleSubscribe = async (tier: SubscriptionTier) => {
-    if (tier === 'free') {
-      toast({
-        title: "Already on current plan",
-        description: `You're currently on ${SUBSCRIPTION_TIER_LABELS.free}. Upgrade for more features.`,
-      });
-      return;
-    }
-
     if (tier === currentTier) {
       toast({
         title: "Current Plan",
@@ -74,12 +66,16 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
     let completed = false;
     setIsLoading(tier);
     try {
+      const action = tier === 'free' ? 'cancel_subscription' : 'create_subscription';
       const { data, error } = await supabase.functions.invoke('handle-payment', {
-        body: { 
-          action: 'create_subscription',
-          tier,
-          billing_period: billingPeriod
-        }
+        body:
+          tier === 'free'
+            ? { action }
+            : {
+                action,
+                tier,
+                billing_period: billingPeriod,
+              },
       });
 
       if (error) throw error;
@@ -90,7 +86,11 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
       } else if (data?.success) {
         toast({
           title: 'Plan updated',
-          description: data?.message || `You are now subscribed to ${SUBSCRIPTION_TIER_LABELS[tier]}.`,
+          description:
+            data?.message ||
+            (tier === 'free'
+              ? `You are now on ${SUBSCRIPTION_TIER_LABELS.free}.`
+              : `You are now subscribed to ${SUBSCRIPTION_TIER_LABELS[tier]}.`),
         });
         completed = true;
       }
