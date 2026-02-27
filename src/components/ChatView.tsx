@@ -7,7 +7,7 @@ import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Flag, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Flag, Heart, Loader2, MessageCircle } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -53,6 +53,15 @@ type MessageRow = {
   created_at: string;
 };
 
+type MessageReactionRow = {
+  id: string;
+  message_id: string;
+  conversation_id: string;
+  user_id: string;
+  reaction: "heart";
+  created_at: string;
+};
+
 function timeAgo(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -95,6 +104,11 @@ const ChatView: React.FC = () => {
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [heartCountsByMessageId, setHeartCountsByMessageId] = useState<
+    Record<string, number>
+  >({});
+  const [heartedMessageIds, setHeartedMessageIds] = useState<Set<string>>(new Set());
+  const [heartsEnabled, setHeartsEnabled] = useState(true);
   const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
   const [newDividerSeen, setNewDividerSeen] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
@@ -178,6 +192,49 @@ const ChatView: React.FC = () => {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages.length]);
+
+  const setReactionStateFromRows = (rows: MessageReactionRow[]) => {
+    const nextCounts: Record<string, number> = {};
+    const nextHearted = new Set<string>();
+
+    rows.forEach((row) => {
+      if (row.reaction !== "heart") return;
+      nextCounts[row.message_id] = (nextCounts[row.message_id] ?? 0) + 1;
+      if (row.user_id === user?.id) {
+        nextHearted.add(row.message_id);
+      }
+    });
+
+    setHeartCountsByMessageId(nextCounts);
+    setHeartedMessageIds(nextHearted);
+  };
+
+  const loadMessageHearts = async (conversationId: string, messageIds: string[]) => {
+    if (!user || !conversationId || !heartsEnabled) return;
+
+    if (messageIds.length === 0) {
+      setHeartCountsByMessageId({});
+      setHeartedMessageIds(new Set());
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("message_reactions")
+      .select("id, message_id, conversation_id, user_id, reaction, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("reaction", "heart")
+      .in("message_id", messageIds);
+
+    if (error) {
+      if (error.code === "42P01") {
+        setHeartsEnabled(false);
+        return;
+      }
+      throw error;
+    }
+
+    setReactionStateFromRows((data ?? []) as MessageReactionRow[]);
+  };
 
   const loadConversationList = async () => {
     if (!user) {
@@ -357,6 +414,8 @@ const ChatView: React.FC = () => {
     const activeConvo = conversations.find((c) => c.conversationId === conversationId);
     if (!activeConvo || blockedUserIds.has(activeConvo.otherUserId)) {
       setMessages([]);
+      setHeartCountsByMessageId({});
+      setHeartedMessageIds(new Set());
       setThreadError("This conversation is unavailable.");
       return;
     }
@@ -388,6 +447,7 @@ const ChatView: React.FC = () => {
 
       const rows = (data ?? []) as MessageRow[];
       setMessages(rows);
+      await loadMessageHearts(conversationId, rows.map((m) => m.id));
 
       // 2) Compute first unread message id (only messages after last_read_at, not mine)
       if (!lastReadAt) {
@@ -405,9 +465,69 @@ const ChatView: React.FC = () => {
       await markConversationRead(conversationId);
     } catch (e: any) {
       console.error(e);
+      setHeartCountsByMessageId({});
+      setHeartedMessageIds(new Set());
       setThreadError(e?.message || "Failed to load messages");
     } finally {
       setThreadLoading(false);
+    }
+  };
+
+  const toggleMessageHeart = async (message: MessageRow) => {
+    if (!user || !activeConversationId || !heartsEnabled) return;
+    if (message.id.startsWith("temp_")) return;
+
+    const messageId = message.id;
+    const hadHeart = heartedMessageIds.has(messageId);
+    const prevCount = heartCountsByMessageId[messageId] ?? 0;
+    const nextCount = Math.max(0, prevCount + (hadHeart ? -1 : 1));
+
+    setHeartCountsByMessageId((prev) => ({ ...prev, [messageId]: nextCount }));
+    setHeartedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (hadHeart) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+
+    try {
+      if (hadHeart) {
+        const { error } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("message_id", messageId)
+          .eq("conversation_id", activeConversationId)
+          .eq("reaction", "heart")
+          .eq("user_id", user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("message_reactions").insert({
+          message_id: messageId,
+          conversation_id: activeConversationId,
+          user_id: user.id,
+          reaction: "heart",
+        });
+        if (error && error.code !== "23505") throw error;
+      }
+    } catch (e: any) {
+      if (e?.code === "42P01") {
+        setHeartsEnabled(false);
+      }
+
+      // rollback optimistic update
+      setHeartCountsByMessageId((prev) => ({ ...prev, [messageId]: prevCount }));
+      setHeartedMessageIds((prev) => {
+        const next = new Set(prev);
+        if (hadHeart) next.add(messageId);
+        else next.delete(messageId);
+        return next;
+      });
+
+      toast({
+        title: "Could not update heart",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -446,6 +566,19 @@ const ChatView: React.FC = () => {
 
       // replace optimistic with real row
       setMessages((prev) => prev.map((m) => (m.id === tempId ? (data as MessageRow) : m)));
+      setHeartCountsByMessageId((prev) => {
+        if (!(tempId in prev)) return prev;
+        const next = { ...prev, [(data as MessageRow).id]: prev[tempId] };
+        delete next[tempId];
+        return next;
+      });
+      setHeartedMessageIds((prev) => {
+        if (!prev.has(tempId)) return prev;
+        const next = new Set(prev);
+        next.delete(tempId);
+        next.add((data as MessageRow).id);
+        return next;
+      });
 
       // conversation list: bump lastMessageAt + clear unread (for me)
       setConversations((prev) =>
@@ -616,6 +749,8 @@ const ChatView: React.FC = () => {
     setFirstUnreadMessageId(null);
     if (!user || !activeConversationId) {
       setMessages([]);
+      setHeartCountsByMessageId({});
+      setHeartedMessageIds(new Set());
       return;
     }
     void loadThread(activeConversationId);
