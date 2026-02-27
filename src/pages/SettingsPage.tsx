@@ -5,6 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Crown, 
@@ -150,6 +159,8 @@ const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsState>(() => createDefaultSettings());
   const [loadingGeneral, setLoadingGeneral] = useState(true);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isHydrated, setIsHydrated] = useState(false);
   const persistTimerRef = useRef<number | null>(null);
@@ -335,14 +346,7 @@ const SettingsPage: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     if (!user?.id || deletingAccount) return;
-
-    const confirmed = window.confirm(
-      'Delete your account permanently? This removes your profile, photos, messages, and related data. This cannot be undone.'
-    );
-    if (!confirmed) return;
-
-    const typed = window.prompt('Type DELETE to confirm permanent account deletion.');
-    if (typed !== 'DELETE') {
+    if (deleteConfirmText !== 'DELETE') {
       toast({
         title: 'Deletion cancelled',
         description: 'You must type DELETE exactly to continue.',
@@ -356,6 +360,8 @@ const SettingsPage: React.FC = () => {
         body: { confirm: true },
       });
       if (error) throw error;
+      setDeleteDialogOpen(false);
+      setDeleteConfirmText('');
 
       try {
         await signOut();
@@ -612,7 +618,7 @@ const SettingsPage: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   className="w-full justify-between h-auto py-3 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={handleDeleteAccount}
+                  onClick={() => setDeleteDialogOpen(true)}
                   disabled={deletingAccount}
                 >
                   <div className="text-left">
@@ -640,6 +646,61 @@ const SettingsPage: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (deletingAccount) return;
+          setDeleteDialogOpen(open);
+          if (!open) setDeleteConfirmText('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Account Permanently</DialogTitle>
+            <DialogDescription>
+              This deletes your account, profile, photos, messages, likes/matches, and related data.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label htmlFor="delete-confirm-input" className="text-sm font-medium text-foreground">
+              Type <span className="font-bold tracking-wide">DELETE</span> to confirm:
+            </label>
+            <Input
+              id="delete-confirm-input"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              disabled={deletingAccount}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteConfirmText('');
+              }}
+              disabled={deletingAccount}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount || deleteConfirmText !== 'DELETE'}
+            >
+              {deletingAccount ? 'Deleting Account…' : 'Delete Account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
