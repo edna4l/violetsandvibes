@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, LogOut, RotateCcw } from "lucide-react";
 import { BasicInfoStep } from "./BasicInfoStep";
 import { IdentityStep } from "./IdentityStep";
 import { LifestyleStep } from "./LifestyleStep";
@@ -47,6 +47,33 @@ type ProfileDraft = {
     hideProfileFromSearch: boolean;
   };
 };
+
+function createInitialProfileDraft(): ProfileDraft {
+  return {
+    name: "",
+    age: "",
+    location: "",
+    occupation: "",
+    bio: "",
+    genderIdentity: "",
+    sexualOrientation: "",
+    showPronouns: false,
+    pridePins: [],
+    interests: [],
+    photos: [],
+    lifestyle: {},
+    safety: {},
+    privacy: {
+      profileVisibility: "public",
+      showLastActive: true,
+      showDistance: true,
+      showAge: true,
+      allowMessagesFromStrangers: true,
+      photoVerificationRequired: false,
+      hideProfileFromSearch: false,
+    },
+  };
+}
 
 function safeJsonParse<T>(value: string | null): T | null {
   if (!value) return null;
@@ -103,30 +130,7 @@ const ProfileCreationFlow: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const [profile, setProfile] = useState<ProfileDraft>({
-    name: "",
-    age: "",
-    location: "",
-    occupation: "",
-    bio: "",
-    genderIdentity: "",
-    sexualOrientation: "",
-    showPronouns: false,
-    pridePins: [],
-    interests: [],
-    photos: [],
-    lifestyle: {},
-    safety: {},
-    privacy: {
-      profileVisibility: "public",
-      showLastActive: true,
-      showDistance: true,
-      showAge: true,
-      allowMessagesFromStrangers: true,
-      photoVerificationRequired: false,
-      hideProfileFromSearch: false,
-    },
-  });
+  const [profile, setProfile] = useState<ProfileDraft>(createInitialProfileDraft);
 
   const [affirmation, setAffirmation] = useState<string | null>(null);
 
@@ -345,11 +349,10 @@ const ProfileCreationFlow: React.FC = () => {
       setShowFinish(true);
 
       window.setTimeout(() => {
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get("redirect");
-        const target = redirect && redirect.startsWith("/") ? redirect : "/social";
         setShowFinish(false);
-        navigate(target, { replace: true });
+        // Always send users to a non-protected route to avoid redirect loops
+        // when profile setup is incomplete.
+        navigate("/", { replace: true });
       }, 1200);
     } catch (e: any) {
       console.error(e);
@@ -357,6 +360,29 @@ const ProfileCreationFlow: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const startOver = () => {
+    const confirmed = window.confirm(
+      "Start over and clear everything you've entered so far?"
+    );
+    if (!confirmed) return;
+
+    clearLocalDraft();
+    setProfile(createInitialProfileDraft());
+    setCurrentStep(0);
+    setAffirmation("Starting over. Take your time 💜");
+    window.setTimeout(() => setAffirmation(null), 1800);
+  };
+
+  const exitSetup = async () => {
+    const confirmed = window.confirm(
+      "Exit setup now? You can return later from your account."
+    );
+    if (!confirmed) return;
+
+    clearLocalDraft();
+    navigate("/", { replace: true });
   };
 
   const nextStep = () => {
@@ -375,6 +401,14 @@ const ProfileCreationFlow: React.FC = () => {
 
   const prevStep = () => {
     setCurrentStep((s) => Math.max(0, s - 1));
+  };
+
+  const handleBack = () => {
+    if (currentStep === 0) {
+      void exitSetup();
+      return;
+    }
+    prevStep();
   };
 
   const CurrentStepComponent = steps[currentStep].component;
@@ -449,12 +483,22 @@ const ProfileCreationFlow: React.FC = () => {
           )}
 
           <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mt-8">
-            <Button variant="outline" onClick={prevStep} disabled={currentStep === 0}>
+            <Button variant="outline" onClick={handleBack} disabled={saving}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={startOver}
+                disabled={saving}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Start over
+              </Button>
+
               <Button type="button" variant="outline" onClick={saveDraftToCloud} disabled={saving || !user}>
                 Save & finish later
               </Button>
@@ -464,6 +508,19 @@ const ProfileCreationFlow: React.FC = () => {
                 {currentStep < steps.length - 1 && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>
             </div>
+          </div>
+
+          <div className="mt-3 flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-white/80 hover:text-white hover:bg-white/10"
+              onClick={() => void exitSetup()}
+              disabled={saving}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Exit setup
+            </Button>
           </div>
 
           {!validation.ok && (
