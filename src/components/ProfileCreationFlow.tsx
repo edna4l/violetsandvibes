@@ -362,17 +362,38 @@ const ProfileCreationFlow: React.FC = () => {
     }
   };
 
-  const startOver = () => {
+  const startOver = async () => {
     const confirmed = window.confirm(
-      "Start over and clear everything you've entered so far?"
+      "Start over? This will wipe your in-progress profile setup and take you back to Create Account."
     );
     if (!confirmed) return;
 
+    setSaving(true);
     clearLocalDraft();
     setProfile(createInitialProfileDraft());
     setCurrentStep(0);
-    setAffirmation("Starting over. Take your time 💜");
-    window.setTimeout(() => setAffirmation(null), 1800);
+    setAffirmation(null);
+
+    try {
+      if (user?.id) {
+        const { error } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", user.id)
+          .eq("profile_completed", false);
+
+        if (error) {
+          console.warn("Failed to remove in-progress profile during start over:", error);
+        }
+      }
+
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("Start over cleanup failed:", error);
+    } finally {
+      setSaving(false);
+      navigate("/signin?tab=register", { replace: true });
+    }
   };
 
   const exitSetup = async () => {
@@ -492,7 +513,7 @@ const ProfileCreationFlow: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={startOver}
+                onClick={() => void startOver()}
                 disabled={saving}
               >
                 <RotateCcw className="w-4 h-4 mr-2" />

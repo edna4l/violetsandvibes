@@ -25,6 +25,18 @@ const SignInPage: React.FC = () => {
   const redirectTarget = redirect && redirect.startsWith('/') ? redirect : '/social';
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = (params.get('tab') || '').toLowerCase();
+    if (tabParam === 'register' || tabParam === 'signup' || tabParam === 'create') {
+      setActiveTab('register');
+      return;
+    }
+    if (tabParam === 'login' || tabParam === 'signin') {
+      setActiveTab('login');
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     const checkUser = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
