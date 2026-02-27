@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { authService, SignUpData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +17,7 @@ const CreateAccountForm: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
+  const [boundaryConfirmed, setBoundaryConfirmed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -28,6 +30,16 @@ const CreateAccountForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!boundaryConfirmed) {
+      toast({
+        title: "Confirmation Required",
+        description:
+          "Please confirm this platform boundary before creating an account.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (formData.password !== formData.confirmPassword) {
       toast({
@@ -68,6 +80,7 @@ const CreateAccountForm: React.FC = () => {
         password: '',
         confirmPassword: '',
       });
+      setBoundaryConfirmed(false);
     } catch (error: any) {
       toast({
         title: "Registration Failed",
@@ -134,11 +147,29 @@ const CreateAccountForm: React.FC = () => {
             className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
           />
         </div>
+
+        <div className="rounded-lg border border-white/20 bg-white/5 p-3">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="boundary-confirmation"
+              checked={boundaryConfirmed}
+              onCheckedChange={(checked) => setBoundaryConfirmed(checked === true)}
+            />
+            <Label
+              htmlFor="boundary-confirmation"
+              className="text-sm leading-relaxed text-white/90"
+            >
+              By creating an account, you confirm you are a woman (inclusive of
+              transgender women and aligned non-binary individuals). This
+              platform is not open to men or couples.
+            </Label>
+          </div>
+        </div>
         
         <Button 
           type="submit" 
           className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-          disabled={isLoading}
+          disabled={isLoading || !boundaryConfirmed}
         >
           {isLoading ? 'Creating Account...' : 'Create Account'}
         </Button>
