@@ -8,13 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 const LandingPreviewPage: React.FC = () => {
   const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "support@violetsandvibes.com";
   const canonicalUrl = "https://www.violetsandvibes.com/";
+  const reviewUrl = import.meta.env.VITE_REVIEW_URL || "https://www.violetsandvibes.com/#review";
   const shareMessage =
     "Violets & Vibes: a safer, women-centered space for meaningful connection.";
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const { toast } = useToast();
 
-  const openFeedbackEmail = () => {
+  const buildFeedbackMailto = () => {
     const subject = encodeURIComponent(
       feedbackName.trim()
         ? `Violets & Vibes feedback from ${feedbackName.trim()}`
@@ -23,7 +24,93 @@ const LandingPreviewPage: React.FC = () => {
     const body = encodeURIComponent(
       feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"
     );
-    window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+    return `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+  };
+
+  const copyFeedbackFallback = async () => {
+    try {
+      const fallbackText = [
+        `To: ${contactEmail}`,
+        `Name: ${feedbackName.trim() || "Not provided"}`,
+        `Message: ${feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"}`,
+      ].join("\n");
+      await navigator.clipboard.writeText(fallbackText);
+      toast({
+        title: "Copied for email",
+        description: "Your feedback details were copied. Paste into your email app.",
+      });
+    } catch {
+      toast({
+        title: "Email app unavailable",
+        description: `Please email ${contactEmail} directly.`,
+      });
+    }
+  };
+
+  const openEmailClient = async (mailtoUrl: string) => {
+    try {
+      const popup = window.open(mailtoUrl, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        window.location.href = mailtoUrl;
+      }
+    } catch {
+      window.location.href = mailtoUrl;
+    }
+  };
+
+  const openFeedbackEmail = async () => {
+    await openEmailClient(buildFeedbackMailto());
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        void copyFeedbackFallback();
+      }
+    }, 700);
+  };
+
+  const openDirectEmail = async () => {
+    await openEmailClient(`mailto:${contactEmail}`);
+    window.setTimeout(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await navigator.clipboard.writeText(contactEmail);
+        toast({
+          title: "Email copied",
+          description: "No email app opened. Address copied so you can paste it.",
+        });
+      } catch {
+        toast({
+          title: "Email app unavailable",
+          description: `Please email ${contactEmail} directly.`,
+        });
+      }
+    }, 700);
+  };
+
+  const openReviewPage = async () => {
+    try {
+      const popup = window.open(reviewUrl, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        window.location.href = reviewUrl;
+      }
+    } catch {
+      window.location.href = reviewUrl;
+    }
+
+    window.setTimeout(async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await navigator.clipboard.writeText(reviewUrl);
+        toast({
+          title: "Review link copied",
+          description: "No review page opened. Link copied so you can paste it.",
+        });
+      } catch {
+        toast({
+          title: "Could not open review link",
+          description: reviewUrl,
+        });
+      }
+    }, 700);
   };
 
   const handleShareSite = async () => {
@@ -252,12 +339,9 @@ const LandingPreviewPage: React.FC = () => {
                 placeholder="Your name (optional)"
                 className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/55 outline-none focus:border-pink-300/60"
               />
-              <a
-                href={`mailto:${contactEmail}`}
-                className="rounded-lg border border-white/20 bg-gradient-to-r from-purple-500/12 to-pink-500/12 sm:from-purple-500/20 sm:to-pink-500/20 px-3 py-2 text-white/90 hover:from-purple-500/30 hover:to-pink-500/30"
-              >
+              <div className="rounded-lg border border-white/20 bg-gradient-to-r from-purple-500/12 to-pink-500/12 sm:from-purple-500/20 sm:to-pink-500/20 px-3 py-2 text-white/90">
                 Contact: {contactEmail}
-              </a>
+              </div>
             </div>
 
             <textarea
@@ -268,16 +352,25 @@ const LandingPreviewPage: React.FC = () => {
               className="mt-3 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/55 outline-none focus:border-pink-300/60"
             />
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button onClick={openFeedbackEmail} className="btn-pride">
-                Send Feedback
-              </Button>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Button
-                asChild
+                type="button"
                 variant="outline"
                 className="border-white/30 text-white hover:bg-white/10"
+                onClick={() => void openReviewPage()}
               >
-                <a href={`mailto:${contactEmail}`}>Email Directly</a>
+                Leave a Review
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/30 text-white hover:bg-white/10"
+                onClick={() => void openDirectEmail()}
+              >
+                Email Directly
+              </Button>
+              <Button type="button" onClick={() => void openFeedbackEmail()} className="btn-pride">
+                Send Feedback
               </Button>
             </div>
           </section>
