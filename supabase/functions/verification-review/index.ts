@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { createServiceClient, requireUser } from "../_shared/supabase.ts";
+import { createServiceClient } from "../_shared/supabase.ts";
 
 type VerificationStatus = "pending" | "submitted" | "approved" | "rejected";
 type ReviewTarget = "photo" | "id" | "both";
@@ -98,13 +98,32 @@ serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const { user, errorResponse } = await requireUser(req);
-  if (errorResponse || !user) return errorResponse!;
-
   try {
     const body = await req.json().catch(() => ({}));
-    const action = typeof body?.action === "string" ? body.action.trim().toLowerCase() : "";
     const service = createServiceClient();
+
+    const bodyAccessToken =
+      typeof body?.accessToken === "string" && body.accessToken.trim().length > 0
+        ? body.accessToken.trim()
+        : null;
+    const authHeader = req.headers.get("Authorization");
+    const headerAccessToken =
+      authHeader && /^Bearer\s+/i.test(authHeader)
+        ? authHeader.replace(/^Bearer\s+/i, "").trim()
+        : null;
+    const accessToken = bodyAccessToken ?? headerAccessToken;
+
+    if (!accessToken) {
+      return jsonResponse({ error: "Missing access token." }, 401);
+    }
+
+    const { data: authData, error: authError } = await service.auth.getUser(accessToken);
+    if (authError || !authData.user) {
+      return jsonResponse({ error: authError?.message || "Unauthorized" }, 401);
+    }
+    const user = authData.user;
+
+    const action = typeof body?.action === "string" ? body.action.trim().toLowerCase() : "";
 
     const isAdmin = await requireAdmin(service, user.id);
     if (!isAdmin) {
