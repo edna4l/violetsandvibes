@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { isAdminBypassUser } from '@/lib/subscriptionTier';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,34 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
+  const [isAdminMenuVisible, setIsAdminMenuVisible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const effectiveUserId = authUser?.id ?? user?.id;
+
+    if (!effectiveUserId) {
+      setIsAdminMenuVisible(false);
+      return;
+    }
+
+    const checkAdmin = async () => {
+      try {
+        const isAdmin = await isAdminBypassUser(effectiveUserId);
+        if (!cancelled) setIsAdminMenuVisible(isAdmin);
+      } catch (error) {
+        console.warn('Failed to resolve admin menu visibility:', error);
+        if (!cancelled) setIsAdminMenuVisible(false);
+      }
+    };
+
+    void checkAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser?.id, user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -200,7 +230,7 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
           Safety Standards
         </DropdownMenuItem>
         
-        {user?.isAdmin && (
+        {isAdminMenuVisible && (
           <>
             <DropdownMenuSeparator className="bg-gray-200" />
             <DropdownMenuItem 
