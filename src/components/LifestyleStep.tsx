@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Plus, X } from 'lucide-react';
 
 interface LifestyleStepProps {
   profile: any;
@@ -8,6 +9,9 @@ interface LifestyleStepProps {
 }
 
 const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
+  const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  const [openCustomFor, setOpenCustomFor] = useState<string | null>(null);
+
   const lifestyleCategories = [
     {
       title: 'Relationship',
@@ -59,39 +63,127 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
     }
   ];
 
-  const toggleInterest = (category: string, interest: string) => {
-    const currentInterests = profile.interests || [];
-    const interestKey = `${category}:${interest}`;
-    
-    if (currentInterests.includes(interestKey)) {
-      onUpdate({
-        interests: currentInterests.filter((i: string) => i !== interestKey)
-      });
-    } else {
-      onUpdate({
-        interests: [...currentInterests, interestKey]
-      });
-    }
+  const categoryKey = (title: string) =>
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
 
-    // Also update lifestyle object for better data structure
+  const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const getCustomOptions = (key: string): string[] => {
     const currentLifestyle = profile.lifestyle || {};
-    const categoryInterests = currentLifestyle[category] || [];
-    
-    if (categoryInterests.includes(interest)) {
-      onUpdate({
-        lifestyle: {
-          ...currentLifestyle,
-          [category]: categoryInterests.filter((i: string) => i !== interest)
-        }
-      });
-    } else {
-      onUpdate({
-        lifestyle: {
-          ...currentLifestyle,
-          [category]: [...categoryInterests, interest]
-        }
-      });
-    }
+    const raw = currentLifestyle[`${key}_custom_options`];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0);
+  };
+
+  const ensureSelected = (category: string, interest: string) => {
+    const currentInterests: string[] = Array.isArray(profile.interests) ? profile.interests : [];
+    const interestKey = `${category}:${interest}`;
+    const nextInterests = currentInterests.includes(interestKey)
+      ? currentInterests
+      : [...currentInterests, interestKey];
+
+    const currentLifestyle = profile.lifestyle || {};
+    const categoryInterests: string[] = Array.isArray(currentLifestyle[category])
+      ? currentLifestyle[category]
+      : [];
+    const nextCategoryInterests = categoryInterests.includes(interest)
+      ? categoryInterests
+      : [...categoryInterests, interest];
+
+    onUpdate({
+      interests: nextInterests,
+      lifestyle: {
+        ...currentLifestyle,
+        [category]: nextCategoryInterests,
+      },
+    });
+  };
+
+  const toggleInterest = (category: string, interest: string) => {
+    const currentInterests: string[] = Array.isArray(profile.interests) ? profile.interests : [];
+    const interestKey = `${category}:${interest}`;
+
+    const currentLifestyle = profile.lifestyle || {};
+    const categoryInterests: string[] = Array.isArray(currentLifestyle[category])
+      ? currentLifestyle[category]
+      : [];
+
+    const isSelected = currentInterests.includes(interestKey);
+    const nextInterests = isSelected
+      ? currentInterests.filter((i: string) => i !== interestKey)
+      : [...currentInterests, interestKey];
+    const nextCategoryInterests = isSelected
+      ? categoryInterests.filter((i: string) => i !== interest)
+      : [...categoryInterests, interest];
+
+    onUpdate({
+      interests: nextInterests,
+      lifestyle: {
+        ...currentLifestyle,
+        [category]: nextCategoryInterests,
+      },
+    });
+  };
+
+  const addCustomOption = (categoryTitle: string, options: string[]) => {
+    const key = categoryKey(categoryTitle);
+    const rawValue = customInputs[key] ?? '';
+    const value = rawValue.replace(/\s+/g, ' ').trim();
+    if (!value) return;
+
+    const builtInSet = new Set(options.map((option) => normalize(option)));
+    const currentCustomOptions = getCustomOptions(key);
+    const customSet = new Set(currentCustomOptions.map((option) => normalize(option)));
+    const currentLifestyle = profile.lifestyle || {};
+
+    const nextCustomOptions =
+      builtInSet.has(normalize(value)) || customSet.has(normalize(value))
+        ? currentCustomOptions
+        : [...currentCustomOptions, value];
+
+    onUpdate({
+      lifestyle: {
+        ...currentLifestyle,
+        [`${key}_custom_options`]: nextCustomOptions,
+      },
+    });
+
+    ensureSelected(categoryTitle, value);
+    setCustomInputs((prev) => ({ ...prev, [key]: '' }));
+    setOpenCustomFor(null);
+  };
+
+  const removeCustomOption = (categoryTitle: string, optionToRemove: string) => {
+    const key = categoryKey(categoryTitle);
+    const currentLifestyle = profile.lifestyle || {};
+    const currentInterests: string[] = Array.isArray(profile.interests) ? profile.interests : [];
+    const currentCategoryInterests: string[] = Array.isArray(currentLifestyle[categoryTitle])
+      ? currentLifestyle[categoryTitle]
+      : [];
+    const currentCustomOptions = getCustomOptions(key);
+    const normalizedTarget = normalize(optionToRemove);
+
+    const nextCustomOptions = currentCustomOptions.filter(
+      (option) => normalize(option) !== normalizedTarget
+    );
+    const nextCategoryInterests = currentCategoryInterests.filter(
+      (option) => normalize(option) !== normalizedTarget
+    );
+    const nextInterests = currentInterests.filter(
+      (interestKey) => normalize(interestKey) !== normalize(`${categoryTitle}:${optionToRemove}`)
+    );
+
+    onUpdate({
+      interests: nextInterests,
+      lifestyle: {
+        ...currentLifestyle,
+        [categoryTitle]: nextCategoryInterests,
+        [`${key}_custom_options`]: nextCustomOptions,
+      },
+    });
   };
 
   return (
@@ -101,17 +193,27 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
         <p className="text-sm text-white/70">Share what matters to you and how you like to spend your time</p>
       </div>
 
-      {lifestyleCategories.map((category) => (
+      {lifestyleCategories.map((category) => {
+        const key = categoryKey(category.title);
+        const customOptions = getCustomOptions(key);
+        const optionSet = new Set(category.options.map((option) => normalize(option)));
+        const mergedOptions = [
+          ...category.options,
+          ...customOptions.filter((option) => !optionSet.has(normalize(option))),
+        ];
+
+        return (
         <div key={category.title}>
           <h3 className="font-semibold mb-3">{category.title}</h3>
           <div className="grid grid-cols-2 gap-2">
-            {category.options.map((option) => {
+            {mergedOptions.map((option) => {
               const interestKey = `${category.title}:${option}`;
               const isSelected = profile.interests?.includes(interestKey);
               
               return (
                 <Button
                   key={option}
+                  type="button"
                   variant={isSelected ? "default" : "outline"}
                   className="justify-start text-sm"
                   onClick={() => toggleInterest(category.title, option)}
@@ -121,12 +223,57 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
               );
             })}
           </div>
-          <Button variant="ghost" className="mt-2 text-sm">
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 text-sm"
+            onClick={() => setOpenCustomFor((prev) => (prev === key ? null : key))}
+          >
             <Plus className="w-4 h-4 mr-1" />
             Add Custom {category.title}
           </Button>
+          {openCustomFor === key && (
+            <div className="mt-2 flex items-center gap-2">
+              <Input
+                value={customInputs[key] ?? ''}
+                onChange={(e) =>
+                  setCustomInputs((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                placeholder={`Add custom ${category.title.toLowerCase()}`}
+                className="bg-black/20 border-white/25 text-white placeholder:text-white/50"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => addCustomOption(category.title, category.options)}
+                disabled={!(customInputs[key] ?? '').trim()}
+              >
+                Add
+              </Button>
+            </div>
+          )}
+          {customOptions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customOptions.map((option) => (
+                <div
+                  key={`${key}-custom-chip-${option}`}
+                  className="inline-flex items-center rounded-full border border-white/25 bg-white/5 px-3 py-1 text-xs text-white/85"
+                >
+                  <span>{option}</span>
+                  <button
+                    type="button"
+                    className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full text-white/70 hover:bg-white/15 hover:text-white"
+                    onClick={() => removeCustomOption(category.title, option)}
+                    aria-label={`Remove custom ${category.title} option ${option}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
+      )})}
     </div>
   );
 };
