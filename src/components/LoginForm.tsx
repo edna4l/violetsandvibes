@@ -18,6 +18,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +53,35 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     }
   };
 
+  const handleResendConfirmation = async () => {
+    const email = formData.email.trim();
+    if (!email) {
+      toast({
+        title: 'Email required',
+        description: 'Enter your email first, then tap resend confirmation.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      await authService.resendConfirmationEmail(email);
+      toast({
+        title: 'Confirmation sent',
+        description: 'Check your inbox (and spam) for the verification link.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Could not resend confirmation',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,12 +111,22 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
           />
         </div>
         
-        <div className="text-right">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="link"
+            className="p-0 h-auto text-sm text-white/80 hover:text-white"
+            onClick={() => void handleResendConfirmation()}
+            disabled={isLoading || isResending}
+          >
+            {isResending ? 'Sending...' : 'Resend confirmation email'}
+          </Button>
           <Button
             type="button"
             variant="link"
             className="p-0 h-auto text-sm text-white/80 hover:text-white"
             onClick={onForgotPassword}
+            disabled={isLoading || isResending}
           >
             Forgot password?
           </Button>
