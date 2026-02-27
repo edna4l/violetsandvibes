@@ -2,18 +2,35 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Camera, Shield, CheckCircle, Clock, Upload } from 'lucide-react';
+import { Camera, Shield, CheckCircle, Clock, Lock, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { getVerificationState, type VerificationStatus } from '@/lib/verification';
 import { useToast } from '@/hooks/use-toast';
+import { isAdminBypassUser, resolveSubscriptionTier } from '@/lib/subscriptionTier';
 
 const VERIFICATION_MEDIA_BUCKET =
   import.meta.env.VITE_VERIFICATION_MEDIA_BUCKET || 'verification-media';
 const MAX_VERIFICATION_FILE_BYTES = 10 * 1024 * 1024;
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+type ProfileThemeId = 'prism' | 'sunset' | 'midnight' | 'aurora';
+
+type LikeReceivedItem = {
+  likeId: string;
+  likerId: string;
+  name: string;
+  photo: string | null;
+  createdAt: string;
+};
+
+const PROFILE_THEME_OPTIONS: Array<{ id: ProfileThemeId; label: string; swatchClass: string }> = [
+  { id: 'prism', label: 'Prism Glow', swatchClass: 'from-pink-500 via-purple-500 to-indigo-500' },
+  { id: 'sunset', label: 'Sunset Bloom', swatchClass: 'from-rose-500 via-orange-400 to-amber-300' },
+  { id: 'midnight', label: 'Midnight Aura', swatchClass: 'from-slate-800 via-indigo-900 to-purple-800' },
+  { id: 'aurora', label: 'Aurora Wave', swatchClass: 'from-cyan-400 via-emerald-400 to-violet-500' },
+];
 
 const UserVerification: React.FC = () => {
   const { user } = useAuth();
@@ -25,27 +42,49 @@ const UserVerification: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
   const [existingSafetySettings, setExistingSafetySettings] = useState<Record<string, any>>({});
+  const [existingPrivacySettings, setExistingPrivacySettings] = useState<Record<string, any>>({});
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isAdminBypass, setIsAdminBypass] = useState(false);
+  const [profileTheme, setProfileTheme] = useState<ProfileThemeId>('prism');
+  const [visibilityBoostUntil, setVisibilityBoostUntil] = useState<string | null>(null);
+  const [premiumActionLoading, setPremiumActionLoading] = useState(false);
+  const [likesLoading, setLikesLoading] = useState(false);
+  const [likesError, setLikesError] = useState<string | null>(null);
+  const [likesReceived, setLikesReceived] = useState<LikeReceivedItem[]>([]);
+  const [showLikesSection, setShowLikesSection] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const subscriptionTier = useMemo(
+    () => resolveSubscriptionTier(existingPrivacySettings, existingSafetySettings),
+    [existingPrivacySettings, existingSafetySettings]
+  );
+  const hasVioletsVerifiedAccess =
+    isAdminBypass ||
+    subscriptionTier === 'premium' ||
+    subscriptionTier === 'elite' ||
+    existingSafetySettings.violets_verified_unlocked === true;
 
   useEffect(() => {
     let cancelled = false;
 
     const loadState = async () => {
       if (!user?.id) {
+        setIsAdminBypass(false);
         setLoadingState(false);
         return;
       }
 
       try {
         setLoadingState(true);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('safety_settings')
-          .eq('id', user.id)
-          .maybeSingle();
+        const [{ data, error }, adminBypass] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('safety_settings, privacy_settings')
+            .eq('id', user.id)
+            .maybeSingle(),
+          isAdminBypassUser(user.id),
+        ]);
 
         if (error) throw error;
         if (cancelled) return;
@@ -54,16 +93,41 @@ const UserVerification: React.FC = () => {
           data?.safety_settings && typeof data.safety_settings === 'object'
             ? (data.safety_settings as Record<string, any>)
             : {};
+        const privacy =
+          data?.privacy_settings && typeof data.privacy_settings === 'object'
+            ? (data.privacy_settings as Record<string, any>)
+            : {};
+        const violetsVerified =
+          privacy.violets_verified && typeof privacy.violets_verified === 'object'
+            ? (privacy.violets_verified as Record<string, any>)
+            : {};
+        const nextTheme =
+          typeof violetsVerified.profile_theme === 'string' &&
+          PROFILE_THEME_OPTIONS.some((opt) => opt.id === violetsVerified.profile_theme)
+            ? (violetsVerified.profile_theme as ProfileThemeId)
+            : 'prism';
 
         const state = getVerificationState(safety);
         setExistingSafetySettings(safety);
+        setExistingPrivacySettings(privacy);
+        setIsAdminBypass(adminBypass);
         setPhotoStatus(state.photoStatus);
         setIdStatus(state.idStatus);
+        setProfileTheme(nextTheme);
+        setVisibilityBoostUntil(
+          typeof violetsVerified.visibility_boost_until === 'string'
+            ? violetsVerified.visibility_boost_until
+            : null
+        );
       } catch (error) {
         console.error('Failed to load verification state:', error);
         if (!cancelled) {
           setPhotoStatus('pending');
           setIdStatus('pending');
+          setIsAdminBypass(false);
+          setExistingPrivacySettings({});
+          setProfileTheme('prism');
+          setVisibilityBoostUntil(null);
         }
       } finally {
         if (!cancelled) setLoadingState(false);
@@ -175,6 +239,154 @@ const UserVerification: React.FC = () => {
     setExistingSafetySettings(nextSafety);
     if (type === 'photo') setPhotoStatus(nextStatus);
     if (type === 'id') setIdStatus(nextStatus);
+  };
+
+  const persistVioletsVerifiedSettings = async (patch: Record<string, any>) => {
+    if (!user?.id) throw new Error('You must be logged in.');
+
+    const now = new Date().toISOString();
+    const existingVioletsVerified =
+      existingPrivacySettings.violets_verified &&
+      typeof existingPrivacySettings.violets_verified === 'object'
+        ? (existingPrivacySettings.violets_verified as Record<string, any>)
+        : {};
+
+    const nextPrivacy = {
+      ...existingPrivacySettings,
+      violets_verified: {
+        ...existingVioletsVerified,
+        ...patch,
+      },
+    };
+
+    const { data: updatedRow, error } = await supabase
+      .from('profiles')
+      .update({
+        privacy_settings: nextPrivacy,
+        updated_at: now,
+      })
+      .eq('id', user.id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updatedRow) throw new Error('Profile record not found.');
+    setExistingPrivacySettings(nextPrivacy);
+  };
+
+  const applyProfileTheme = async (themeId: ProfileThemeId) => {
+    if (!hasVioletsVerifiedAccess) return;
+    try {
+      setPremiumActionLoading(true);
+      await persistVioletsVerifiedSettings({ profile_theme: themeId });
+      setProfileTheme(themeId);
+      toast({
+        title: 'Theme updated',
+        description: 'Your custom profile theme preference has been saved.',
+      });
+    } catch (error) {
+      console.error('Failed to apply profile theme:', error);
+      toast({
+        title: 'Could not save theme',
+        description: (error as Error)?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPremiumActionLoading(false);
+    }
+  };
+
+  const activateVisibilityBoost = async () => {
+    if (!hasVioletsVerifiedAccess) return;
+    try {
+      setPremiumActionLoading(true);
+      const nowMs = Date.now();
+      const currentUntilMs = visibilityBoostUntil ? new Date(visibilityBoostUntil).getTime() : 0;
+      const baseMs = Number.isFinite(currentUntilMs) && currentUntilMs > nowMs ? currentUntilMs : nowMs;
+      const nextUntil = new Date(baseMs + 24 * 60 * 60 * 1000).toISOString();
+
+      await persistVioletsVerifiedSettings({ visibility_boost_until: nextUntil });
+      setVisibilityBoostUntil(nextUntil);
+
+      toast({
+        title: 'Visibility boost enabled',
+        description: 'Your extra visibility perk is now active.',
+      });
+    } catch (error) {
+      console.error('Failed to activate visibility boost:', error);
+      toast({
+        title: 'Could not activate boost',
+        description: (error as Error)?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPremiumActionLoading(false);
+    }
+  };
+
+  const loadLikesReceived = async () => {
+    if (!user?.id) return;
+
+    try {
+      setLikesLoading(true);
+      setLikesError(null);
+
+      const { data: likeRows, error: likesLookupError } = await supabase
+        .from('likes')
+        .select('id, liker_id, created_at')
+        .eq('liked_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (likesLookupError) throw likesLookupError;
+
+      const likes = (likeRows ?? []) as Array<{
+        id: string;
+        liker_id: string;
+        created_at: string;
+      }>;
+
+      const likerIds = Array.from(new Set(likes.map((row) => row.liker_id)));
+      let profilesById = new Map<string, { name: string; photo: string | null }>();
+
+      if (likerIds.length > 0) {
+        const { data: profileRows, error: profileLookupError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, photos')
+          .in('id', likerIds);
+
+        if (profileLookupError) throw profileLookupError;
+
+        profilesById = new Map(
+          (profileRows ?? []).map((row: any) => [
+            row.id,
+            {
+              name: row.full_name || row.username || 'Member',
+              photo: Array.isArray(row.photos) ? row.photos[0] ?? null : null,
+            },
+          ])
+        );
+      }
+
+      const mapped: LikeReceivedItem[] = likes.map((row) => {
+        const profile = profilesById.get(row.liker_id);
+        return {
+          likeId: row.id,
+          likerId: row.liker_id,
+          createdAt: row.created_at,
+          name: profile?.name || 'Member',
+          photo: profile?.photo || null,
+        };
+      });
+
+      setLikesReceived(mapped);
+      setShowLikesSection(true);
+    } catch (error) {
+      console.error('Failed to load likes received:', error);
+      setLikesError((error as Error)?.message || 'Could not load likes right now.');
+    } finally {
+      setLikesLoading(false);
+    }
   };
 
   const pickSingleFile = (accept: string, captureMode?: 'user' | 'environment') =>
@@ -405,6 +617,9 @@ const UserVerification: React.FC = () => {
     if (status === 'rejected') return <Badge variant="secondary" className="bg-red-100 text-red-700">Rejected</Badge>;
     return null;
   };
+  const visibilityBoostActive =
+    !!visibilityBoostUntil && new Date(visibilityBoostUntil).getTime() > Date.now();
+  const activeTheme = PROFILE_THEME_OPTIONS.find((option) => option.id === profileTheme);
 
   if (loadingState) {
     return (
@@ -542,6 +757,134 @@ const UserVerification: React.FC = () => {
               Continue
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-2 border-dashed border-purple-300 bg-white/90">
+        <CardHeader className="text-center pb-3">
+          <div className="mx-auto w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mb-2">
+            <Lock className="w-6 h-6" />
+          </div>
+          <CardTitle className="text-lg text-purple-800">💜 Violets Verified</CardTitle>
+          <p className="text-sm text-purple-700">Support and strengthen this protected space.</p>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          {hasVioletsVerifiedAccess ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm px-3 py-2 text-center">
+              Access enabled for your upgraded account.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-sm px-3 py-2 text-center">
+              Upgraded members only. This section is currently locked.
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start border-purple-300 text-purple-800"
+              disabled={!hasVioletsVerifiedAccess}
+              onClick={() => navigate('/filters')}
+            >
+              Advanced filters
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start border-purple-300 text-purple-800"
+              disabled={!hasVioletsVerifiedAccess || likesLoading}
+              onClick={() => void loadLikesReceived()}
+            >
+              {likesLoading ? 'Loading likes…' : 'See who liked you'}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-purple-200 bg-purple-50/70 p-3 space-y-2">
+            <div className="text-sm font-medium text-purple-800">Custom profile themes</div>
+            <div className="grid grid-cols-2 gap-2">
+              {PROFILE_THEME_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={!hasVioletsVerifiedAccess || premiumActionLoading}
+                  className={`rounded-md border px-2 py-2 text-left text-xs ${
+                    option.id === profileTheme
+                      ? 'border-purple-500 bg-purple-100 text-purple-900'
+                      : 'border-purple-200 bg-white text-purple-700'
+                  } disabled:opacity-50`}
+                  onClick={() => void applyProfileTheme(option.id)}
+                >
+                  <div className={`mb-1 h-2 w-full rounded-full bg-gradient-to-r ${option.swatchClass}`} />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-purple-700/80">
+              Active theme: {activeTheme?.label || 'Prism Glow'}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-purple-200 bg-purple-50/70 p-3 space-y-2">
+            <div className="text-sm font-medium text-purple-800">Extra visibility perks</div>
+            <div className="text-xs text-purple-700">
+              {visibilityBoostActive
+                ? `Boost active until ${new Date(visibilityBoostUntil as string).toLocaleString()}`
+                : 'No active boost right now.'}
+            </div>
+            <Button
+              type="button"
+              className="w-full bg-purple-600 hover:bg-purple-700"
+              disabled={!hasVioletsVerifiedAccess || premiumActionLoading}
+              onClick={() => void activateVisibilityBoost()}
+            >
+              {premiumActionLoading ? 'Saving…' : 'Activate 24h Visibility Boost'}
+            </Button>
+          </div>
+
+          {showLikesSection ? (
+            <div className="rounded-lg border border-purple-200 bg-white p-3">
+              <div className="text-sm font-medium text-purple-800 mb-2">People who liked you</div>
+              {likesError ? (
+                <div className="text-xs text-red-600">{likesError}</div>
+              ) : likesReceived.length === 0 ? (
+                <div className="text-xs text-purple-700">No likes yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                  {likesReceived.map((item) => (
+                    <div key={item.likeId} className="flex items-center justify-between gap-2 rounded-md bg-purple-50 px-2 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm text-purple-900 truncate">{item.name}</div>
+                        <div className="text-[11px] text-purple-700/80">
+                          {new Date(item.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => navigate(`/profile/${item.likerId}`)}
+                      >
+                        View
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {!hasVioletsVerifiedAccess ? (
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => navigate('/subscription')}
+            >
+              Upgrade to Unlock
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
     </div>

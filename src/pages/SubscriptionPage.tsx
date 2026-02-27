@@ -6,12 +6,44 @@ import { Check, Crown, Star, Zap } from 'lucide-react';
 import { SubscriptionTier, SUBSCRIPTION_FEATURES, SUBSCRIPTION_PRICES } from '@/types/subscription';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  loadEffectiveSubscriptionTierForUser,
+  saveSubscriptionTierForUser,
+} from '@/lib/subscriptionTier';
 
 const SubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('premium');
+  const { user } = useAuth();
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>('free');
+  const [processingTier, setProcessingTier] = useState<SubscriptionTier | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadTier = async () => {
+      if (!user?.id) {
+        setCurrentTier('free');
+        return;
+      }
+
+      try {
+        const tier = await loadEffectiveSubscriptionTierForUser(user.id);
+        if (!cancelled) setCurrentTier(tier);
+      } catch (error) {
+        console.warn('Could not load subscription tier:', error);
+        if (!cancelled) setCurrentTier('free');
+      }
+    };
+
+    void loadTier();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const tiers = [
     {
@@ -41,22 +73,47 @@ const SubscriptionPage: React.FC = () => {
     },
   ];
 
-  const handleSubscribe = (tier: SubscriptionTier) => {
-    if (tier === 'free') {
+  const handleSubscribe = async (tier: SubscriptionTier) => {
+    if (!user?.id) {
+      navigate('/signin?redirect=/subscription', { replace: true });
+      return;
+    }
+
+    if (tier === currentTier) {
       toast({
-        title: "You're already on the free plan!",
-        description: "Upgrade to Premium or Elite for more features.",
+        title: 'Current plan',
+        description: `You are already on ${tier.charAt(0).toUpperCase() + tier.slice(1)}.`,
       });
       return;
     }
 
-    // Simulate subscription process
-    toast({
-      title: `Subscribed to ${tier.charAt(0).toUpperCase() + tier.slice(1)}!`,
-      description: "Your subscription is now active.",
-    });
-    
-    navigate('/profile');
+    try {
+      setProcessingTier(tier);
+      await saveSubscriptionTierForUser(user.id, tier);
+      setCurrentTier(tier);
+
+      toast({
+        title:
+          tier === 'free'
+            ? 'Switched to Free'
+            : `Subscribed to ${tier.charAt(0).toUpperCase() + tier.slice(1)}!`,
+        description:
+          tier === 'free'
+            ? 'Your plan has been updated.'
+            : 'Your upgraded access is now active.',
+      });
+
+      navigate('/verification?redirect=/social');
+    } catch (error: any) {
+      console.error('Failed to update subscription tier:', error);
+      toast({
+        title: 'Subscription update failed',
+        description: error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingTier(null);
+    }
   };
 
   const getFeatureList = (tier: SubscriptionTier) => {
@@ -115,7 +172,7 @@ const SubscriptionPage: React.FC = () => {
               key={tier.id}
               className={`relative ${
                 tier.popular ? 'ring-2 ring-purple-500 shadow-lg' : ''
-              }`}
+              } ${currentTier === tier.id ? 'ring-2 ring-green-500' : ''}`}
             >
               {tier.popular && (
                 <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-purple-500">
@@ -155,11 +212,18 @@ const SubscriptionPage: React.FC = () => {
                 </ul>
 
                 <Button
-                  onClick={() => handleSubscribe(tier.id)}
+                  onClick={() => void handleSubscribe(tier.id)}
                   className="w-full"
-                  variant={tier.popular ? 'default' : 'outline'}
+                  variant={currentTier === tier.id ? 'outline' : tier.popular ? 'default' : 'outline'}
+                  disabled={!!processingTier || currentTier === tier.id}
                 >
-                  {tier.id === 'free' ? 'Current Plan' : `Get ${tier.name}`}
+                  {processingTier === tier.id
+                    ? 'Updating...'
+                    : currentTier === tier.id
+                    ? 'Current Plan'
+                    : tier.id === 'free'
+                    ? 'Switch to Free'
+                    : `Get ${tier.name}`}
                 </Button>
               </CardContent>
             </Card>

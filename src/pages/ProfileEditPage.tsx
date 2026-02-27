@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EnhancedProfileCreationFlow, {
   type EnhancedProfileCreationFlowHandle,
@@ -8,15 +8,43 @@ import ProfileEditBottomMenu from '@/components/ProfileEditBottomMenu';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useToast } from '@/hooks/use-toast';
 import { SubscriptionTier } from '@/types/subscription';
+import { useAuth } from '@/hooks/useAuth';
+import { loadEffectiveSubscriptionTierForUser } from '@/lib/subscriptionTier';
 
 const ProfileEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [currentTier] = useState<SubscriptionTier>('free'); // This would come from user context
+  const { user } = useAuth();
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>('free');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const flowRef = useRef<EnhancedProfileCreationFlowHandle | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTier = async () => {
+      if (!user?.id) {
+        setCurrentTier('free');
+        return;
+      }
+
+      try {
+        const tier = await loadEffectiveSubscriptionTierForUser(user.id);
+        if (!cancelled) setCurrentTier(tier);
+      } catch (error) {
+        console.warn('Could not load subscription tier for Profile Edit:', error);
+        if (!cancelled) setCurrentTier('free');
+      }
+    };
+
+    void loadTier();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleComplete = async (profile: any) => {
     setIsLoading(true);
