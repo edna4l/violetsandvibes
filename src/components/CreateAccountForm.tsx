@@ -82,6 +82,28 @@ const CreateAccountForm: React.FC = () => {
       });
       setBoundaryConfirmed(false);
     } catch (error: any) {
+      const raw = String(error?.message || '').toLowerCase();
+
+      // If sign-up confirmation email fails but account is actually active,
+      // fall back to sign-in immediately so the user can continue.
+      if (raw.includes('confirmation email')) {
+        try {
+          await authService.signIn({
+            email: formData.email,
+            password: formData.password,
+          });
+
+          toast({
+            title: "Account Created",
+            description:
+              "Your account is active. You are now signed in.",
+          });
+          return;
+        } catch {
+          // Keep original signup error toast below.
+        }
+      }
+
       toast({
         title: "Registration Failed",
         description: error.message || "Please try again.",

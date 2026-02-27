@@ -32,19 +32,50 @@ export type CustomSocialProvider = 'tiktok' | 'snapchat';
 
 export const authService = {
   async signUp(data: SignUpData) {
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          name: data.name,
-          full_name: data.name,
-          username: data.name.toLowerCase().replace(/\s+/g, '_')
-        }
-      }
-    });
+    let authData: any = null;
+    let error: any = null;
 
-    if (error) throw error;
+    try {
+      const response = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/signin`,
+          data: {
+            name: data.name,
+            full_name: data.name,
+            username: data.name.toLowerCase().replace(/\s+/g, '_')
+          }
+        }
+      });
+
+      authData = response.data;
+      error = response.error;
+    } catch (err: any) {
+      error = err;
+    }
+
+    if (error) {
+      const raw = String(error?.message || '').toLowerCase();
+
+      if (
+        raw.includes('user already registered') ||
+        raw.includes('already registered') ||
+        raw.includes('already exists')
+      ) {
+        throw new Error(
+          'An account with this email already exists. Please sign in or reset your password.'
+        );
+      }
+
+      if (raw.includes('confirmation email')) {
+        throw new Error(
+          'Registration is temporarily unavailable because confirmation email delivery is failing. Please try again shortly or contact support at chava@violetsandvibes.com.'
+        );
+      }
+
+      throw new Error(error?.message || 'Could not create your account right now.');
+    }
 
     // Supabase can return a user with empty identities for already-registered emails
     // (anti-enumeration behavior). Treat this as "account already exists" in UX.
@@ -118,6 +149,29 @@ export const authService = {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) throw error;
+  },
+
+  async resendConfirmationEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error('Enter your email first.');
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/signin`,
+      },
+    });
+
+    if (error) {
+      const raw = String(error?.message || '').toLowerCase();
+      if (raw.includes('rate limit')) {
+        throw new Error('Please wait a minute before requesting another confirmation email.');
+      }
+      throw error;
+    }
   },
 
   async updatePassword(newPassword: string) {
