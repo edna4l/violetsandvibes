@@ -132,7 +132,7 @@ const ProfileEditPage: React.FC = () => {
     if (currentTier === 'free') {
       toast({
         title: "Upgrade Required",
-        description: "Profile boost is available with Premium!",
+        description: "Profile boost is available with 💜 Violets Verified Plus!",
         variant: "destructive",
       });
       return;

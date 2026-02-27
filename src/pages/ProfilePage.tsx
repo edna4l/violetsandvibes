@@ -717,7 +717,7 @@ const ProfilePage: React.FC = () => {
                 onClick={() => navigate("/subscription")}
               >
                 <Star className="w-4 h-4 mr-2" />
-                Upgrade to Premium
+                Upgrade to 💜 Violets Verified Plus
               </Button>
             </>
           ) : (

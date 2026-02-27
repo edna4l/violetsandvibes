@@ -24,25 +24,25 @@ const BillingHistory: React.FC = () => {
     {
       id: 'inv_001',
       date: '2024-08-15',
-      amount: 19.99,
+      amount: 5.0,
       status: 'paid',
-      description: 'Premium Monthly Subscription',
+      description: '💜 Violets Verified Plus Monthly',
       paymentMethod: '**** 4242'
     },
     {
       id: 'inv_002',
       date: '2024-07-15',
-      amount: 19.99,
+      amount: 5.0,
       status: 'paid',
-      description: 'Premium Monthly Subscription',
+      description: '💜 Violets Verified Plus Monthly',
       paymentMethod: '**** 4242'
     },
     {
       id: 'inv_003',
       date: '2024-06-15',
-      amount: 39.99,
+      amount: 10.0,
       status: 'paid',
-      description: 'Elite Monthly Subscription',
+      description: '💜 Violets Verified Premium Monthly',
       paymentMethod: '**** 1234'
     },
     {
@@ -56,9 +56,9 @@ const BillingHistory: React.FC = () => {
     {
       id: 'inv_005',
       date: '2024-05-15',
-      amount: 19.99,
+      amount: 5.0,
       status: 'failed',
-      description: 'Premium Monthly Subscription',
+      description: '💜 Violets Verified Plus Monthly',
       paymentMethod: '**** 4242'
     }
   ];
