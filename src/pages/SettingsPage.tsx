@@ -149,6 +149,7 @@ const SettingsPage: React.FC = () => {
   
   const [settings, setSettings] = useState<SettingsState>(() => createDefaultSettings());
   const [loadingGeneral, setLoadingGeneral] = useState(true);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isHydrated, setIsHydrated] = useState(false);
   const persistTimerRef = useRef<number | null>(null);
@@ -329,6 +330,53 @@ const SettingsPage: React.FC = () => {
     if (confirm('Are you sure you want to sign out?')) {
       await signOut();
       navigate('/signin');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id || deletingAccount) return;
+
+    const confirmed = window.confirm(
+      'Delete your account permanently? This removes your profile, photos, messages, and related data. This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    const typed = window.prompt('Type DELETE to confirm permanent account deletion.');
+    if (typed !== 'DELETE') {
+      toast({
+        title: 'Deletion cancelled',
+        description: 'You must type DELETE exactly to continue.',
+      });
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', {
+        body: { confirm: true },
+      });
+      if (error) throw error;
+
+      try {
+        await signOut();
+      } catch (signOutError) {
+        console.warn('Sign-out after deletion returned an error:', signOutError);
+      }
+
+      toast({
+        title: 'Account deleted',
+        description: 'Your account has been permanently removed.',
+      });
+      navigate('/heroes', { replace: true });
+    } catch (err: any) {
+      console.error('Account deletion failed:', err);
+      toast({
+        title: 'Deletion failed',
+        description: err?.message || 'Could not delete account. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -564,19 +612,11 @@ const SettingsPage: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   className="w-full justify-between h-auto py-3 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => {
-                    const confirmed = window.confirm(
-                      'Are you sure? Account deletion is not yet available from settings.'
-                    );
-                    if (!confirmed) return;
-                    toast({
-                      title: 'Coming Soon',
-                      description: 'Account deletion will be available soon.',
-                    });
-                  }}
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount}
                 >
                   <div className="text-left">
-                    <div>Delete Account</div>
+                    <div>{deletingAccount ? 'Deleting Account…' : 'Delete Account'}</div>
                     <div className="text-xs text-red-500/80">Permanent action. This cannot be undone.</div>
                   </div>
                   <ChevronRight className="w-4 h-4" />
