@@ -1,18 +1,31 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { ShieldCheck, Users, MessageCircle, Sparkles, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+
+type PublicReview = {
+  id: string;
+  author_name: string | null;
+  message: string;
+  kind: "review" | "complaint";
+  created_at: string;
+};
 
 const LandingPreviewPage: React.FC = () => {
-  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "support@violetsandvibes.com";
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "chava@violetsandvibes.com";
   const canonicalUrl = "https://www.violetsandvibes.com/";
-  const reviewUrl = (import.meta.env.VITE_REVIEW_URL || "").trim();
   const shareMessage =
     "Violets & Vibes: a safer, women-centered space for meaningful connection.";
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [reviewKind, setReviewKind] = useState<"review" | "complaint">("review");
+  const [publicReviews, setPublicReviews] = useState<PublicReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
   const { toast } = useToast();
 
   const buildGmailComposeUrl = (subject?: string, body?: string) => {
@@ -86,28 +99,75 @@ const LandingPreviewPage: React.FC = () => {
     });
   };
 
-  const openReviewPage = async () => {
-    if (reviewUrl) {
-      const opened = openExternal(reviewUrl);
-      if (!opened) {
-        await copyContactEmail();
-      }
-      return;
-    }
+  const loadPublicReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
 
-    const reviewBody =
-      feedbackMessage.trim() || "Rating (1-5):\n\nWhat did you enjoy?\n\nWhat should we improve?";
-    const opened = openExternal(buildGmailComposeUrl("Violets & Vibes review", reviewBody));
-    if (!opened) {
-      await copyContactEmail();
-      return;
-    }
+      const { data, error } = await supabase
+        .from("public_reviews")
+        .select("id, author_name, message, kind, created_at")
+        .eq("is_visible", true)
+        .order("created_at", { ascending: false })
+        .limit(40);
 
-    toast({
-      title: "Review draft opened",
-      description: "Add your rating/comments and send.",
-    });
+      if (error) throw error;
+      setPublicReviews((data ?? []) as PublicReview[]);
+    } catch (error: any) {
+      console.error("Failed to load public reviews:", error);
+      setReviewsError(error?.message || "Could not load community reviews.");
+    } finally {
+      setReviewsLoading(false);
+    }
   };
+
+  const submitPublicReview = async () => {
+    const trimmedMessage = feedbackMessage.trim();
+    const trimmedName = feedbackName.trim();
+
+    if (trimmedMessage.length < 4) {
+      toast({
+        title: "Add more detail",
+        description: "Please add at least a short review or complaint.",
+      });
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      const { data, error } = await supabase
+        .from("public_reviews")
+        .insert({
+          author_name: trimmedName || null,
+          message: trimmedMessage,
+          kind: reviewKind,
+        })
+        .select("id, author_name, message, kind, created_at")
+        .single();
+
+      if (error) throw error;
+
+      setPublicReviews((prev) => [data as PublicReview, ...prev]);
+      setFeedbackMessage("");
+      toast({
+        title: reviewKind === "complaint" ? "Complaint posted" : "Review posted",
+        description: "Your message is now visible to the community.",
+      });
+    } catch (error: any) {
+      console.error("Failed to post public review:", error);
+      toast({
+        title: "Could not post",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPublicReviews();
+  }, []);
 
   const handleShareSite = async () => {
     try {
@@ -348,14 +408,40 @@ const LandingPreviewPage: React.FC = () => {
               className="mt-3 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/55 outline-none focus:border-pink-300/60"
             />
 
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setReviewKind("review")}
+                className={`rounded-full px-3 py-1 text-xs border ${
+                  reviewKind === "review"
+                    ? "bg-pink-500/30 border-pink-300/60 text-pink-100"
+                    : "bg-white/10 border-white/25 text-white/80"
+                }`}
+              >
+                Review
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewKind("complaint")}
+                className={`rounded-full px-3 py-1 text-xs border ${
+                  reviewKind === "complaint"
+                    ? "bg-rose-500/30 border-rose-300/60 text-rose-100"
+                    : "bg-white/10 border-white/25 text-white/80"
+                }`}
+              >
+                Complaint
+              </button>
+            </div>
+
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Button
                 type="button"
                 variant="outline"
                 className="border-white/30 text-white hover:bg-white/10"
-                onClick={() => void openReviewPage()}
+                onClick={() => void submitPublicReview()}
+                disabled={submittingReview}
               >
-                Leave a Review
+                {submittingReview ? "Posting..." : "Leave a Review"}
               </Button>
               <Button
                 type="button"
@@ -368,6 +454,47 @@ const LandingPreviewPage: React.FC = () => {
               <Button type="button" onClick={() => void openFeedbackEmail()} className="btn-pride">
                 Send Feedback
               </Button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-white/20 bg-white/5 p-3">
+              <div className="text-white font-medium">Community Reviews & Complaints</div>
+              {reviewsLoading ? (
+                <div className="text-sm text-white/70 mt-2">Loading…</div>
+              ) : reviewsError ? (
+                <div className="text-sm text-rose-200 mt-2">{reviewsError}</div>
+              ) : publicReviews.length === 0 ? (
+                <div className="text-sm text-white/70 mt-2">No public reviews yet.</div>
+              ) : (
+                <div className="mt-3 space-y-2 max-h-72 overflow-auto pr-1">
+                  {publicReviews.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-white/15 bg-black/20 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="text-white/90 font-medium truncate">
+                          {item.author_name || "Community member"}
+                        </div>
+                        <div
+                          className={`shrink-0 rounded-full px-2 py-0.5 border ${
+                            item.kind === "complaint"
+                              ? "border-rose-300/50 text-rose-200 bg-rose-500/20"
+                              : "border-pink-300/50 text-pink-200 bg-pink-500/20"
+                          }`}
+                        >
+                          {item.kind === "complaint" ? "Complaint" : "Review"}
+                        </div>
+                      </div>
+                      <div className="text-sm text-white/85 mt-1 whitespace-pre-wrap">
+                        {item.message}
+                      </div>
+                      <div className="text-[11px] text-white/55 mt-1">
+                        {new Date(item.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
