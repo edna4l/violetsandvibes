@@ -71,6 +71,7 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
       return;
     }
 
+    let completed = false;
     setIsLoading(tier);
     try {
       const { data, error } = await supabase.functions.invoke('handle-payment', {
@@ -83,8 +84,15 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
 
       if (error) throw error;
 
-      if (data?.checkout_url) {
-        window.location.href = data.checkout_url;
+      if (data?.checkoutUrl || data?.checkout_url) {
+        window.location.href = data?.checkoutUrl || data?.checkout_url;
+        completed = true;
+      } else if (data?.success) {
+        toast({
+          title: 'Plan updated',
+          description: data?.message || `You are now subscribed to ${SUBSCRIPTION_TIER_LABELS[tier]}.`,
+        });
+        completed = true;
       }
     } catch (error) {
       console.error('Payment error:', error);
@@ -97,7 +105,7 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
       setIsLoading(null);
     }
 
-    if (onTierSelect) {
+    if (completed && onTierSelect) {
       onTierSelect(tier, billingPeriod);
     }
   };
