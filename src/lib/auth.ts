@@ -45,6 +45,19 @@ export const authService = {
     });
 
     if (error) throw error;
+
+    // Supabase can return a user with empty identities for already-registered emails
+    // (anti-enumeration behavior). Treat this as "account already exists" in UX.
+    if (
+      authData?.user &&
+      Array.isArray((authData.user as any).identities) &&
+      ((authData.user as any).identities as any[]).length === 0
+    ) {
+      throw new Error(
+        "An account with this email already exists. Please sign in or reset your password."
+      );
+    }
+
     return authData;
   },
 

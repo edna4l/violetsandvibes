@@ -148,10 +148,11 @@ const CreateAccountForm: React.FC = () => {
           />
         </div>
 
-        <div className="rounded-lg border border-white/20 bg-white/5 p-3">
+        <div className="rounded-lg border border-pink-300/35 bg-pink-500/10 p-3">
           <div className="flex items-start gap-3">
             <Checkbox
               id="boundary-confirmation"
+              className="mt-0.5 h-5 w-5 border-2 border-white data-[state=checked]:bg-pink-500 data-[state=checked]:text-white"
               checked={boundaryConfirmed}
               onCheckedChange={(checked) => setBoundaryConfirmed(checked === true)}
             />
@@ -159,6 +160,7 @@ const CreateAccountForm: React.FC = () => {
               htmlFor="boundary-confirmation"
               className="text-sm leading-relaxed text-white/90"
             >
+              <span className="font-semibold text-pink-200">Required: </span>
               By creating an account, you confirm you are a woman (inclusive of
               transgender women and aligned non-binary individuals). This
               platform is not open to men or couples.
