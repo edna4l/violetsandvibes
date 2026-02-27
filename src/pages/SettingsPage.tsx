@@ -572,6 +572,7 @@ const SettingsPage: React.FC = () => {
             <SubscriptionManagement 
               currentTier={currentTier}
               onUpgrade={handleUpgrade}
+              onTierChange={(tier) => setCurrentTier(tier)}
             />
 
             {/* Billing History */}
@@ -585,8 +586,8 @@ const SettingsPage: React.FC = () => {
               <CardContent>
                 <PricingTiers 
                   currentTier={currentTier}
-                  onTierSelect={(tier, period) => {
-                    console.log('Selected tier:', tier, period);
+                  onTierSelect={(tier) => {
+                    setCurrentTier(tier);
                   }}
                 />
               </CardContent>

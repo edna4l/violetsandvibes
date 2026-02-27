@@ -6,18 +6,22 @@ import { Progress } from '@/components/ui/progress';
 import { Calendar, CreditCard, Crown, Star, Zap } from 'lucide-react';
 import { SubscriptionTier, SUBSCRIPTION_TIER_LABELS } from '@/types/subscription';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 interface SubscriptionManagementProps {
   currentTier: SubscriptionTier;
   onUpgrade: () => void;
+  onTierChange?: (tier: SubscriptionTier) => void;
 }
 
 const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
   currentTier,
-  onUpgrade
+  onUpgrade,
+  onTierChange,
 }) => {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
 
   const subscriptionData = {
     nextBillingDate: '2024-09-15',
@@ -40,12 +44,19 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
   const handleCancelSubscription = async () => {
     if (!confirm('Are you sure you want to cancel your subscription?')) return;
     
-    setIsLoading(true);
+    setIsCancelling(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.functions.invoke('handle-payment', {
+        body: { action: 'cancel_subscription' },
+      });
+
+      if (error) throw error;
+
+      onTierChange?.('free');
       toast({
-        title: "Subscription Cancelled",
-        description: "Your subscription will remain active until the next billing date.",
+        title: 'Subscription cancelled',
+        description:
+          data?.message || 'Your plan has been switched to 💜 Violets Verified Free.',
       });
     } catch (error) {
       toast({
@@ -54,7 +65,30 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setIsCancelling(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async () => {
+    setIsUpdatingPaymentMethod(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('handle-payment', {
+        body: { action: 'update_payment_method' },
+      });
+      if (error) throw error;
+
+      toast({
+        title: 'Payment method',
+        description: data?.message || 'Payment method flow is available.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to open payment method flow. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingPaymentMethod(false);
     }
   };
 
@@ -140,8 +174,12 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 <p className="font-medium">Card ending in {subscriptionData.paymentMethod}</p>
                 <p className="text-sm text-gray-600">Auto-renew enabled</p>
               </div>
-              <Button variant="outline">
-                Update
+              <Button
+                variant="outline"
+                onClick={() => void handleUpdatePaymentMethod()}
+                disabled={isUpdatingPaymentMethod}
+              >
+                {isUpdatingPaymentMethod ? 'Opening...' : 'Update'}
               </Button>
             </div>
           </CardContent>
@@ -154,10 +192,10 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
             <Button 
               variant="destructive" 
               className="w-full"
-              onClick={handleCancelSubscription}
-              disabled={isLoading}
+              onClick={() => void handleCancelSubscription()}
+              disabled={isCancelling}
             >
-              {isLoading ? 'Cancelling...' : 'Cancel Subscription'}
+              {isCancelling ? 'Cancelling...' : 'Cancel Subscription'}
             </Button>
           </CardContent>
         </Card>
