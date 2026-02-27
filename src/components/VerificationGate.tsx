@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { getVerificationState } from "@/lib/verification";
+import { isAdminBypassUser } from "@/lib/subscriptionTier";
 
 type Status = "loading" | "complete" | "incomplete" | "error";
 
@@ -28,6 +29,13 @@ export const VerificationGate: React.FC<Props> = ({ children }) => {
 
       try {
         setStatus("loading");
+        const adminBypass = await isAdminBypassUser(user.id);
+        if (cancelled) return;
+        if (adminBypass) {
+          setStatus("complete");
+          return;
+        }
+
         const { data, error } = await supabase
           .from("profiles")
           .select("safety_settings")
