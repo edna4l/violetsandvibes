@@ -8,109 +8,105 @@ import { useToast } from "@/hooks/use-toast";
 const LandingPreviewPage: React.FC = () => {
   const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || "support@violetsandvibes.com";
   const canonicalUrl = "https://www.violetsandvibes.com/";
-  const reviewUrl = import.meta.env.VITE_REVIEW_URL || "https://www.violetsandvibes.com/#review";
+  const reviewUrl = (import.meta.env.VITE_REVIEW_URL || "").trim();
   const shareMessage =
     "Violets & Vibes: a safer, women-centered space for meaningful connection.";
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const { toast } = useToast();
 
-  const buildFeedbackMailto = () => {
-    const subject = encodeURIComponent(
-      feedbackName.trim()
-        ? `Violets & Vibes feedback from ${feedbackName.trim()}`
-        : "Violets & Vibes feedback"
-    );
-    const body = encodeURIComponent(
-      feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"
-    );
-    return `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+  const buildGmailComposeUrl = (subject?: string, body?: string) => {
+    const params = new URLSearchParams({
+      view: "cm",
+      fs: "1",
+      to: contactEmail,
+    });
+    if (subject) params.set("su", subject);
+    if (body) params.set("body", body);
+    return `https://mail.google.com/mail/?${params.toString()}`;
   };
 
-  const copyFeedbackFallback = async () => {
+  const openExternal = (url: string) => {
     try {
-      const fallbackText = [
-        `To: ${contactEmail}`,
-        `Name: ${feedbackName.trim() || "Not provided"}`,
-        `Message: ${feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:"}`,
-      ].join("\n");
-      await navigator.clipboard.writeText(fallbackText);
+      const popup = window.open(url, "_blank", "noopener,noreferrer");
+      if (popup) return true;
+      window.location.assign(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const copyContactEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(contactEmail);
       toast({
-        title: "Copied for email",
-        description: "Your feedback details were copied. Paste into your email app.",
+        title: "Email copied",
+        description: `Paste this address into your email app: ${contactEmail}`,
       });
     } catch {
       toast({
-        title: "Email app unavailable",
+        title: "Could not open email",
         description: `Please email ${contactEmail} directly.`,
       });
     }
   };
 
-  const openEmailClient = async (mailtoUrl: string) => {
-    try {
-      const popup = window.open(mailtoUrl, "_blank", "noopener,noreferrer");
-      if (!popup) {
-        window.location.href = mailtoUrl;
-      }
-    } catch {
-      window.location.href = mailtoUrl;
-    }
-  };
-
   const openFeedbackEmail = async () => {
-    await openEmailClient(buildFeedbackMailto());
-    window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        void copyFeedbackFallback();
-      }
-    }, 700);
+    const subject = feedbackName.trim()
+      ? `Violets & Vibes feedback from ${feedbackName.trim()}`
+      : "Violets & Vibes feedback";
+    const body =
+      feedbackMessage.trim() || "Hi, I wanted to share feedback/suggestions:";
+
+    const opened = openExternal(buildGmailComposeUrl(subject, body));
+    if (!opened) {
+      await copyContactEmail();
+      return;
+    }
+
+    toast({
+      title: "Feedback draft opened",
+      description: "Your message draft is ready to send.",
+    });
   };
 
   const openDirectEmail = async () => {
-    await openEmailClient(`mailto:${contactEmail}`);
-    window.setTimeout(async () => {
-      if (document.visibilityState !== "visible") return;
-      try {
-        await navigator.clipboard.writeText(contactEmail);
-        toast({
-          title: "Email copied",
-          description: "No email app opened. Address copied so you can paste it.",
-        });
-      } catch {
-        toast({
-          title: "Email app unavailable",
-          description: `Please email ${contactEmail} directly.`,
-        });
-      }
-    }, 700);
+    const opened = openExternal(
+      buildGmailComposeUrl("Violets & Vibes support request")
+    );
+    if (!opened) {
+      await copyContactEmail();
+      return;
+    }
+
+    toast({
+      title: "Email draft opened",
+      description: "Compose your message and send it directly.",
+    });
   };
 
   const openReviewPage = async () => {
-    try {
-      const popup = window.open(reviewUrl, "_blank", "noopener,noreferrer");
-      if (!popup) {
-        window.location.href = reviewUrl;
+    if (reviewUrl) {
+      const opened = openExternal(reviewUrl);
+      if (!opened) {
+        await copyContactEmail();
       }
-    } catch {
-      window.location.href = reviewUrl;
+      return;
     }
 
-    window.setTimeout(async () => {
-      if (document.visibilityState !== "visible") return;
-      try {
-        await navigator.clipboard.writeText(reviewUrl);
-        toast({
-          title: "Review link copied",
-          description: "No review page opened. Link copied so you can paste it.",
-        });
-      } catch {
-        toast({
-          title: "Could not open review link",
-          description: reviewUrl,
-        });
-      }
-    }, 700);
+    const reviewBody =
+      feedbackMessage.trim() || "Rating (1-5):\n\nWhat did you enjoy?\n\nWhat should we improve?";
+    const opened = openExternal(buildGmailComposeUrl("Violets & Vibes review", reviewBody));
+    if (!opened) {
+      await copyContactEmail();
+      return;
+    }
+
+    toast({
+      title: "Review draft opened",
+      description: "Add your rating/comments and send.",
+    });
   };
 
   const handleShareSite = async () => {
