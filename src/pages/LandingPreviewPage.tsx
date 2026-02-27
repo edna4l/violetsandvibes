@@ -159,6 +159,17 @@ const LandingPreviewPage: React.FC = () => {
             <p className="mt-3 text-pink-200 font-medium">Because women deserve that.</p>
           </section>
 
+          <section className="rounded-2xl border border-pink-300/35 bg-gradient-to-r from-pink-600/18 via-purple-700/18 to-indigo-700/18 sm:from-pink-600/30 sm:via-purple-700/28 sm:to-indigo-700/28 p-4 sm:p-5 backdrop-blur-lg shadow-2xl">
+            <p className="text-sm uppercase tracking-wide text-pink-200/90 font-semibold">
+              Founder Note
+            </p>
+            <p className="mt-2 text-white/90 leading-relaxed">
+              Violets &amp; Vibes was created intentionally to provide women a protected
+              digital space. Thank you for helping shape a culture built on safety,
+              respect, and meaningful connection.
+            </p>
+          </section>
+
           <section className="rounded-2xl border border-indigo-200/30 bg-gradient-to-br from-indigo-500/16 via-purple-600/15 to-cyan-500/12 sm:from-indigo-500/25 sm:via-purple-600/22 sm:to-cyan-500/18 p-5 sm:p-6 backdrop-blur-lg shadow-2xl">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white">
               What You&apos;ll Find Here
