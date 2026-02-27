@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { SUBSCRIPTION_FEATURES } from '@/types/subscription';
+import type { SubscriptionTier } from '@/types/subscription';
+import { loadEffectiveSubscriptionTierForUser } from '@/lib/subscriptionTier';
 
 interface SwipeData {
   date: string;
@@ -8,11 +10,37 @@ interface SwipeData {
 }
 
 export const useSwipeLimit = () => {
-  const { user, subscription } = useAuth();
+  const { user } = useAuth();
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>('free');
   const [dailySwipes, setDailySwipes] = useState(0);
   const [isLimitReached, setIsLimitReached] = useState(false);
 
-  const features = SUBSCRIPTION_FEATURES[subscription || 'free'];
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTier = async () => {
+      if (!user?.id) {
+        setCurrentTier('free');
+        return;
+      }
+
+      try {
+        const tier = await loadEffectiveSubscriptionTierForUser(user.id);
+        if (!cancelled) setCurrentTier(tier);
+      } catch (error) {
+        console.warn('Could not load subscription tier for swipe limits:', error);
+        if (!cancelled) setCurrentTier('free');
+      }
+    };
+
+    void loadTier();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const features = SUBSCRIPTION_FEATURES[currentTier];
   const dailyLimit = features.dailySwipeLimit;
 
   useEffect(() => {

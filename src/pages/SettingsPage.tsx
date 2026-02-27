@@ -40,6 +40,11 @@ import PricingTiers from '@/components/PricingTiers';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/components/theme-provider';
 import { applyAppPreferences, DEFAULT_APP_PREFERENCES, normalizeAppPreferences } from '@/lib/appPreferences';
+import {
+  applyAdminBypassTier,
+  isAdminBypassUser,
+  resolveSubscriptionTier,
+} from '@/lib/subscriptionTier';
 
 const DEFAULT_SETTINGS = {
   notifications: {
@@ -153,8 +158,7 @@ const SettingsPage: React.FC = () => {
   const { user, signOut } = useAuth();
   const { setTheme } = useTheme();
   
-  // Mock subscription state - would come from context/database
-  const [currentTier] = useState<SubscriptionTier>('free');
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>('free');
   
   const [settings, setSettings] = useState<SettingsState>(() => createDefaultSettings());
   const [loadingGeneral, setLoadingGeneral] = useState(true);
@@ -177,6 +181,7 @@ const SettingsPage: React.FC = () => {
     const loadSettings = async () => {
       if (!user?.id) {
         setSettings(createDefaultSettings());
+        setCurrentTier('free');
         setLoadingGeneral(false);
         setIsHydrated(false);
         setSaveStatus('idle');
@@ -202,9 +207,13 @@ const SettingsPage: React.FC = () => {
         const safetySettings = (data?.safety_settings && typeof data.safety_settings === 'object')
           ? (data.safety_settings as Record<string, any>)
           : {};
+        const resolvedTier = resolveSubscriptionTier(privacySettings, safetySettings);
+        const isAdminBypass = await isAdminBypassUser(user.id);
+        if (cancelled) return;
 
         basePrivacyRef.current = privacySettings;
         baseSafetyRef.current = safetySettings;
+        setCurrentTier(applyAdminBypassTier(resolvedTier, isAdminBypass));
 
         const next = createDefaultSettings();
         next.notifications = mergeBooleanSettings(next.notifications, privacySettings.notifications || {});
@@ -229,6 +238,7 @@ const SettingsPage: React.FC = () => {
         console.error('Failed to load settings:', err);
         if (!cancelled) {
           setSettings(createDefaultSettings());
+          setCurrentTier('free');
           setIsHydrated(true);
           setSaveStatus('error');
           toast({
