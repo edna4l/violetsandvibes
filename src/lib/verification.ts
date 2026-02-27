@@ -51,7 +51,7 @@ export function getVerificationState(safetySettings: unknown): VerificationState
   const submittedForReview =
     (photoStatus === "submitted" || photoStatus === "approved") &&
     (idStatus === "submitted" || idStatus === "approved");
-  const completeForAccess = fullyApproved || submittedForReview;
+  const completeForAccess = fullyApproved;
   const underReview =
     !fullyApproved &&
     submittedForReview &&

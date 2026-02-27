@@ -62,15 +62,18 @@ const CreateAccountForm: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await authService.signUp({
+      const authData = await authService.signUp({
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
-      
+
+      const hasSession = !!authData?.session;
       toast({
         title: "Account Created!",
-        description: "Please check your email to verify your account.",
+        description: hasSession
+          ? "You are now signed in."
+          : "Please check your email to verify your account.",
       });
       
       // Reset form
