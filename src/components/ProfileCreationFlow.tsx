@@ -425,6 +425,12 @@ const ProfileCreationFlow: React.FC = () => {
             <p className="text-xs text-white/60 mt-2">
               Step {currentStep + 1} of {steps.length} • About {Math.max(1, steps.length - (currentStep + 1))} min left
             </p>
+
+            <div className="mt-4 text-sm text-white/90 bg-white/10 border border-white/20 rounded-md px-3 py-2">
+              Take your time. Your profile does not need to be perfect today.
+              Thoughtful, honest details help keep this space respectful,
+              safe, and meaningful for everyone.
+            </div>
           </div>
 
           {affirmation && (
@@ -434,6 +440,13 @@ const ProfileCreationFlow: React.FC = () => {
           )}
 
           <CurrentStepComponent profile={profile} onUpdate={updateProfile} />
+
+          {currentStep === steps.length - 1 && (
+            <div className="mt-5 text-sm text-white/90 bg-gradient-to-r from-pink-600/20 via-purple-600/20 to-indigo-600/20 border border-pink-200/30 rounded-md px-3 py-2">
+              Violets &amp; Vibes is a women-centered space. Please complete your profile thoughtfully.
+              Culture matters here.
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mt-8">
             <Button variant="outline" onClick={prevStep} disabled={currentStep === 0}>

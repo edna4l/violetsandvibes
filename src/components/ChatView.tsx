@@ -7,7 +7,7 @@ import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Flag, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Flag, Loader2, MessageCircle, ShieldAlert } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -1000,7 +1000,7 @@ const ChatView: React.FC = () => {
                   onClick={() => void reportConversation()}
                 >
                   <Flag className="w-3.5 h-3.5 mr-1.5" />
-                  Report
+                  Report Conversation
                 </Button>
                 <Button
                   size="sm"
@@ -1013,6 +1013,24 @@ const ChatView: React.FC = () => {
               </div>
             ) : null}
           </div>
+
+          {activeConversationId ? (
+            <div className="px-3 sm:px-4 py-2 border-b border-white/10 bg-gradient-to-r from-pink-900/30 via-purple-900/25 to-indigo-900/25 flex items-center justify-between gap-3">
+              <div className="text-[11px] sm:text-xs text-white/85 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-pink-200 shrink-0" />
+                Conversations here are expected to remain respectful and aligned with community standards.
+              </div>
+              {active ? (
+                <button
+                  type="button"
+                  className="shrink-0 text-[11px] sm:text-xs font-medium text-red-200 hover:text-red-100 underline underline-offset-2"
+                  onClick={() => void reportConversation()}
+                >
+                  Report Conversation
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Messages */}
           <div ref={threadContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2">
