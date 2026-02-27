@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
 import { AnimatedLogo } from './AnimatedLogo';
 import { HeaderDropdown } from './HeaderDropdown';
 
@@ -28,6 +30,17 @@ export const PrideHeader: React.FC<PrideHeaderProps> = ({
         <HeaderDropdown onMenuSelect={onMenuSelect} />
       </div>
 
+      {/* Immediate safety visibility */}
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
+        <Link
+          to="/terms#community-standards"
+          className="inline-flex items-center gap-1 rounded-full border border-pink-300/40 bg-black/45 px-2 py-1 text-[11px] sm:text-xs font-medium text-pink-100 hover:bg-black/60 transition-colors"
+        >
+          <ShieldAlert className="h-3 w-3" />
+          Safety Standards
+        </Link>
+      </div>
+
       {showLogo && (
         <AnimatedLogo size="lg" className="mb-2 sm:mb-4" />
       )}
@@ -46,9 +59,9 @@ export const PrideHeader: React.FC<PrideHeaderProps> = ({
       )}
       
       {/* Floating Pride Orbs */}
-      <div className="absolute top-4 left-4 w-3 h-3 sm:w-4 sm:h-4 bg-pink-400 rounded-full floating-orb opacity-70"></div>
-      <div className="absolute top-6 right-6 w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full floating-orb opacity-60" style={{animationDelay: '1s'}}></div>
-      <div className="absolute bottom-4 right-4 w-3 h-3 sm:w-4 sm:h-4 bg-indigo-400 rounded-full floating-orb opacity-80" style={{animationDelay: '2s'}}></div>
+      <div className="absolute top-4 left-4 w-3 h-3 sm:w-4 sm:h-4 bg-pink-400 rounded-full floating-orb opacity-70 pointer-events-none"></div>
+      <div className="absolute top-6 right-6 w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full floating-orb opacity-60 pointer-events-none" style={{animationDelay: '1s'}}></div>
+      <div className="absolute bottom-4 right-4 w-3 h-3 sm:w-4 sm:h-4 bg-indigo-400 rounded-full floating-orb opacity-80 pointer-events-none" style={{animationDelay: '2s'}}></div>
     </div>
   );
 };

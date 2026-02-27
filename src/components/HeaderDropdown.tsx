@@ -191,6 +191,14 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
           <Shield className="mr-2 h-4 w-4" />
           Verification
         </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => handleMenuClick('safety-standards', '/terms#community-standards')}
+          className="text-black hover:bg-gray-100 cursor-pointer"
+        >
+          <Shield className="mr-2 h-4 w-4" />
+          Safety Standards
+        </DropdownMenuItem>
         
         {user?.isAdmin && (
           <>

@@ -35,8 +35,8 @@ const TermsOfServicePage: React.FC = () => {
               </p>
             </section>
 
-            <section>
-              <h2 className="text-xl text-white font-semibold">Community Conduct</h2>
+            <section id="community-standards">
+              <h2 className="text-xl text-white font-semibold">Safety / Community Standards</h2>
               <p className="mt-2">
                 Harassment, hate, impersonation, exploitation, non-consensual content, and safety
                 violations are prohibited. Accounts may be restricted or removed for violations.

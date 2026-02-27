@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { loadBlockedUserIdSet } from "@/lib/safety";
 
 type Props = {
   userId: string;      // the other person
@@ -33,6 +34,12 @@ export default function MessageButton({ userId, userName, className }: Props) {
 
     setOpening(true);
     try {
+      const blockedSet = await loadBlockedUserIdSet(user.id);
+      if (blockedSet.has(userId)) {
+        alert("You have blocked this user. Unblock them in their profile to message again.");
+        return;
+      }
+
       // 1) Try to find existing 1:1 conversation
       // Strategy: find conversation_ids where BOTH users are members.
       const { data: myMemberships, error: memErr1 } = await supabase

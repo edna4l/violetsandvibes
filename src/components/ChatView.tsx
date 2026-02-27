@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Flag, Loader2, MessageCircle } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -80,6 +82,7 @@ function previewText(s?: string | null, max = 60) {
 
 const ChatView: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -97,6 +100,8 @@ const ChatView: React.FC = () => {
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherOnline, setOtherOnline] = useState(false);
   const [showOnlineEnabled, setShowOnlineEnabled] = useState(true);
+  const [safetyLoaded, setSafetyLoaded] = useState(false);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -111,20 +116,32 @@ const ChatView: React.FC = () => {
     const params = new URLSearchParams(location.search);
     return params.get("c");
   }, [location.search]);
+  const blockedUserIdsKey = useMemo(
+    () => Array.from(blockedUserIds).sort().join(","),
+    [blockedUserIds]
+  );
 
   // Keep URL -> state in sync
   useEffect(() => {
     if (!queryConversationId) return;
+    if (!safetyLoaded) return;
+    if (listLoading) return;
+
+    const convo = conversations.find((c) => c.conversationId === queryConversationId);
+    if (!convo || blockedUserIds.has(convo.otherUserId)) {
+      setActiveConversationId(null);
+      navigate("/chat", { replace: true });
+      return;
+    }
 
     setActiveConversationId(queryConversationId);
 
     // Clear unread immediately when opening from URL entry points.
-    const convo = conversations.find((c) => c.conversationId === queryConversationId);
     if (convo?.hasUnread) {
       void markConversationRead(queryConversationId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryConversationId, conversations]);
+  }, [queryConversationId, safetyLoaded, listLoading, conversations, blockedUserIdsKey, navigate]);
 
   useEffect(() => {
     if (queryConversationId) return;
@@ -289,14 +306,18 @@ const ChatView: React.FC = () => {
         };
       });
 
+      const visibleItems = items.filter(
+        (item) => !blockedUserIds.has(item.otherUserId)
+      );
+
       // Sort by lastMessageAt desc (fallback to updated order)
-      items.sort((a, b) => {
+      visibleItems.sort((a, b) => {
         const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
         const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
         return tb - ta;
       });
 
-      setConversations(items);
+      setConversations(visibleItems);
     } catch (e: any) {
       console.error(e);
       setListError(e?.message || "Failed to load conversations");
@@ -332,6 +353,13 @@ const ChatView: React.FC = () => {
 
   const loadThread = async (conversationId: string) => {
     if (!user) return;
+
+    const activeConvo = conversations.find((c) => c.conversationId === conversationId);
+    if (!activeConvo || blockedUserIds.has(activeConvo.otherUserId)) {
+      setMessages([]);
+      setThreadError("This conversation is unavailable.");
+      return;
+    }
 
     setThreadLoading(true);
     setThreadError(null);
@@ -440,6 +468,73 @@ const ChatView: React.FC = () => {
     }
   };
 
+  const reportConversation = async () => {
+    if (!user || !active) return;
+
+    const confirmed = window.confirm(
+      `Report ${active.otherName}? This will open an email draft to the safety team.`
+    );
+    if (!confirmed) return;
+
+    const safetyEmail = import.meta.env.VITE_SAFETY_EMAIL || "safety@violetsandvibes.com";
+    const nowIso = new Date().toISOString();
+
+    // Best-effort local safety log for the reporting user.
+    try {
+      const { data: ownProfile } = await supabase
+        .from("profiles")
+        .select("safety_settings")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const currentSafety =
+        ownProfile?.safety_settings && typeof ownProfile.safety_settings === "object"
+          ? (ownProfile.safety_settings as Record<string, any>)
+          : {};
+
+      const reportedIds = Array.isArray(currentSafety.reported_user_ids)
+        ? currentSafety.reported_user_ids
+        : [];
+
+      const nextReportedIds = Array.from(new Set([...reportedIds, active.otherUserId]));
+
+      await supabase
+        .from("profiles")
+        .update({
+          safety_settings: {
+            ...currentSafety,
+            reported_user_ids: nextReportedIds,
+            last_reported_at: nowIso,
+          },
+          updated_at: nowIso,
+        })
+        .eq("id", user.id);
+    } catch (error) {
+      console.warn("Could not persist report metadata:", error);
+    }
+
+    const subject = encodeURIComponent(`Safety report: chat with ${active.otherName}`);
+    const body = encodeURIComponent(
+      [
+        "I want to report a conversation for review.",
+        "",
+        `Reporter user id: ${user.id}`,
+        `Reported user id: ${active.otherUserId || "unknown"}`,
+        `Conversation id: ${active.conversationId}`,
+        `Timestamp: ${nowIso}`,
+        "",
+        "Details:",
+      ].join("\n")
+    );
+
+    window.location.href = `mailto:${safetyEmail}?subject=${subject}&body=${body}`;
+
+    toast({
+      title: "Safety report started",
+      description: `If your email app did not open, contact ${safetyEmail}.`,
+    });
+  };
+
   const onDraftChange = (v: string) => {
     setDraft(v);
 
@@ -464,25 +559,23 @@ const ChatView: React.FC = () => {
     }, 900);
   };
 
-  // Load list on auth
-  useEffect(() => {
-    void loadConversationList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
   useEffect(() => {
     let cancelled = false;
 
     const loadPrivacy = async () => {
+      setSafetyLoaded(false);
+
       if (!user?.id) {
         setShowOnlineEnabled(true);
+        setBlockedUserIds(new Set());
+        setSafetyLoaded(true);
         return;
       }
 
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("privacy_settings")
+          .select("privacy_settings, safety_settings")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -493,11 +586,20 @@ const ChatView: React.FC = () => {
           data?.privacy_settings && typeof data.privacy_settings === "object"
             ? (data.privacy_settings as Record<string, any>)
             : {};
+        const blockedIds = extractBlockedUserIds(data?.safety_settings);
 
         setShowOnlineEnabled(privacy.showOnline !== false);
+        setBlockedUserIds(new Set(blockedIds));
       } catch (error) {
         console.warn("Could not load showOnline preference for chat presence:", error);
-        if (!cancelled) setShowOnlineEnabled(true);
+        if (!cancelled) {
+          setShowOnlineEnabled(true);
+          setBlockedUserIds(new Set());
+        }
+      } finally {
+        if (!cancelled) {
+          setSafetyLoaded(true);
+        }
       }
     };
 
@@ -518,7 +620,7 @@ const ChatView: React.FC = () => {
     }
     void loadThread(activeConversationId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, activeConversationId]);
+  }, [user?.id, activeConversationId, blockedUserIdsKey]);
 
   useEffect(() => {
     if (!firstUnreadMessageId) return;
@@ -731,6 +833,13 @@ const ChatView: React.FC = () => {
     };
   }, [user?.id, activeConversationId]); // intentional dependency
 
+  // Reload conversation list whenever block list changes.
+  useEffect(() => {
+    if (!user || !safetyLoaded) return;
+    void loadConversationList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, blockedUserIdsKey, safetyLoaded]);
+
   const active = useMemo(
     () => conversations.find((c) => c.conversationId === activeConversationId) || null,
     [conversations, activeConversationId]
@@ -883,14 +992,25 @@ const ChatView: React.FC = () => {
               </div>
             </div>
             {active ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden sm:inline-flex border-white/20 text-white hover:bg-white/10"
-                onClick={() => markConversationRead(active.conversationId)}
-              >
-                Mark read
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-400/40 text-red-100 hover:bg-red-500/15"
+                  onClick={() => void reportConversation()}
+                >
+                  <Flag className="w-3.5 h-3.5 mr-1.5" />
+                  Report
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="hidden sm:inline-flex border-white/20 text-white hover:bg-white/10"
+                  onClick={() => markConversationRead(active.conversationId)}
+                >
+                  Mark read
+                </Button>
+              </div>
             ) : null}
           </div>
 
