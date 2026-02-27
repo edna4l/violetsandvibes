@@ -930,6 +930,37 @@ const ChatView: React.FC = () => {
     // IMPORTANT: include activeConversationId so thread appends correctly
   }, [user?.id, activeConversationId]);
 
+  useEffect(() => {
+    if (!user || !activeConversationId || !heartsEnabled) return;
+
+    const channel = supabase
+      .channel(`vv-chat-hearts-${activeConversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "message_reactions",
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        (payload) => {
+          const row = (payload as any).new as MessageReactionRow | undefined;
+          if (!row || row.reaction !== "heart") return;
+          if (row.user_id === user.id) return;
+
+          setHeartCountsByMessageId((prev) => ({
+            ...prev,
+            [row.message_id]: (prev[row.message_id] ?? 0) + 1,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeConversationId, heartsEnabled]);
+
   // Realtime subscription:
   // - conversation_members updates for me (unread/read reconciliation)
   useEffect(() => {
@@ -1178,6 +1209,9 @@ const ChatView: React.FC = () => {
               messages.map((m) => {
                 const mine = m.sender_id === user.id;
                 const showDivider = m.id === firstUnreadMessageId;
+                const isHearted = heartedMessageIds.has(m.id);
+                const heartCount = heartCountsByMessageId[m.id] ?? 0;
+                const canHeart = heartsEnabled && !m.id.startsWith("temp_");
 
                 return (
                   <React.Fragment key={m.id}>
@@ -1203,7 +1237,25 @@ const ChatView: React.FC = () => {
                         }`}
                       >
                         {m.body}
-                        <div className="text-[11px] mt-1 opacity-70">{timeAgo(m.created_at)}</div>
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                          <div className="text-[11px] opacity-70">{timeAgo(m.created_at)}</div>
+                          {heartsEnabled ? (
+                            <button
+                              type="button"
+                              disabled={!canHeart}
+                              onClick={() => void toggleMessageHeart(m)}
+                              className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 border transition ${
+                                isHearted
+                                  ? "border-pink-300/60 bg-pink-500/20 text-pink-100"
+                                  : "border-white/20 bg-white/10 text-white/80"
+                              } ${canHeart ? "hover:bg-white/20" : "opacity-60 cursor-not-allowed"}`}
+                              title={isHearted ? "Remove heart" : "Heart this message"}
+                            >
+                              <Heart className={`w-3 h-3 ${isHearted ? "fill-current" : ""}`} />
+                              {heartCount > 0 ? heartCount : null}
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </React.Fragment>
