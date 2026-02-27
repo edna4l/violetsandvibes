@@ -166,10 +166,10 @@ const SwipeContainer: React.FC = () => {
             Daily Swipe Limit Reached!
           </h2>
           <p className="text-white/80 mb-6">
-            You've used all 50 of your daily swipes. Upgrade to Premium for unlimited swipes!
+            You've used all 50 of your daily swipes. Upgrade to 💜 Violets Verified Plus for unlimited swipes!
           </p>
           <Button className="btn-pride">
-            Upgrade to Premium
+            Upgrade to 💜 Violets Verified Plus
           </Button>
         </div>
       </div>

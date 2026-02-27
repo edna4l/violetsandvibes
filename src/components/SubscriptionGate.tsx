@@ -3,7 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Star, Zap } from 'lucide-react';
-import { SubscriptionTier, SUBSCRIPTION_PRICES } from '@/types/subscription';
+import {
+  SubscriptionTier,
+  SUBSCRIPTION_PRICES,
+  SUBSCRIPTION_TIER_LABELS,
+} from '@/types/subscription';
 
 interface SubscriptionGateProps {
   requiredTier: SubscriptionTier;
@@ -46,7 +50,7 @@ const SubscriptionGate: React.FC<SubscriptionGateProps> = ({
         <CardDescription>
           {featureName} is available with {' '}
           <Badge className={tierColors[requiredTier]}>
-            {requiredTier.charAt(0).toUpperCase() + requiredTier.slice(1)}
+            {SUBSCRIPTION_TIER_LABELS[requiredTier]}
           </Badge>
         </CardDescription>
       </CardHeader>
@@ -56,7 +60,7 @@ const SubscriptionGate: React.FC<SubscriptionGateProps> = ({
           className="w-full"
           variant="default"
         >
-          Upgrade to {requiredTier.charAt(0).toUpperCase() + requiredTier.slice(1)}
+          Upgrade to {SUBSCRIPTION_TIER_LABELS[requiredTier]}
           {requiredTier !== 'free' && (
             <span className="ml-2">
               ${SUBSCRIPTION_PRICES[requiredTier as keyof typeof SUBSCRIPTION_PRICES].monthly}/mo

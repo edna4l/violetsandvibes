@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import PaymentForm from './PaymentForm';
+import { SUBSCRIPTION_TIER_LABELS, SubscriptionTier } from '@/types/subscription';
 
 interface PaymentMethod {
   id: string;
@@ -37,6 +38,8 @@ const PaymentPreferences: React.FC<PaymentPreferencesProps> = ({
   onUpgrade 
 }) => {
   const { toast } = useToast();
+  const currentTierKey: SubscriptionTier =
+    currentTier === 'premium' || currentTier === 'elite' ? currentTier : 'free';
   
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     {
@@ -235,18 +238,18 @@ const PaymentPreferences: React.FC<PaymentPreferencesProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="w-5 h-5" />
-            Premium Services
+            Violets Verified Services
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {currentTier === 'free' ? (
             <div className="text-center py-6">
-              <p className="text-gray-600 mb-4">Unlock premium features to enhance your experience</p>
+              <p className="text-gray-600 mb-4">Unlock Violets Verified upgrades to enhance your experience</p>
               <Button 
                 onClick={() => handlePayment('create_subscription', { tier: 'premium' })} 
                 className="bg-pink-500 hover:bg-pink-600"
               >
-                Upgrade to Premium
+                Upgrade to {SUBSCRIPTION_TIER_LABELS.premium}
               </Button>
             </div>
           ) : (
@@ -254,7 +257,7 @@ const PaymentPreferences: React.FC<PaymentPreferencesProps> = ({
               <div className="flex justify-between items-center">
                 <span>Current Plan</span>
                 <Badge className="bg-purple-100 text-purple-800">
-                  {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
+                  {SUBSCRIPTION_TIER_LABELS[currentTierKey]}
                 </Badge>
               </div>
               

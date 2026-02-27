@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, CreditCard, Crown, Star, Zap } from 'lucide-react';
-import { SubscriptionTier } from '@/types/subscription';
+import { SubscriptionTier, SUBSCRIPTION_TIER_LABELS } from '@/types/subscription';
 import { useToast } from '@/hooks/use-toast';
 
 interface SubscriptionManagementProps {
@@ -32,9 +32,9 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
   };
 
   const tierInfo = {
-    free: { name: 'Free', icon: <Zap className="w-5 h-5" />, color: 'bg-gray-100 text-gray-800' },
-    premium: { name: 'Premium', icon: <Star className="w-5 h-5" />, color: 'bg-blue-100 text-blue-800' },
-    elite: { name: 'Elite', icon: <Crown className="w-5 h-5" />, color: 'bg-purple-100 text-purple-800' }
+    free: { name: SUBSCRIPTION_TIER_LABELS.free, icon: <Zap className="w-5 h-5" />, color: 'bg-gray-100 text-gray-800' },
+    premium: { name: SUBSCRIPTION_TIER_LABELS.premium, icon: <Star className="w-5 h-5" />, color: 'bg-blue-100 text-blue-800' },
+    elite: { name: SUBSCRIPTION_TIER_LABELS.elite, icon: <Crown className="w-5 h-5" />, color: 'bg-purple-100 text-purple-800' }
   };
 
   const handleCancelSubscription = async () => {

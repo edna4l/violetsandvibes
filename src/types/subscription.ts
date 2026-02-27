@@ -68,7 +68,13 @@ export const SUBSCRIPTION_FEATURES: Record<SubscriptionTier, SubscriptionFeature
   }
 };
 
+export const SUBSCRIPTION_TIER_LABELS: Record<SubscriptionTier, string> = {
+  free: '💜 Violets Verified Free',
+  premium: '💜 Violets Verified Plus',
+  elite: '💜 Violets Verified Premium',
+};
+
 export const SUBSCRIPTION_PRICES = {
-  premium: { monthly: 19.99, yearly: 199.99 },
-  elite: { monthly: 39.99, yearly: 399.99 },
+  premium: { monthly: 5, yearly: 50 },
+  elite: { monthly: 10, yearly: 100 },
 };

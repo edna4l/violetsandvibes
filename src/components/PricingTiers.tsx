@@ -3,7 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, Crown, Star, Zap, Sparkles } from 'lucide-react';
-import { SubscriptionTier, SUBSCRIPTION_FEATURES, SUBSCRIPTION_PRICES } from '@/types/subscription';
+import {
+  SubscriptionTier,
+  SUBSCRIPTION_FEATURES,
+  SUBSCRIPTION_PRICES,
+  SUBSCRIPTION_TIER_LABELS,
+} from '@/types/subscription';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 
@@ -20,30 +25,30 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
   const tiers = [
     {
       id: 'free' as SubscriptionTier,
-      name: 'Free',
+      name: SUBSCRIPTION_TIER_LABELS.free,
       icon: <Zap className="h-6 w-6" />,
       color: 'bg-gray-100 text-gray-800',
       price: 0,
-      description: 'Basic features to get started',
+      description: 'Core access to get started',
       highlight: false
     },
     {
       id: 'premium' as SubscriptionTier,
-      name: 'Premium',
+      name: SUBSCRIPTION_TIER_LABELS.premium,
       icon: <Star className="h-6 w-6" />,
       color: 'bg-blue-100 text-blue-800',
       price: SUBSCRIPTION_PRICES.premium,
-      description: 'Enhanced matching and communication',
+      description: 'Enhanced matching and communication tools',
       highlight: true,
       popular: true
     },
     {
       id: 'elite' as SubscriptionTier,
-      name: 'Elite',
+      name: SUBSCRIPTION_TIER_LABELS.elite,
       icon: <Crown className="h-6 w-6" />,
       color: 'bg-purple-100 text-purple-800',
       price: SUBSCRIPTION_PRICES.elite,
-      description: 'Premium features plus exclusive perks',
+      description: 'Maximum visibility and premium perks',
       highlight: false,
       exclusive: true
     }
@@ -52,8 +57,8 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
   const handleSubscribe = async (tier: SubscriptionTier) => {
     if (tier === 'free') {
       toast({
-        title: "Already on Free Plan",
-        description: "You're currently on the free plan. Upgrade for more features!",
+        title: "Already on current plan",
+        description: `You're currently on ${SUBSCRIPTION_TIER_LABELS.free}. Upgrade for more features.`,
       });
       return;
     }
@@ -61,7 +66,7 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
     if (tier === currentTier) {
       toast({
         title: "Current Plan",
-        description: `You're already subscribed to ${tier.charAt(0).toUpperCase() + tier.slice(1)}.`,
+        description: `You're already subscribed to ${SUBSCRIPTION_TIER_LABELS[tier]}.`,
       });
       return;
     }
@@ -183,7 +188,7 @@ const PricingTiers: React.FC<PricingTiersProps> = ({ currentTier, onTierSelect }
               
               <div className="mt-4">
                 {tier.id === 'free' ? (
-                  <div className="text-3xl font-bold">Free</div>
+                  <div className="text-3xl font-bold">$0<span className="text-sm font-normal text-gray-600">/month</span></div>
                 ) : (
                   <div className="space-y-1">
                     <div className="text-3xl font-bold">
