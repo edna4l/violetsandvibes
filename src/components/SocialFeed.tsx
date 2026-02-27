@@ -1318,7 +1318,13 @@ const SocialFeed: React.FC = () => {
 
 
   const toggleLike = async (postId: string, likedByMe: boolean) => {
-    if (!user) return;
+    if (!user) {
+      setError("Please sign in to react to posts.");
+      return;
+    }
+
+    setError(null);
+    const delta = likedByMe ? -1 : 1;
 
     // optimistic UI
     setPosts((prev) =>
@@ -1327,7 +1333,7 @@ const SocialFeed: React.FC = () => {
           ? {
               ...p,
               likedByMe: !likedByMe,
-              likeCount: Math.max(0, p.likeCount + (likedByMe ? -1 : 1)),
+              likeCount: Math.max(0, p.likeCount + delta),
             }
           : p
       )
@@ -1348,13 +1354,26 @@ const SocialFeed: React.FC = () => {
           user_id: user.id,
         });
 
-        // if unique constraint triggers, reload (rare)
-        if (error) throw error;
+        // Unique violation means we already liked it; treat as success.
+        if (error && error.code !== "23505") throw error;
       }
-    } catch (e) {
-      console.error(e);
-      // revert by reloading truth
-      await loadFeed();
+    } catch (e: any) {
+      console.error("toggleLike failed:", e);
+
+      // revert optimistic update
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                likedByMe,
+                likeCount: Math.max(0, p.likeCount - delta),
+              }
+            : p
+        )
+      );
+
+      setError(e?.message || "Could not update heart. Please try again.");
     }
   };
 
