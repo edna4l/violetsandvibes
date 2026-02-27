@@ -59,6 +59,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!user?.id) return;
     void loadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -72,13 +73,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
     [queue]
   );
 
+  const invokeVerificationReview = async (body: Record<string, unknown>) => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error('No active session token found. Please sign out and sign in again.');
+    }
+
+    return supabase.functions.invoke('verification-review', {
+      body,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  };
+
   const loadQueue = async () => {
+    if (!user?.id) {
+      setQueueLoading(false);
+      setQueueError('Session not ready yet. Please refresh.');
+      return;
+    }
+
     setQueueLoading(true);
     setQueueError(null);
 
-    const { data, error } = await supabase.functions.invoke('verification-review', {
-      body: { action: 'list_pending' },
-    });
+    const { data, error } = await invokeVerificationReview({ action: 'list_pending' });
 
     if (error) {
       const message = await resolveFunctionErrorMessage(error);
@@ -109,13 +131,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
     const key = `${item.userId}:${target}:${decision}`;
     setDecisionLoadingKey(key);
     try {
-      const { data, error } = await supabase.functions.invoke('verification-review', {
-        body: {
-          action: 'decide',
-          targetUserId: item.userId,
-          target,
-          decision,
-        },
+      const { data, error } = await invokeVerificationReview({
+        action: 'decide',
+        targetUserId: item.userId,
+        target,
+        decision,
       });
 
       if (error) throw error;
