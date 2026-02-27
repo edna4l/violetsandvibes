@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import SubscriptionGate from '@/components/SubscriptionGate';
+import { Loader2 } from 'lucide-react';
+import { SubscriptionTier } from '@/types/subscription';
+import { loadEffectiveSubscriptionTierForUser } from '@/lib/subscriptionTier';
 import {
   DEFAULT_DISCOVER_FILTERS,
   type DiscoverFilters,
@@ -21,6 +25,8 @@ const AdvancedFilters: React.FC = () => {
   const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_DISCOVER_FILTERS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [tier, setTier] = useState<SubscriptionTier>('free');
+  const [tierLoading, setTierLoading] = useState(true);
 
   const interestOptions = ['Art', 'Music', 'Travel', 'Books', 'Sports', 'Cooking', 'Gaming', 'Photography', 'Dancing', 'Hiking'];
   const pronounOptions = ['She/Her', 'They/Them', 'He/Him', 'Any'];
@@ -28,6 +34,27 @@ const AdvancedFilters: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+
+    const loadTier = async () => {
+      if (!user?.id) {
+        if (!cancelled) {
+          setTier('free');
+          setTierLoading(false);
+        }
+        return;
+      }
+
+      try {
+        setTierLoading(true);
+        const currentTier = await loadEffectiveSubscriptionTierForUser(user.id);
+        if (!cancelled) setTier(currentTier);
+      } catch (error) {
+        console.warn('Failed to load subscription tier for advanced filters:', error);
+        if (!cancelled) setTier('free');
+      } finally {
+        if (!cancelled) setTierLoading(false);
+      }
+    };
 
     const run = async () => {
       if (!user?.id) {
@@ -57,6 +84,7 @@ const AdvancedFilters: React.FC = () => {
       }
     };
 
+    void loadTier();
     void run();
 
     return () => {
@@ -116,6 +144,46 @@ const AdvancedFilters: React.FC = () => {
       setSaving(false);
     }
   };
+
+  if (tierLoading) {
+    return (
+      <div className="p-6 text-white/80 flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Checking subscription…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <Card className="bg-black/90 backdrop-blur-sm text-white border-pink-200">
+          <CardContent className="pt-6 space-y-3">
+            <p>Sign in to use advanced filters.</p>
+            <Button
+              onClick={() => navigate('/signin?redirect=/filters', { replace: true })}
+              className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+            >
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (tier === 'free') {
+    return (
+      <div className="p-6">
+        <SubscriptionGate
+          requiredTier="premium"
+          currentTier={tier}
+          featureName="Advanced Filters"
+          onUpgrade={() => navigate('/subscription')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 max-w-2xl mx-auto">
