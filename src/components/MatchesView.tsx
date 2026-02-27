@@ -299,6 +299,10 @@ const MatchesView: React.FC = () => {
     () => matches.filter((m) => m.isNewMatch),
     [matches]
   );
+  const oldMatches = useMemo(
+    () => matches.filter((m) => !m.isNewMatch),
+    [matches]
+  );
 
   if (authLoading || loading) {
     return (
@@ -424,71 +428,75 @@ const MatchesView: React.FC = () => {
           <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
           Messages
         </h2>
-        <div className="space-y-3">
-          {matches.map((match) => (
-            <div
-              key={match.matchId}
-              className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
-              role="button"
-              tabIndex={0}
-              onClick={() => void openMatchChat(match)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  void openMatchChat(match);
-                }
-              }}
-            >
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  {match.photo ? (
-                    <img
-                      src={match.photo}
-                      alt={match.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
-                      {match.name.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  {match.hasUnread && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-white truncate">{match.name}</h3>
-                    <span className="text-xs text-white/60 shrink-0">
-                      {timeAgo(match.lastMessageAt || match.createdAt)}
-                    </span>
+        {oldMatches.length === 0 ? (
+          <div className="text-white/70 text-sm mt-2">No message threads yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {oldMatches.map((match) => (
+              <div
+                key={match.matchId}
+                className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
+                role="button"
+                tabIndex={0}
+                onClick={() => void openMatchChat(match)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    void openMatchChat(match);
+                  }
+                }}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    {match.photo ? (
+                      <img
+                        src={match.photo}
+                        alt={match.name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
+                        {match.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    {match.hasUnread && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                    )}
                   </div>
-                  <p className="text-sm text-white/80 truncate">
-                    {match.lastMessageText
-                      ? match.lastMessageText
-                      : "Tap to open chat"}
-                  </p>
-                  {match.location ? (
-                    <p className="text-xs text-white/60 truncate">{match.location}</p>
-                  ) : null}
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 hover:bg-white/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/profile/${match.otherUserId}`);
-                      }}
-                    >
-                      View profile
-                    </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-white truncate">{match.name}</h3>
+                      <span className="text-xs text-white/60 shrink-0">
+                        {timeAgo(match.lastMessageAt || match.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-white/80 truncate">
+                      {match.lastMessageText
+                        ? match.lastMessageText
+                        : "Tap to open chat"}
+                    </p>
+                    {match.location ? (
+                      <p className="text-xs text-white/60 truncate">{match.location}</p>
+                    ) : null}
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 hover:bg-white/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/profile/${match.otherUserId}`);
+                        }}
+                      >
+                        View profile
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
