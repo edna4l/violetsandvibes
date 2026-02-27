@@ -1351,7 +1351,6 @@ const SocialFeed: React.FC = () => {
       } else {
         const { error } = await supabase.from("post_likes").insert({
           post_id: postId,
-          user_id: user.id,
         });
 
         // Unique violation means we already liked it; treat as success.
