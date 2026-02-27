@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SwipeContainer from './SwipeContainer';
 import MatchesView from './MatchesView';
 import ChatView from './ChatView';
@@ -14,6 +15,7 @@ import { PrideHeader } from './PrideHeader';
 import { ResponsiveWrapper } from './ResponsiveWrapper';
 const AppLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState('heroes');
+  const navigate = useNavigate();
 
   const handleMenuSelect = (action: string) => {
     switch (action) {
@@ -30,8 +32,7 @@ const AppLayout: React.FC = () => {
         setActiveTab('filters');
         break;
       case 'logout':
-        // Handle logout logic here
-        console.log('Logout clicked');
+        navigate('/signin');
         break;
       default:
         break;
