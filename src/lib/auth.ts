@@ -102,6 +102,18 @@ export const authService = {
     return authData;
   },
 
+  async signInWithOtp(email: string) {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/social`,
+      },
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
   async signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;

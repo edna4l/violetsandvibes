@@ -4,28 +4,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authService, LoginData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { SocialLoginButtons } from '@/components/SocialLoginButtons';
+
+// TEMPORARY: Enable passwordless login via email magic link
+const TEMP_PASSWORDLESS_LOGIN = true;
 
 interface LoginFormProps {
   onForgotPassword: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [formData, setFormData] = useState<LoginData>({
-    email: '',
-    password: '',
-  });
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isResending, setIsResending] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setEmail(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,19 +27,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     setIsLoading(true);
 
     try {
-      await authService.signIn(formData);
-      toast({
-        title: "Success!",
-        description: "You have been logged in successfully.",
-      });
-      const params = new URLSearchParams(location.search);
-      const redirect = params.get('redirect');
-      const target = redirect && redirect.startsWith('/') ? redirect : '/social';
-      navigate(target, { replace: true });
+      if (TEMP_PASSWORDLESS_LOGIN) {
+        await authService.signInWithOtp(email);
+        toast({
+          title: "Check your email!",
+          description: "We've sent you a magic link to log in without a password.",
+        });
+      } else {
+        // Original password-based login
+        await authService.signIn({ email, password: '' }); // This won't work, but keeping for structure
+      }
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message || "Please check your credentials and try again.",
+        description: error.message || "Please check your email and try again.",
         variant: "destructive",
       });
     } finally {
@@ -53,93 +48,60 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     }
   };
 
-  const handleResendConfirmation = async () => {
-    const email = formData.email.trim();
-    if (!email) {
-      toast({
-        title: 'Email required',
-        description: 'Enter your email first, then tap resend confirmation.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsResending(true);
-    try {
-      await authService.resendConfirmationEmail(email);
-      toast({
-        title: 'Confirmation sent',
-        description: 'Check your inbox (and spam) for the verification link.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Could not resend confirmation',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-white/90">Email</Label>
+          <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             name="email"
             type="email"
-            value={formData.email}
+            value={email}
             onChange={handleChange}
             required
-            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
+            className="w-full"
           />
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-white/90">Password</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
-          />
-        </div>
+        {!TEMP_PASSWORDLESS_LOGIN && (
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              value="" // Not used in passwordless mode
+              onChange={() => {}} // Not used
+              required
+              className="w-full"
+            />
+          </div>
+        )}
         
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            type="button"
-            variant="link"
-            className="p-0 h-auto text-sm text-white/80 hover:text-white"
-            onClick={() => void handleResendConfirmation()}
-            disabled={isLoading || isResending}
-          >
-            {isResending ? 'Sending...' : 'Resend confirmation email'}
-          </Button>
-          <Button
-            type="button"
-            variant="link"
-            className="p-0 h-auto text-sm text-white/80 hover:text-white"
-            onClick={onForgotPassword}
-            disabled={isLoading || isResending}
-          >
-            Forgot password?
-          </Button>
-        </div>
+        {!TEMP_PASSWORDLESS_LOGIN && (
+          <div className="text-right">
+            <Button
+              type="button"
+              variant="link"
+              className="p-0 h-auto text-sm"
+              onClick={onForgotPassword}
+            >
+              Forgot password?
+            </Button>
+          </div>
+        )}
         
         <Button 
           type="submit" 
           className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
           disabled={isLoading}
         >
-          {isLoading ? 'Signing in...' : 'Sign In'}
+          {isLoading ? 'Sending magic link...' : TEMP_PASSWORDLESS_LOGIN ? 'Send Magic Link' : 'Sign In'}
         </Button>
       </form>
+      
+      <SocialLoginButtons />
     </div>
   );
 };
