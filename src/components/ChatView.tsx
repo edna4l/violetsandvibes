@@ -1286,7 +1286,7 @@ const ChatView: React.FC = () => {
                           type="button"
                           onClick={() => void deleteMessage(m.id)}
                           disabled={m.id.startsWith("temp_")}
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-white/30 hover:text-red-400 transition-all mb-1 shrink-0"
+                          className="text-white/25 hover:text-red-400 active:text-red-400 transition-colors mb-1 shrink-0"
                           title="Delete message"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

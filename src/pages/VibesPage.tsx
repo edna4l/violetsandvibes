@@ -176,7 +176,8 @@ const VibesPage: React.FC = () => {
         const { error: uploadError } = await supabase.storage
           .from("story-media")
           .upload(path, composeFile, { upsert: false, contentType });
-        if (uploadError) throw uploadError;
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message} (${uploadError.error ?? "storage"})`);
+
         const { data: urlData } = supabase.storage.from("story-media").getPublicUrl(path);
         mediaUrl = urlData.publicUrl;
         mediaType = isVideo ? "video" : "image";
