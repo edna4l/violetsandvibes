@@ -4,6 +4,7 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: process.env.GITHUB_PAGES === 'true' ? '/violetsandvibes/' : '/',
   server: {
     host: "::",
     port: 8080,
@@ -18,8 +19,5 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: true,
-    rollupOptions: {
-      external: ['src/main.tsx']
-    }
   },
 }));
