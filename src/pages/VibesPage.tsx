@@ -163,6 +163,25 @@ const VibesPage: React.FC = () => {
       toast({ title: "Add some text or media to post a Vibe", variant: "destructive" });
       return;
     }
+
+    // Client-side size check before attempting upload
+    if (composeFile) {
+      const isVideo = composeFile.type.startsWith("video/") || composeFile.type === "video/quicktime";
+      const maxBytes = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024; // 500 MB video / 50 MB photo
+      const maxLabel = isVideo ? "500 MB" : "50 MB";
+      if (composeFile.size > maxBytes) {
+        const fileMB = (composeFile.size / 1024 / 1024).toFixed(1);
+        toast({
+          title: `File too large (${fileMB} MB)`,
+          description: isVideo
+            ? `Videos must be under ${maxLabel}. Try trimming the clip or recording at a lower quality setting in your camera app.`
+            : `Photos must be under ${maxLabel}. Try compressing the image first.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setPosting(true);
     try {
       let mediaUrl: string | null = null;

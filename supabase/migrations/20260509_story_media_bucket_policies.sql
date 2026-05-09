@@ -1,9 +1,10 @@
--- Ensure story-media bucket exists and is public with no MIME restrictions
+-- Ensure story-media bucket exists: public, 500MB limit, no MIME restrictions
+-- 524288000 bytes = 500 MB
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('story-media', 'story-media', true, 104857600, null)
+VALUES ('story-media', 'story-media', true, 524288000, null)
 ON CONFLICT (id) DO UPDATE
   SET public = true,
-      file_size_limit = 104857600,
+      file_size_limit = 524288000,
       allowed_mime_types = null;
 
 -- Allow any authenticated user to upload to story-media
