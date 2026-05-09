@@ -408,7 +408,7 @@ const NotificationCenter: React.FC = () => {
               {pushEnabled ? "On" : "Off"}
             </Button>
           </div>
-          <div className="text-xs text-white/70">(UI only for now — real push later.)</div>
+          <div className="text-xs text-white/70">Get notified about likes, matches, and messages.</div>
         </CardHeader>
       </Card>
 

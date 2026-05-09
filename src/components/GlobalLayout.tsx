@@ -85,11 +85,11 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
             className="mb-0 sm:mb-0 md:mb-0"
           />
           {/* Back / Forward navigation bar */}
-          <div className="flex items-center gap-1 px-3 py-1 bg-black/30 border-b border-white/10">
+          <div className="flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/10">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1.5 text-white font-semibold text-sm px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 shadow-md hover:opacity-90 active:scale-95 transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
               Back
@@ -97,9 +97,9 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
             <button
               type="button"
               onClick={() => navigate(1)}
-              className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1.5 text-white font-semibold text-sm px-4 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-md hover:opacity-90 active:scale-95 transition-all"
             >
-              Forward
+              Next
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

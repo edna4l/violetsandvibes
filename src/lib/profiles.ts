@@ -286,13 +286,17 @@ export async function fetchDiscoverProfiles(myId: string) {
     )
     .neq("id", myId)
     .eq("profile_completed", true)
-    .or("is_seed.is.null,is_seed.eq.false")
+    .neq("is_seed", true)
     .order("updated_at", { ascending: false })
     .limit(120);
 
   if (error) throw error;
 
   let rows = (data ?? []) as DiscoverProfileRowRaw[];
+
+  // Hide profiles with no photos — seed profiles never have photos and real
+  // users can't complete onboarding without uploading at least one.
+  rows = rows.filter((row) => Array.isArray(row.photos) && row.photos.length > 0);
 
   // Respect each user's discoverability toggle. Missing setting defaults to visible.
   rows = rows.filter((row) => {
