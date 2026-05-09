@@ -5,7 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, Share2, Plus, Volume2, VolumeX,
-  ChevronUp, ChevronDown, Image, Video, Type, X, Send, Trash2
+  ChevronUp, ChevronDown, Image, Video, Type, X, Send,
+  Trash2, Repeat2, Maximize2, LayoutTemplate
 } from "lucide-react";
 import BottomNavigation from "@/components/BottomNavigation";
 
@@ -17,6 +18,9 @@ type Vibe = {
   caption: string | null;
   view_count: number;
   created_at: string;
+  display_mode: "full" | "card";
+  repost_of_id: string | null;
+  repost_of_author: string | null;
   authorName: string;
   authorPhoto: string | null;
   liked: boolean;
@@ -35,7 +39,6 @@ const VibesPage: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [vibes, setVibes] = useState<Vibe[]>([]);
@@ -45,11 +48,17 @@ const VibesPage: React.FC = () => {
   const [posting, setPosting] = useState(false);
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
 
-  // Compose modal state
+  // Compose modal
   const [showCompose, setShowCompose] = useState(false);
   const [composeText, setComposeText] = useState("");
   const [composeFile, setComposeFile] = useState<File | null>(null);
   const [composePreview, setComposePreview] = useState<string | null>(null);
+  const [composeDisplayMode, setComposeDisplayMode] = useState<"full" | "card">("full");
+
+  // Repost modal
+  const [repostTarget, setRepostTarget] = useState<Vibe | null>(null);
+  const [repostCaption, setRepostCaption] = useState("");
+  const [reposting, setReposting] = useState(false);
 
   const loadVibes = async () => {
     if (!user) return;
@@ -57,7 +66,7 @@ const VibesPage: React.FC = () => {
     try {
       const { data: rows, error } = await supabase
         .from("stories")
-        .select("id, author_id, media_url, media_type, caption, view_count, created_at")
+        .select("id, author_id, media_url, media_type, caption, view_count, created_at, display_mode, repost_of_id, repost_of_author")
         .gte("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(50);
@@ -86,6 +95,7 @@ const VibesPage: React.FC = () => {
           const prof = profileById.get(r.author_id);
           return {
             ...r,
+            display_mode: r.display_mode ?? "full",
             authorName: prof?.full_name || prof?.username || "Member",
             authorPhoto: prof?.photos?.[0] ?? null,
             liked: likedIds.has(r.id),
@@ -162,8 +172,6 @@ const VibesPage: React.FC = () => {
         const isVideo = composeFile.type.startsWith("video/");
         const ext = composeFile.name.split(".").pop() || "jpg";
         const path = `${user.id}/${Date.now()}.${ext}`;
-        // contentType override: Supabase rejects video/quicktime by default,
-        // but .mov and .mp4 both play fine in browsers when served as video/mp4.
         const contentType = composeFile.type === "video/quicktime" ? "video/mp4" : composeFile.type;
         const { error: uploadError } = await supabase.storage
           .from("story-media")
@@ -179,12 +187,14 @@ const VibesPage: React.FC = () => {
         media_url: mediaUrl ?? "text",
         media_type: mediaType ?? "image",
         caption: composeText.trim() || null,
+        display_mode: composeFile ? composeDisplayMode : "full",
       });
       if (error) throw error;
 
       toast({ title: "Vibe posted! 💜", description: "Live for 24 hours." });
       setShowCompose(false);
       setComposeText("");
+      setComposeDisplayMode("full");
       clearFile();
       await loadVibes();
     } catch (e: any) {
@@ -201,7 +211,7 @@ const VibesPage: React.FC = () => {
         idx === i ? { ...v, liked: !v.liked, likeCount: v.liked ? v.likeCount - 1 : v.likeCount + 1 } : v
       )
     );
-    await supabase.from("story_views").upsert({ story_id: vibe.id, viewer_id: user.id }).then(() => {});
+    await supabase.from("story_views").upsert({ story_id: vibe.id, viewer_id: user.id });
   };
 
   const handleShare = async (vibe: Vibe) => {
@@ -216,18 +226,49 @@ const VibesPage: React.FC = () => {
     } catch {}
   };
 
-  const scrollTo = (idx: number) => {
-    containerRef.current?.querySelector(`[data-vibe-index="${idx}"]`)?.scrollIntoView({ behavior: "smooth" });
-  };
-
   const handleDeleteVibe = async (vibe: Vibe) => {
     if (!user || vibe.author_id !== user.id) return;
     if (!window.confirm("Delete this vibe? This cannot be undone.")) return;
     setVibes((prev) => prev.filter((v) => v.id !== vibe.id));
     await supabase.from("stories").delete().eq("id", vibe.id).eq("author_id", user.id);
+    toast({ title: "Vibe deleted" });
+  };
+
+  const handleRepost = async () => {
+    if (!user || !repostTarget) return;
+    setReposting(true);
+    try {
+      const myProfile = await supabase.from("profiles").select("full_name, username").eq("id", user.id).maybeSingle();
+      const myName = myProfile.data?.full_name || myProfile.data?.username || "Member";
+
+      const { error } = await supabase.from("stories").insert({
+        author_id: user.id,
+        media_url: repostTarget.media_url,
+        media_type: repostTarget.media_type,
+        caption: repostCaption.trim() || repostTarget.caption,
+        display_mode: repostTarget.display_mode,
+        repost_of_id: repostTarget.id,
+        repost_of_author: repostTarget.authorName,
+      });
+      if (error) throw error;
+
+      toast({ title: "Reposted! 🔁", description: "Live for 24 hours." });
+      setRepostTarget(null);
+      setRepostCaption("");
+      await loadVibes();
+    } catch (e: any) {
+      toast({ title: "Could not repost", description: e?.message, variant: "destructive" });
+    } finally {
+      setReposting(false);
+    }
+  };
+
+  const scrollTo = (idx: number) => {
+    containerRef.current?.querySelector(`[data-vibe-index="${idx}"]`)?.scrollIntoView({ behavior: "smooth" });
   };
 
   const isTextOnly = (vibe: Vibe) => !vibe.media_url || vibe.media_url === "text";
+  const gradientFor = (i: number) => TEXT_GRADIENTS[i % TEXT_GRADIENTS.length];
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col">
@@ -261,44 +302,73 @@ const VibesPage: React.FC = () => {
           </button>
         </div>
       ) : (
-        <>
-          <div
-            ref={containerRef}
-            className="flex-1 overflow-y-scroll snap-y snap-mandatory"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {vibes.map((vibe, i) => (
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none]"
+        >
+          {vibes.map((vibe, i) => {
+            const isCard = !isTextOnly(vibe) && vibe.display_mode === "card";
+            const isOwn = vibe.author_id === user?.id;
+
+            return (
               <div
                 key={vibe.id}
                 data-vibe-index={i}
-                className="relative w-full snap-start snap-always flex-shrink-0"
-                style={{ height: "100dvh" }}
+                className="relative w-full snap-start snap-always flex-shrink-0 h-dvh"
               >
-                {/* Media / text background */}
+                {/* Background */}
                 {isTextOnly(vibe) ? (
-                  <div className={`w-full h-full bg-gradient-to-br ${TEXT_GRADIENTS[i % TEXT_GRADIENTS.length]} flex items-center justify-center p-8`}>
+                  <div className={`w-full h-full bg-gradient-to-br ${gradientFor(i)} flex items-center justify-center p-8`}>
                     <p className="text-white text-2xl font-semibold text-center leading-snug drop-shadow-lg">
                       {vibe.caption}
                     </p>
                   </div>
-                ) : vibe.media_type === "video" ? (
-                  <video
-                    ref={(el) => { videoRefs.current[i] = el; }}
-                    src={vibe.media_url!}
-                    className="w-full h-full object-cover"
-                    loop muted={muted} playsInline autoPlay={i === 0}
-                  />
+                ) : isCard ? (
+                  /* Card mode: gradient bg + media in a centered card */
+                  <div className={`w-full h-full bg-gradient-to-br ${gradientFor(i)} flex flex-col items-center justify-center gap-4 p-6`}>
+                    <div className="w-full max-h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
+                      {vibe.media_type === "video" ? (
+                        <video
+                          ref={(el) => { videoRefs.current[i] = el; }}
+                          src={vibe.media_url!}
+                          className="w-full max-h-[65vh] object-contain bg-black"
+                          loop muted={muted} playsInline autoPlay={i === 0}
+                        />
+                      ) : (
+                        <img src={vibe.media_url!} alt={vibe.authorName} className="w-full max-h-[65vh] object-contain bg-black" />
+                      )}
+                    </div>
+                    {vibe.caption && (
+                      <p className="text-white text-lg font-semibold text-center drop-shadow-lg">{vibe.caption}</p>
+                    )}
+                  </div>
                 ) : (
-                  <img src={vibe.media_url!} alt={vibe.authorName} className="w-full h-full object-cover" />
+                  /* Full-screen mode */
+                  <>
+                    {vibe.media_type === "video" ? (
+                      <video
+                        ref={(el) => { videoRefs.current[i] = el; }}
+                        src={vibe.media_url!}
+                        className="w-full h-full object-cover"
+                        loop muted={muted} playsInline autoPlay={i === 0}
+                      />
+                    ) : (
+                      <img src={vibe.media_url!} alt={vibe.authorName} className="w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
+                  </>
                 )}
 
-                {/* Gradient overlay (skip for text-only — already styled) */}
-                {!isTextOnly(vibe) && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
+                {/* Repost banner */}
+                {vibe.repost_of_id && (
+                  <div className="absolute top-14 left-4 z-10 flex items-center gap-1.5 bg-black/40 rounded-full px-3 py-1">
+                    <Repeat2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-white/80 text-xs">Reposted from {vibe.repost_of_author}</span>
+                  </div>
                 )}
 
-                {/* Author + caption */}
-                <div className="absolute bottom-24 left-4 right-16 z-10">
+                {/* Author + caption (bottom left) */}
+                <div className="absolute bottom-24 left-4 right-20 z-10">
                   <button
                     type="button"
                     onClick={() => navigate(`/profile/${vibe.author_id}`)}
@@ -313,62 +383,79 @@ const VibesPage: React.FC = () => {
                     )}
                     <span className="text-white font-semibold text-sm drop-shadow">{vibe.authorName}</span>
                   </button>
-                  {!isTextOnly(vibe) && vibe.caption && (
+                  {!isTextOnly(vibe) && !isCard && vibe.caption && (
                     <p className="text-white text-sm leading-snug drop-shadow">{vibe.caption}</p>
                   )}
                 </div>
 
-                {/* Right action buttons */}
+                {/* LEFT: Up/Down nav */}
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => scrollTo(i - 1)}
+                      className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                    >
+                      <ChevronUp className="w-5 h-5" />
+                    </button>
+                  )}
+                  {i < vibes.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => scrollTo(i + 1)}
+                      className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                    >
+                      <ChevronDown className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* RIGHT: Action buttons */}
                 <div className="absolute right-3 bottom-28 z-10 flex flex-col items-center gap-5">
+                  {/* Like */}
                   <button type="button" onClick={() => void handleLike(vibe, i)} className="flex flex-col items-center gap-1">
                     <Heart className={`w-7 h-7 drop-shadow ${vibe.liked ? "fill-pink-500 text-pink-500" : "text-white"}`} />
                     <span className="text-white text-xs drop-shadow">{vibe.likeCount}</span>
                   </button>
+                  {/* Chat */}
                   <button type="button" onClick={() => navigate("/chat")} className="flex flex-col items-center gap-1">
                     <MessageCircle className="w-7 h-7 text-white drop-shadow" />
                     <span className="text-white text-xs drop-shadow">Chat</span>
                   </button>
+                  {/* Repost (other users' vibes only) */}
+                  {!isOwn && (
+                    <button type="button" onClick={() => { setRepostTarget(vibe); setRepostCaption(""); }} className="flex flex-col items-center gap-1">
+                      <Repeat2 className="w-7 h-7 text-emerald-400 drop-shadow" />
+                      <span className="text-emerald-300 text-xs drop-shadow">Repost</span>
+                    </button>
+                  )}
+                  {/* Share */}
                   <button type="button" onClick={() => void handleShare(vibe)} className="flex flex-col items-center gap-1">
                     <Share2 className="w-7 h-7 text-white drop-shadow" />
                     <span className="text-white text-xs drop-shadow">Share</span>
                   </button>
+                  {/* Mute (video only) */}
                   {vibe.media_type === "video" && (
                     <button type="button" onClick={() => setMuted((m) => !m)} className="flex flex-col items-center gap-1">
                       {muted ? <VolumeX className="w-6 h-6 text-white drop-shadow" /> : <Volume2 className="w-6 h-6 text-white drop-shadow" />}
                     </button>
                   )}
-                  {vibe.author_id === user?.id && (
-                    <button type="button" onClick={() => void handleDeleteVibe(vibe)} className="flex flex-col items-center gap-1 opacity-70 hover:opacity-100">
+                  {/* Delete (own vibes only) */}
+                  {isOwn && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteVibe(vibe)}
+                      className="flex flex-col items-center gap-1"
+                    >
                       <Trash2 className="w-6 h-6 text-red-400 drop-shadow" />
                       <span className="text-red-300 text-xs drop-shadow">Delete</span>
                     </button>
                   )}
                 </div>
-
-                {/* Up/Down nav */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
-                  {i > 0 && (
-                    <button type="button" onClick={() => scrollTo(i - 1)} className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white">
-                      <ChevronUp className="w-5 h-5" />
-                    </button>
-                  )}
-                  {i < vibes.length - 1 && (
-                    <button type="button" onClick={() => scrollTo(i + 1)} className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white">
-                      <ChevronDown className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
               </div>
-            ))}
-          </div>
-
-          {/* Dot indicators */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1.5 pointer-events-none">
-            {vibes.map((_, i) => (
-              <div key={i} className={`w-1 rounded-full transition-all duration-200 ${i === activeIndex ? "h-4 bg-white" : "h-1.5 bg-white/40"}`} />
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
 
       {/* Compose modal */}
@@ -387,7 +474,7 @@ const VibesPage: React.FC = () => {
 
             <textarea
               className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 px-4 py-3 text-sm resize-none focus:outline-none focus:border-purple-400"
-              rows={4}
+              rows={3}
               placeholder="What's your vibe? Share a thought, feeling, or caption…"
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
@@ -413,8 +500,41 @@ const VibesPage: React.FC = () => {
               </div>
             )}
 
-            {/* Media options */}
-            <div className="flex gap-2">
+            {/* Display mode picker — only shown when media is attached */}
+            {composeFile && (
+              <div className="space-y-1.5">
+                <span className="text-xs text-white/50 uppercase tracking-wide">Display style</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setComposeDisplayMode("full")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-medium transition-all ${
+                      composeDisplayMode === "full"
+                        ? "border-purple-400 bg-purple-500/20 text-white"
+                        : "border-white/15 bg-white/5 text-white/50"
+                    }`}
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                    Full screen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComposeDisplayMode("card")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-medium transition-all ${
+                      composeDisplayMode === "card"
+                        ? "border-pink-400 bg-pink-500/20 text-white"
+                        : "border-white/15 bg-white/5 text-white/50"
+                    }`}
+                  >
+                    <LayoutTemplate className="w-4 h-4" />
+                    Card style
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Media / type buttons */}
+            <div className="flex gap-2 items-center">
               <button
                 type="button"
                 onClick={() => openFilepicker("image/*")}
@@ -433,7 +553,7 @@ const VibesPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => openFilePickerWithCamera()}
+                onClick={clearFile}
                 className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-2 rounded-lg border border-white/10 transition-colors"
               >
                 <Type className="w-4 h-4" />
@@ -456,17 +576,56 @@ const VibesPage: React.FC = () => {
         </div>
       )}
 
+      {/* Repost modal */}
+      {repostTarget && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center" onClick={() => setRepostTarget(null)}>
+          <div
+            className="w-full max-w-lg bg-zinc-900 rounded-t-2xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Repeat2 className="w-5 h-5 text-emerald-400" />
+                <span className="text-white font-semibold text-base">Repost vibe</span>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRepostTarget(null)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+              <p className="text-xs text-white/50 mb-1">Original by {repostTarget.authorName}</p>
+              <p className="text-white/80 text-sm">{repostTarget.caption || "(media post)"}</p>
+            </div>
+
+            <textarea
+              className="w-full bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 px-4 py-3 text-sm resize-none focus:outline-none focus:border-emerald-400"
+              rows={2}
+              placeholder="Add your own caption (optional)…"
+              value={repostCaption}
+              onChange={(e) => setRepostCaption(e.target.value)}
+              maxLength={200}
+            />
+
+            <button
+              type="button"
+              onClick={() => void handleRepost()}
+              disabled={reposting}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-opacity"
+            >
+              <Repeat2 className="w-4 h-4" />
+              {reposting ? "Reposting…" : "Repost to your Vibes"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom nav */}
       <div className="relative z-30">
         <BottomNavigation />
       </div>
     </div>
   );
-
-  function openFilePickerWithCamera() {
-    // "Text only" just clears any file so user can post text alone
-    clearFile();
-  }
 };
 
 export default VibesPage;
