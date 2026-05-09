@@ -1,25 +1,44 @@
-// Legacy service worker decommission script.
-// This worker unregisters itself and clears old caches to prevent stale assets.
-self.addEventListener("install", (event) => {
-  self.skipWaiting();
-  event.waitUntil(Promise.resolve());
+const CACHE = "vv-v1";
+const PRECACHE = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
-      await self.registration.unregister();
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
 
-      const clientsList = await self.clients.matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      });
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
 
-      for (const client of clientsList) {
-        client.navigate(client.url);
-      }
-    })()
+  // Network-first for Supabase API — always want fresh data
+  if (url.hostname.includes("supabase.co")) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (JS, CSS, images, fonts)
+  e.respondWith(
+    caches.match(e.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(e.request).then((res) => {
+        if (res.ok && url.origin === self.location.origin) {
+          caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+        }
+        return res;
+      }).catch(() => caches.match("/"));
+    })
   );
 });

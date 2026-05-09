@@ -1,13 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import EventCard from "./EventCard";
-import { Plus, ShieldAlert } from "lucide-react";
+import StoriesRow from "./StoriesRow";
+import ReportModal from "./ReportModal";
+import { Flag, Plus, ShieldAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "react-router-dom";
+
+const REACTION_EMOJIS: Record<string, string> = {
+  heart: "💜",
+  fire: "🔥",
+  laugh: "😂",
+  sad: "🥺",
+  wow: "🤩",
+};
 
 type PostRow = {
   id: string;
@@ -131,6 +141,9 @@ const SocialFeed: React.FC = () => {
 
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const [reactionPickerPostId, setReactionPickerPostId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"for-you" | "community">("for-you");
 
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -1431,12 +1444,54 @@ const SocialFeed: React.FC = () => {
     console.log("Joining event:", eventId);
   };
 
+  const displayPosts = useMemo(() => {
+    if (activeTab === "community") return posts;
+    const now = Date.now();
+    return [...posts].sort((a, b) => {
+      const scorePost = (p: FeedPost) => {
+        const hoursAgo = (now - new Date(p.created_at).getTime()) / 3_600_000;
+        const engagement = p.likeCount + p.commentCount * 2;
+        return engagement / Math.pow(hoursAgo + 2, 1.5);
+      };
+      return scorePost(b) - scorePost(a);
+    });
+  }, [posts, activeTab]);
+
   return (
     <div className="p-4 w-full">
       <div className="max-w-7xl mx-auto grid social-feed-columns gap-3 sm:gap-4 items-start">
         <section className="space-y-4">
           <div className="px-1">
             <h2 className="wedding-heading text-2xl text-white">Community Feed</h2>
+          </div>
+
+          {/* Stories row */}
+          <StoriesRow />
+
+          {/* Feed tabs */}
+          <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("for-you")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "for-you"
+                  ? "bg-gradient-to-r from-pink-500/80 to-purple-600/80 text-white shadow"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              ✨ For You
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("community")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "community"
+                  ? "bg-gradient-to-r from-pink-500/80 to-purple-600/80 text-white shadow"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              🌐 Community
+            </button>
           </div>
 
           <Card className="bg-violet-950/75 border-violet-400/35 text-white backdrop-blur-sm">
@@ -1475,12 +1530,12 @@ const SocialFeed: React.FC = () => {
           {/* Feed */}
           {loading ? (
             <div className="text-white/80">Loading feed…</div>
-          ) : posts.length === 0 ? (
+          ) : displayPosts.length === 0 ? (
             <div className="text-white/80">
               No posts yet. Be the first to share something 💜
             </div>
           ) : (
-            posts.map((post) => {
+            displayPosts.map((post) => {
               const isOwnPost = post.author_id === user?.id;
               const isAutoCollapsed =
                 Date.now() - new Date(post.created_at).getTime() >= POST_AUTO_COLLAPSE_MS;
@@ -1600,17 +1655,45 @@ const SocialFeed: React.FC = () => {
                       </>
                     )}
 
-                    <div className={`flex ${isCollapsedCardView ? "space-x-3 text-xs" : "space-x-4 text-sm"} text-white/80`}>
-                      <button
-                        disabled={post._optimistic || isEditingPost}
-                        className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          post.likedByMe ? "text-pink-300" : ""
-                        }`}
-                        onClick={() => toggleLike(post.id, post.likedByMe)}
-                        type="button"
-                      >
-                        {post.likedByMe ? "💜" : "🤍"} {post.likeCount}
-                      </button>
+                    <div className={`flex items-center ${isCollapsedCardView ? "space-x-3 text-xs" : "space-x-4 text-sm"} text-white/80`}>
+                      {/* Reaction button with picker */}
+                      <div className="relative">
+                        <button
+                          disabled={post._optimistic || isEditingPost}
+                          className={`hover:text-pink-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            post.likedByMe ? "text-pink-300" : ""
+                          }`}
+                          onClick={() => {
+                            if (post._optimistic || isEditingPost) return;
+                            setReactionPickerPostId(
+                              reactionPickerPostId === post.id ? null : post.id
+                            );
+                          }}
+                          type="button"
+                          title="React"
+                        >
+                          {post.likedByMe ? "💜" : "🤍"} {post.likeCount}
+                        </button>
+                        {/* Reaction picker popover */}
+                        {reactionPickerPostId === post.id && (
+                          <div className="absolute bottom-full left-0 mb-1 flex gap-1 bg-violet-900/95 border border-violet-400/30 rounded-xl p-1.5 shadow-xl z-20">
+                            {Object.entries(REACTION_EMOJIS).map(([type, emoji]) => (
+                              <button
+                                key={type}
+                                type="button"
+                                className="text-lg hover:scale-125 transition-transform px-1"
+                                onClick={() => {
+                                  setReactionPickerPostId(null);
+                                  void toggleLike(post.id, post.likedByMe);
+                                }}
+                                title={type}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       <button
                         className="hover:text-pink-300"
@@ -1632,6 +1715,18 @@ const SocialFeed: React.FC = () => {
                       >
                         💬 {post.commentCount}
                       </button>
+
+                      {/* Report button (non-own posts) */}
+                      {!isOwnPost && !post._optimistic && (
+                        <button
+                          type="button"
+                          className="ml-auto text-white/30 hover:text-red-300 transition-colors"
+                          onClick={() => setReportingPostId(post.id)}
+                          title="Report post"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {isOwnPost && !post._optimistic && !isEditingPost && (
@@ -1872,6 +1967,14 @@ const SocialFeed: React.FC = () => {
           )}
         </aside>
       </div>
+
+      {/* Report modal */}
+      <ReportModal
+        open={!!reportingPostId}
+        onClose={() => setReportingPostId(null)}
+        reportedPostId={reportingPostId ?? undefined}
+        targetName="this post"
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import AppPreferencesBootstrapper from "@/components/AppPreferencesBootstrapper";
+import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { GlobalLayout } from "@/components/GlobalLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProfileGate } from "@/components/ProfileGate";
@@ -28,12 +29,19 @@ import ProfileCreationFlow from "@/components/ProfileCreationFlow";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SettingsPage from "./pages/SettingsPage";
+import GroupsPage from "./pages/GroupsPage";
+import VibesPage from "./pages/VibesPage";
 import LandingPreviewPage from "./pages/LandingPreviewPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import DataDeletionPage from "./pages/DataDeletionPage";
 
 const queryClient = new QueryClient();
+
+function PushBootstrapper() {
+  usePushRegistration();
+  return null;
+}
 
 const App = () => (
   <ThemeProvider defaultTheme="light">
@@ -43,6 +51,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <PushBootstrapper />
           <Routes>
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/landing-preview" element={<LandingPreviewPage />} />
@@ -245,6 +254,28 @@ const App = () => (
                     <VerificationGate>
                       <GlobalLayout><SettingsPage /></GlobalLayout>
                     </VerificationGate>
+                  </ProfileGate>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <ProfileGate>
+                    <VerificationGate>
+                      <GlobalLayout><GroupsPage /></GlobalLayout>
+                    </VerificationGate>
+                  </ProfileGate>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vibes"
+              element={
+                <ProtectedRoute>
+                  <ProfileGate>
+                    <VibesPage />
                   </ProfileGate>
                 </ProtectedRoute>
               }

@@ -286,6 +286,7 @@ export async function fetchDiscoverProfiles(myId: string) {
     )
     .neq("id", myId)
     .eq("profile_completed", true)
+    .or("is_seed.is.null,is_seed.eq.false")
     .order("updated_at", { ascending: false })
     .limit(120);
 

@@ -4,21 +4,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authService, LoginData } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { useLocation, useNavigate } from 'react-router-dom';
 
 interface LoginFormProps {
   onForgotPassword: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [formData, setFormData] = useState<LoginData>({
     email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isResending, setIsResending] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,10 +34,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
         title: "Success!",
         description: "You have been logged in successfully.",
       });
-      const params = new URLSearchParams(location.search);
-      const redirect = params.get('redirect');
-      const target = redirect && redirect.startsWith('/') ? redirect : '/social';
-      navigate(target, { replace: true });
+      // Redirect to main app or dashboard
+      window.location.href = '/social';
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -53,40 +47,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     }
   };
 
-  const handleResendConfirmation = async () => {
-    const email = formData.email.trim();
-    if (!email) {
-      toast({
-        title: 'Email required',
-        description: 'Enter your email first, then tap resend confirmation.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsResending(true);
-    try {
-      await authService.resendConfirmationEmail(email);
-      toast({
-        title: 'Confirmation sent',
-        description: 'Check your inbox (and spam) for the verification link.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Could not resend confirmation',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-white/90">Email</Label>
+          <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             name="email"
@@ -94,12 +59,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
+            className="w-full"
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-white/90">Password</Label>
+          <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             name="password"
@@ -107,26 +72,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="w-full bg-white text-black placeholder:text-gray-500 caret-black"
+            className="w-full"
           />
         </div>
         
-        <div className="flex items-center justify-between gap-3">
+        <div className="text-right">
           <Button
             type="button"
             variant="link"
-            className="p-0 h-auto text-sm text-white/80 hover:text-white"
-            onClick={() => void handleResendConfirmation()}
-            disabled={isLoading || isResending}
-          >
-            {isResending ? 'Sending...' : 'Resend confirmation email'}
-          </Button>
-          <Button
-            type="button"
-            variant="link"
-            className="p-0 h-auto text-sm text-white/80 hover:text-white"
+            className="p-0 h-auto text-sm"
             onClick={onForgotPassword}
-            disabled={isLoading || isResending}
           >
             Forgot password?
           </Button>

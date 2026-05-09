@@ -6,6 +6,7 @@ import LoginForm from '@/components/LoginForm';
 import CreateAccountForm from '@/components/CreateAccountForm';
 import { PasswordResetForm } from '@/components/PasswordResetForm';
 import { authService, AuthUser } from '@/lib/auth';
+import { getSafeRedirectPath } from '@/lib/redirect';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 import { useProfileStatus } from '@/hooks/useProfileStatus';
@@ -23,6 +24,7 @@ const SignInPage: React.FC = () => {
   const params = new URLSearchParams(location.search);
   const redirect = params.get('redirect');
   const redirectTarget = redirect && redirect.startsWith('/') ? redirect : '/social';
+  const safeRedirectTarget = getSafeRedirectPath(redirectTarget, '/social');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -100,11 +102,11 @@ const SignInPage: React.FC = () => {
     }
 
     if (status === "incomplete") {
-      const next = encodeURIComponent(redirectTarget);
+      const next = encodeURIComponent(safeRedirectTarget);
       return <Navigate to={`/create-new-profile?redirect=${next}`} replace />;
     }
 
-    return <Navigate to={redirectTarget} replace />;
+    return <Navigate to={safeRedirectTarget} replace />;
   }
 
   return (
@@ -119,55 +121,41 @@ const SignInPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative z-10">
-        <ResponsiveWrapper maxWidth="2xl" className="h-full py-8">
+        <ResponsiveWrapper maxWidth="2xl" className="h-full py-8 px-4">
           {/* Auth Forms */}
           <div className="flex justify-center">
-            <div className="w-full max-w-xl rounded-[30px] border border-pink-200/30 bg-gradient-to-r from-fuchsia-500/20 via-indigo-500/15 to-pink-500/20 p-[1px] shadow-2xl">
-              <Card className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-[#17082f]/95 via-[#211047]/95 to-[#2d1048]/95">
-                <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-pink-400/20 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-14 right-4 h-28 w-28 rounded-full bg-indigo-400/20 blur-3xl" />
+            <div className="w-full max-w-xl rounded-[34px] border border-pink-200/30 bg-gradient-to-r from-fuchsia-500/25 via-indigo-500/20 to-pink-500/25 p-[1px] shadow-2xl">
+              <Card className="relative overflow-hidden rounded-[32px] border border-white/20 bg-gradient-to-br from-[#2a124b]/95 via-[#3a1d5f]/95 to-[#4b2164]/95">
+                <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-pink-300/15 blur-sm" />
+                <div className="pointer-events-none absolute -bottom-16 right-4 h-40 w-40 rounded-full bg-indigo-300/20 blur-sm" />
 
-                <div className="border-b border-white/15 p-5 sm:p-6 text-left sm:text-center">
-                  <div className="mb-4 flex items-center gap-2">
-                    <span className="h-1.5 flex-1 rounded-full bg-rose-400" />
-                    <span className="h-1.5 flex-1 rounded-full bg-orange-400" />
-                    <span className="h-1.5 flex-1 rounded-full bg-amber-300" />
-                    <span className="h-1.5 flex-1 rounded-full bg-emerald-400" />
-                    <span className="h-1.5 flex-1 rounded-full bg-sky-400" />
-                    <span className="h-1.5 flex-1 rounded-full bg-indigo-400" />
-                    <span className="h-1.5 flex-1 rounded-full bg-fuchsia-400" />
+                <div className="relative border-b border-white/15 p-6 sm:p-8 text-center">
+                  <div className="mb-7 flex items-center gap-3">
+                    <span className="h-2 flex-1 rounded-full bg-rose-400" />
+                    <span className="h-2 flex-1 rounded-full bg-orange-400" />
+                    <span className="h-2 flex-1 rounded-full bg-amber-300" />
+                    <span className="h-2 flex-1 rounded-full bg-emerald-400" />
+                    <span className="h-2 flex-1 rounded-full bg-sky-400" />
+                    <span className="h-2 flex-1 rounded-full bg-indigo-400" />
+                    <span className="h-2 flex-1 rounded-full bg-fuchsia-400" />
                   </div>
 
-                  <h1 className="text-3xl sm:text-5xl font-bold rainbow-header wedding-title leading-tight">
-                    Unleash Your Spirit with Violets &amp; Vibes - Your Premier Online Dating and Social Hub!
+                  <h1 className="mx-auto max-w-md text-4xl sm:text-5xl font-bold rainbow-header wedding-title leading-tight">
+                    Friendship, dating, and community with intention
                   </h1>
-                  <p className="mt-3 text-pink-200 font-semibold text-base sm:text-2xl">
-                    A safer space for women to connect
-                  </p>
-                  <p className="mt-3 text-white/90 text-sm sm:text-lg">
-                    Women-centered • Inclusive • Safety-first
-                  </p>
-                  <p className="mt-2 text-white/85 text-sm sm:text-lg">
-                    Friendship, dating, and community with intention.
-                  </p>
-
-                  <div className="pointer-events-none absolute right-5 top-8 hidden sm:flex flex-col items-center text-pink-200/90">
-                    <span className="text-xl">💜</span>
-                    <span className="mt-1 text-lg text-violet-200/85">✨</span>
-                  </div>
                 </div>
 
-                <CardHeader className="text-center pt-5">
-                <CardTitle className="text-2xl text-white wedding-heading">
-                  {showPasswordReset ? 'Reset Password' : 'Join the Community'}
-                </CardTitle>
-                {showPasswordReset ? (
-                  <CardDescription className="text-white/70">
-                    Enter your email to reset your password
-                  </CardDescription>
-                ) : null}
+                <CardHeader className="relative text-center pt-8">
+                  <CardTitle className="text-3xl sm:text-4xl text-white wedding-heading">
+                    {showPasswordReset ? 'Reset Password' : 'Join the Community'}
+                  </CardTitle>
+                  {showPasswordReset ? (
+                    <CardDescription className="text-white/70">
+                      Enter your email to reset your password
+                    </CardDescription>
+                  ) : null}
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative px-6 sm:px-10 pb-9">
                   {showPasswordReset ? (
                     <PasswordResetForm onBack={() => setShowPasswordReset(false)} />
                   ) : (
@@ -187,20 +175,25 @@ const SignInPage: React.FC = () => {
                     </Tabs>
                   )}
                 </CardContent>
+
+                <div className="relative border-t border-white/15 px-6 pb-6 pt-7 text-center sm:px-10">
+                  <p className="mx-auto max-w-md text-4xl sm:text-5xl font-bold rainbow-header wedding-title leading-tight">
+                    Women-centered &middot; Inclusive &middot; Safety-first
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm sm:text-base text-white/75">
+                    <Link className="hover:text-white underline underline-offset-4" to="/privacy">
+                      Privacy Policy
+                    </Link>
+                    <Link className="hover:text-white underline underline-offset-4" to="/terms">
+                      Terms of Service
+                    </Link>
+                    <Link className="hover:text-white underline underline-offset-4" to="/data-deletion">
+                      Data Deletion
+                    </Link>
+                  </div>
+                </div>
               </Card>
-            </div>
-          </div>
-          <div className="mt-4 text-center text-xs sm:text-sm text-white/70">
-            <div className="flex items-center justify-center gap-4">
-              <Link className="hover:text-white underline underline-offset-4" to="/privacy">
-                Privacy Policy
-              </Link>
-              <Link className="hover:text-white underline underline-offset-4" to="/terms">
-                Terms of Service
-              </Link>
-              <Link className="hover:text-white underline underline-offset-4" to="/data-deletion">
-                Data Deletion
-              </Link>
             </div>
           </div>
         </ResponsiveWrapper>

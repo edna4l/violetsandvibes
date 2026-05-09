@@ -171,8 +171,88 @@ const SettingsPage: React.FC = () => {
   const basePrivacyRef = useRef<Record<string, any>>({});
   const baseSafetyRef = useRef<Record<string, any>>({});
 
+  // MFA / 2FA state
+  const [mfaEnrolled, setMfaEnrolled] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaModal, setMfaModal] = useState<"enroll" | "unenroll" | null>(null);
+  const [mfaQrCode, setMfaQrCode] = useState("");
+  const [mfaSecret, setMfaSecret] = useState("");
+  const [mfaPendingId, setMfaPendingId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaLoading, setMfaLoading] = useState(false);
+
   const handleUpgrade = () => {
     navigate('/subscription');
+  };
+
+  useEffect(() => {
+    const checkMfa = async () => {
+      const { data } = await supabase.auth.mfa.listFactors();
+      const totpFactor = data?.totp?.find((f) => f.status === "verified");
+      setMfaEnrolled(!!totpFactor);
+      setMfaFactorId(totpFactor?.id ?? null);
+    };
+    void checkMfa();
+  }, []);
+
+  const handleMfaToggle = async (checked: boolean) => {
+    if (checked) {
+      setMfaLoading(true);
+      try {
+        const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+        if (error) throw error;
+        setMfaQrCode(data.totp.qr_code);
+        setMfaSecret(data.totp.secret);
+        setMfaPendingId(data.id);
+        setMfaCode("");
+        setMfaModal("enroll");
+      } catch (e: any) {
+        toast({ title: "Could not start 2FA setup", description: e?.message, variant: "destructive" });
+      } finally {
+        setMfaLoading(false);
+      }
+    } else {
+      setMfaModal("unenroll");
+    }
+  };
+
+  const handleMfaVerify = async () => {
+    setMfaLoading(true);
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaPendingId });
+      if (challengeError) throw challengeError;
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaPendingId,
+        challengeId: challengeData.id,
+        code: mfaCode,
+      });
+      if (verifyError) throw verifyError;
+      setMfaEnrolled(true);
+      setMfaFactorId(mfaPendingId);
+      setMfaModal(null);
+      toast({ title: "Two-factor authentication enabled" });
+    } catch (e: any) {
+      toast({ title: "Verification failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleMfaUnenroll = async () => {
+    if (!mfaFactorId) return;
+    setMfaLoading(true);
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+      if (error) throw error;
+      setMfaEnrolled(false);
+      setMfaFactorId(null);
+      setMfaModal(null);
+      toast({ title: "Two-factor authentication disabled" });
+    } catch (e: any) {
+      toast({ title: "Could not disable 2FA", description: e?.message, variant: "destructive" });
+    } finally {
+      setMfaLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -539,16 +619,78 @@ const SettingsPage: React.FC = () => {
                   <div key={key} className="flex justify-between items-start gap-4">
                     <div className="space-y-1">
                       <div>{label}</div>
-                      <div className="text-xs text-gray-600">{description}</div>
+                      <div className="text-xs text-gray-600">
+                        {key === 'twoFactor'
+                          ? mfaEnrolled
+                            ? "Authenticator app is active. Toggle off to disable."
+                            : "Add an authenticator app for extra sign-in security."
+                          : description}
+                      </div>
                     </div>
-                    <Switch 
-                      checked={settings.safety[key]}
-                      onCheckedChange={(checked) => updateSafetySetting(key, checked)}
-                      disabled={loadingGeneral}
+                    <Switch
+                      checked={key === 'twoFactor' ? mfaEnrolled : settings.safety[key]}
+                      onCheckedChange={(checked) =>
+                        key === 'twoFactor'
+                          ? void handleMfaToggle(checked)
+                          : updateSafetySetting(key, checked)
+                      }
+                      disabled={loadingGeneral || (key === 'twoFactor' && mfaLoading)}
                     />
                   </div>
                 ))}
               </CardContent>
+
+              {/* 2FA enroll modal */}
+              <Dialog open={mfaModal === "enroll"} onOpenChange={(o) => !o && setMfaModal(null)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Set up two-factor authentication</DialogTitle>
+                    <DialogDescription>
+                      Scan this QR code with your authenticator app (e.g. Google Authenticator, Authy), then enter the 6-digit code below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {mfaQrCode && (
+                    <div className="flex flex-col items-center gap-3 py-2">
+                      <img src={mfaQrCode} alt="2FA QR code" className="w-44 h-44 rounded-lg border" />
+                      <div className="text-xs text-gray-500 font-mono break-all px-2 text-center">
+                        Manual key: {mfaSecret}
+                      </div>
+                    </div>
+                  )}
+                  <Input
+                    placeholder="6-digit code"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
+                    maxLength={6}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                  />
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setMfaModal(null)}>Cancel</Button>
+                    <Button onClick={() => void handleMfaVerify()} disabled={mfaCode.length < 6 || mfaLoading}>
+                      {mfaLoading ? "Verifying…" : "Enable 2FA"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* 2FA unenroll modal */}
+              <Dialog open={mfaModal === "unenroll"} onOpenChange={(o) => !o && setMfaModal(null)}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Disable two-factor authentication</DialogTitle>
+                    <DialogDescription>
+                      Are you sure? Your account will be less secure without 2FA.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setMfaModal(null)}>Cancel</Button>
+                    <Button variant="destructive" onClick={() => void handleMfaUnenroll()} disabled={mfaLoading}>
+                      {mfaLoading ? "Disabling…" : "Disable 2FA"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </Card>
 
             <Card>

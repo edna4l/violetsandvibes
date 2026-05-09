@@ -7,7 +7,7 @@ import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Flag, Heart, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Flag, Heart, Image, Loader2, MessageCircle } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -51,6 +51,8 @@ type MessageRow = {
   sender_id: string;
   body: string;
   created_at: string;
+  media_url?: string | null;
+  media_type?: "image" | "video" | "audio" | "gif" | null;
 };
 
 type MessageReactionRow = {
@@ -119,6 +121,8 @@ const ChatView: React.FC = () => {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const threadContainerRef = useRef<HTMLDivElement | null>(null);
   const newDividerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -598,6 +602,47 @@ const ChatView: React.FC = () => {
       setThreadError(e?.message || "Could not send message");
     } finally {
       setSending(false);
+    }
+  };
+
+  const uploadMediaMessage = async (file: File) => {
+    if (!user || !activeConversationId) return;
+    const isImage = file.type.startsWith("image/");
+    const isAudio = file.type.startsWith("audio/");
+    if (!isImage && !isAudio) {
+      toast({ title: "Only images and audio supported", variant: "destructive" });
+      return;
+    }
+    setUploadingMedia(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("chat-media")
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: activeConversationId,
+          sender_id: user.id,
+          body: isAudio ? "🎤 Voice message" : "📷 Photo",
+          media_url: urlData.publicUrl,
+          media_type: isAudio ? "audio" : "image",
+        })
+        .select("id, conversation_id, sender_id, body, created_at, media_url, media_type")
+        .single();
+
+      if (error) throw error;
+      setMessages((prev) => [...prev, data as MessageRow]);
+      await markConversationRead(activeConversationId);
+    } catch (e: any) {
+      toast({ title: "Could not send media", description: e?.message, variant: "destructive" });
+    } finally {
+      setUploadingMedia(false);
+      if (mediaInputRef.current) mediaInputRef.current.value = "";
     }
   };
 
@@ -1230,15 +1275,35 @@ const ChatView: React.FC = () => {
 
                     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+                        className={`max-w-[80%] rounded-2xl text-sm ${
+                          m.media_type === "image" ? "overflow-hidden p-0" : "px-4 py-2 whitespace-pre-wrap"
+                        } ${
                           mine
                             ? "bg-gradient-to-r from-pink-500/90 to-purple-600/90 text-white"
                             : "bg-white/10 text-white/90 border border-white/10"
                         }`}
                       >
-                        {m.body}
-                        <div className="mt-1 flex items-center justify-between gap-3">
-                          <div className="text-[11px] opacity-70">{timeAgo(m.created_at)}</div>
+                        {m.media_type === "image" && m.media_url ? (
+                          <img
+                            src={m.media_url}
+                            alt="Shared photo"
+                            className="max-w-full rounded-2xl"
+                            loading="lazy"
+                          />
+                        ) : m.media_type === "audio" && m.media_url ? (
+                          <div className="px-4 py-2">
+                            <audio src={m.media_url} controls className="max-w-full" />
+                          </div>
+                        ) : (
+                          m.body
+                        )}
+                        <div className={`mt-1 flex items-center justify-between gap-3 ${m.media_type === "image" ? "px-3 pb-2" : ""}`}>
+                          <div className="text-[11px] opacity-70 flex items-center gap-1">
+                            {timeAgo(m.created_at)}
+                            {mine && active?.lastReadAt && new Date(m.created_at).getTime() <= new Date(active.lastReadAt).getTime() && (
+                              <span className="text-blue-300" title="Read">✓✓</span>
+                            )}
+                          </div>
                           {heartsEnabled ? (
                             <button
                               type="button"
@@ -1274,6 +1339,31 @@ const ChatView: React.FC = () => {
           {/* Composer */}
           <div className="p-4 border-t border-white/10">
             <div className="flex gap-2">
+              {/* Image upload button */}
+              <button
+                type="button"
+                disabled={!activeConversationId || uploadingMedia}
+                onClick={() => mediaInputRef.current?.click()}
+                className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-40 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+                title="Send image"
+              >
+                {uploadingMedia ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Image className="w-4 h-4" />
+                )}
+              </button>
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,audio/*"
+                aria-label="Upload image or voice message"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadMediaMessage(file);
+                }}
+              />
               <Input
                 value={draft}
                 onChange={(e) => onDraftChange(e.target.value)}
