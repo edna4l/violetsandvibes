@@ -7,7 +7,7 @@ import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Flag, Heart, Image, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Flag, Heart, Image, Loader2, MessageCircle, Trash2 } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -475,6 +475,13 @@ const ChatView: React.FC = () => {
     } finally {
       setThreadLoading(false);
     }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!user) return;
+    if (!window.confirm("Delete this message? It will be removed for everyone.")) return;
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    await supabase.from("messages").delete().eq("id", messageId).eq("sender_id", user.id);
   };
 
   const toggleMessageHeart = async (message: MessageRow) => {
@@ -1273,9 +1280,20 @@ const ChatView: React.FC = () => {
                       </div>
                     )}
 
-                    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div className={`flex items-end gap-1.5 ${mine ? "justify-end" : "justify-start"}`}>
+                      {mine && (
+                        <button
+                          type="button"
+                          onClick={() => void deleteMessage(m.id)}
+                          disabled={m.id.startsWith("temp_")}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-white/30 hover:text-red-400 transition-all mb-1 shrink-0"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <div
-                        className={`max-w-[80%] rounded-2xl text-sm ${
+                        className={`group max-w-[80%] rounded-2xl text-sm ${
                           m.media_type === "image" ? "overflow-hidden p-0" : "px-4 py-2 whitespace-pre-wrap"
                         } ${
                           mine

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, Share2, Plus, Volume2, VolumeX,
-  ChevronUp, ChevronDown, Image, Video, Type, X, Send
+  ChevronUp, ChevronDown, Image, Video, Type, X, Send, Trash2
 } from "lucide-react";
 import BottomNavigation from "@/components/BottomNavigation";
 
@@ -162,9 +162,12 @@ const VibesPage: React.FC = () => {
         const isVideo = composeFile.type.startsWith("video/");
         const ext = composeFile.name.split(".").pop() || "jpg";
         const path = `${user.id}/${Date.now()}.${ext}`;
+        // contentType override: Supabase rejects video/quicktime by default,
+        // but .mov and .mp4 both play fine in browsers when served as video/mp4.
+        const contentType = composeFile.type === "video/quicktime" ? "video/mp4" : composeFile.type;
         const { error: uploadError } = await supabase.storage
           .from("story-media")
-          .upload(path, composeFile, { upsert: false });
+          .upload(path, composeFile, { upsert: false, contentType });
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("story-media").getPublicUrl(path);
         mediaUrl = urlData.publicUrl;
@@ -215,6 +218,13 @@ const VibesPage: React.FC = () => {
 
   const scrollTo = (idx: number) => {
     containerRef.current?.querySelector(`[data-vibe-index="${idx}"]`)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleDeleteVibe = async (vibe: Vibe) => {
+    if (!user || vibe.author_id !== user.id) return;
+    if (!window.confirm("Delete this vibe? This cannot be undone.")) return;
+    setVibes((prev) => prev.filter((v) => v.id !== vibe.id));
+    await supabase.from("stories").delete().eq("id", vibe.id).eq("author_id", user.id);
   };
 
   const isTextOnly = (vibe: Vibe) => !vibe.media_url || vibe.media_url === "text";
@@ -325,6 +335,12 @@ const VibesPage: React.FC = () => {
                   {vibe.media_type === "video" && (
                     <button type="button" onClick={() => setMuted((m) => !m)} className="flex flex-col items-center gap-1">
                       {muted ? <VolumeX className="w-6 h-6 text-white drop-shadow" /> : <Volume2 className="w-6 h-6 text-white drop-shadow" />}
+                    </button>
+                  )}
+                  {vibe.author_id === user?.id && (
+                    <button type="button" onClick={() => void handleDeleteVibe(vibe)} className="flex flex-col items-center gap-1 opacity-70 hover:opacity-100">
+                      <Trash2 className="w-6 h-6 text-red-400 drop-shadow" />
+                      <span className="text-red-300 text-xs drop-shadow">Delete</span>
                     </button>
                   )}
                 </div>
