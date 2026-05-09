@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, Share2, Plus, Volume2, VolumeX,
   ChevronUp, ChevronDown, Image, Video, Type, X, Send,
-  Trash2, Repeat2, Maximize2, LayoutTemplate
+  Trash2, Repeat2, Maximize2, LayoutTemplate, Play, Pause, Expand
 } from "lucide-react";
 import BottomNavigation from "@/components/BottomNavigation";
 
@@ -46,6 +46,7 @@ const VibesPage: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [pausedIndexes, setPausedIndexes] = useState<Set<number>>(new Set());
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
 
   // Compose modal
@@ -283,6 +284,25 @@ const VibesPage: React.FC = () => {
     }
   };
 
+  const togglePlayPause = (i: number) => {
+    const el = videoRefs.current[i];
+    if (!el) return;
+    if (el.paused) {
+      el.play().catch(() => {});
+      setPausedIndexes((prev) => { const s = new Set(prev); s.delete(i); return s; });
+    } else {
+      el.pause();
+      setPausedIndexes((prev) => new Set(prev).add(i));
+    }
+  };
+
+  const openFullscreen = (i: number) => {
+    const el = videoRefs.current[i];
+    if (!el) return;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if ((el as any).webkitEnterFullscreen) (el as any).webkitEnterFullscreen();
+  };
+
   const scrollTo = (idx: number) => {
     containerRef.current?.querySelector(`[data-vibe-index="${idx}"]`)?.scrollIntoView({ behavior: "smooth" });
   };
@@ -291,7 +311,8 @@ const VibesPage: React.FC = () => {
   const gradientFor = (i: number) => TEXT_GRADIENTS[i % TEXT_GRADIENTS.length];
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col">
+    <div className="fixed inset-0 bg-zinc-950 flex items-stretch justify-center">
+    <div className="relative w-full max-w-[480px] bg-black flex flex-col overflow-hidden">
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-3 pb-2">
         <span className="text-white font-bold text-lg tracking-wide">Vibes</span>
@@ -344,16 +365,26 @@ const VibesPage: React.FC = () => {
                     </p>
                   </div>
                 ) : isCard ? (
-                  /* Card mode: gradient bg + media in a centered card */
+                  /* Card mode */
                   <div className={`w-full h-full bg-gradient-to-br ${gradientFor(i)} flex flex-col items-center justify-center gap-4 p-6`}>
-                    <div className="w-full max-h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="relative w-full max-h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
                       {vibe.media_type === "video" ? (
-                        <video
-                          ref={(el) => { videoRefs.current[i] = el; }}
-                          src={vibe.media_url!}
-                          className="w-full max-h-[65vh] object-contain bg-black"
-                          loop muted={muted} playsInline autoPlay={i === 0}
-                        />
+                        <>
+                          <video
+                            ref={(el) => { videoRefs.current[i] = el; }}
+                            src={vibe.media_url!}
+                            className="w-full max-h-[65vh] object-contain bg-black"
+                            loop muted={muted} playsInline autoPlay={i === 0}
+                          />
+                          <div className="absolute bottom-2 left-2 flex gap-2 z-10">
+                            <button type="button" aria-label="Play/Pause" onClick={() => togglePlayPause(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
+                              {pausedIndexes.has(i) ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                            </button>
+                            <button type="button" aria-label="Fullscreen" onClick={() => openFullscreen(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
+                              <Expand className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
                       ) : (
                         <img src={vibe.media_url!} alt={vibe.authorName} className="w-full max-h-[65vh] object-contain bg-black" />
                       )}
@@ -366,12 +397,37 @@ const VibesPage: React.FC = () => {
                   /* Full-screen mode */
                   <>
                     {vibe.media_type === "video" ? (
-                      <video
-                        ref={(el) => { videoRefs.current[i] = el; }}
-                        src={vibe.media_url!}
-                        className="w-full h-full object-cover"
-                        loop muted={muted} playsInline autoPlay={i === 0}
-                      />
+                      <>
+                        <video
+                          ref={(el) => { videoRefs.current[i] = el; }}
+                          src={vibe.media_url!}
+                          className="w-full h-full object-cover"
+                          loop muted={muted} playsInline autoPlay={i === 0}
+                          onClick={() => togglePlayPause(i)}
+                        />
+                        {/* Play/pause overlay */}
+                        {pausedIndexes.has(i) && (
+                          <button
+                            type="button"
+                            aria-label="Play"
+                            onClick={() => togglePlayPause(i)}
+                            className="absolute inset-0 flex items-center justify-center z-10 bg-black/20"
+                          >
+                            <div className="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center">
+                              <Play className="w-8 h-8 text-white ml-1" />
+                            </div>
+                          </button>
+                        )}
+                        {/* Bottom video controls */}
+                        <div className="absolute bottom-28 left-4 flex gap-2 z-10">
+                          <button type="button" aria-label="Play/Pause" onClick={() => togglePlayPause(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
+                            {pausedIndexes.has(i) ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
+                          </button>
+                          <button type="button" aria-label="Fullscreen" onClick={() => openFullscreen(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
+                            <Expand className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <img src={vibe.media_url!} alt={vibe.authorName} className="w-full h-full object-cover" />
                     )}
@@ -395,7 +451,7 @@ const VibesPage: React.FC = () => {
                     className="flex items-center gap-2 mb-2"
                   >
                     {vibe.authorPhoto ? (
-                      <img src={vibe.authorPhoto} className="w-9 h-9 rounded-full border-2 border-white object-cover" />
+                      <img src={vibe.authorPhoto} alt={vibe.authorName} className="w-9 h-9 rounded-full border-2 border-white object-cover" />
                     ) : (
                       <div className="w-9 h-9 rounded-full border-2 border-white bg-violet-700 flex items-center justify-center text-white text-xs font-bold">
                         {vibe.authorName[0]}
@@ -413,6 +469,7 @@ const VibesPage: React.FC = () => {
                   {i > 0 && (
                     <button
                       type="button"
+                      aria-label="Previous vibe"
                       onClick={() => scrollTo(i - 1)}
                       className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
                     >
@@ -422,6 +479,7 @@ const VibesPage: React.FC = () => {
                   {i < vibes.length - 1 && (
                     <button
                       type="button"
+                      aria-label="Next vibe"
                       onClick={() => scrollTo(i + 1)}
                       className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
                     >
@@ -644,6 +702,7 @@ const VibesPage: React.FC = () => {
       <div className="relative z-30">
         <BottomNavigation />
       </div>
+    </div>
     </div>
   );
 };

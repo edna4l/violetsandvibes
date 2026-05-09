@@ -7,7 +7,7 @@ import { extractBlockedUserIds } from "@/lib/safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, Flag, Heart, Image, Loader2, MessageCircle, Trash2 } from "lucide-react";
+import { ChevronLeft, Flag, Heart, Image, Loader2, MessageCircle, Trash2, X } from "lucide-react";
 
 type ConversationMemberRow = {
   conversation_id: string;
@@ -475,6 +475,18 @@ const ChatView: React.FC = () => {
     } finally {
       setThreadLoading(false);
     }
+  };
+
+  const clearConversation = async (conversationId: string) => {
+    if (!user) return;
+    if (!window.confirm("Delete this entire conversation? This removes all messages for you and cannot be undone.")) return;
+    await supabase.from("messages").delete().eq("conversation_id", conversationId);
+    setMessages([]);
+    if (activeConversationId === conversationId) {
+      setActiveConversationId(null);
+    }
+    setConversations((prev) => prev.filter((c) => c.conversationId !== conversationId));
+    toast({ title: "Conversation deleted" });
   };
 
   const deleteMessage = async (messageId: string) => {
@@ -1111,19 +1123,15 @@ const ChatView: React.FC = () => {
               {conversations.map((c) => {
                 const isActive = c.conversationId === activeConversationId;
                 return (
+                  <div key={c.conversationId} className="relative group">
                   <button
-                    key={c.conversationId}
                     type="button"
                     onClick={() => {
                       setActiveConversationId(c.conversationId);
                       navigate(`/chat?c=${c.conversationId}`, { replace: false });
-
-                      // clear unread immediately for better UX
-                      if (c.hasUnread) {
-                        void markConversationRead(c.conversationId);
-                      }
+                      if (c.hasUnread) void markConversationRead(c.conversationId);
                     }}
-                    className={`w-full text-left rounded-xl p-3 transition-all border ${
+                    className={`w-full text-left rounded-xl p-3 transition-all border pr-10 ${
                       isActive
                         ? "bg-violet-950/70 border-violet-400/40"
                         : "bg-black/40 border-white/10 hover:bg-black/55"
@@ -1168,6 +1176,16 @@ const ChatView: React.FC = () => {
                       </div>
                     </div>
                   </button>
+                  {/* Delete conversation button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void clearConversation(c.conversationId); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 active:text-red-400 transition-colors"
+                    title="Delete conversation"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -1214,19 +1232,21 @@ const ChatView: React.FC = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-red-400/40 text-red-100 hover:bg-red-500/15"
-                  onClick={() => void reportConversation()}
+                  className="border-white/20 text-white/70 hover:bg-red-500/15 hover:text-red-300 hover:border-red-400/40"
+                  onClick={() => void clearConversation(active.conversationId)}
+                  title="Delete this conversation"
                 >
-                  <Flag className="w-3.5 h-3.5 mr-1.5" />
-                  Report Conversation
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Clear Chat
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="hidden sm:inline-flex border-white/20 text-white hover:bg-white/10"
-                  onClick={() => markConversationRead(active.conversationId)}
+                  className="border-red-400/40 text-red-100 hover:bg-red-500/15"
+                  onClick={() => void reportConversation()}
                 >
-                  Mark read
+                  <Flag className="w-3.5 h-3.5 mr-1.5" />
+                  Report
                 </Button>
               </div>
             ) : null}
