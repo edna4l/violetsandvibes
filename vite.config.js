@@ -21,5 +21,8 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       external: ['src/main.tsx']
     }
+    build: {
+chunkSizeWarningLimit: 1600, // Increase the chunk size limit
+}
   },
 }));
