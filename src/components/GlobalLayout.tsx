@@ -3,6 +3,7 @@ import { PrideHeader } from './PrideHeader';
 import { BottomNavigation } from './BottomNavigation';
 import { ResponsiveWrapper } from './ResponsiveWrapper';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface GlobalLayoutProps {
   children: React.ReactNode;
@@ -83,6 +84,25 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
             onMenuSelect={handleMenuSelect}
             className="mb-0 sm:mb-0 md:mb-0"
           />
+          {/* Back / Forward navigation bar */}
+          <div className="flex items-center gap-1 px-3 py-1 bg-black/30 border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(1)}
+              className="flex items-center gap-1 text-white/70 hover:text-white text-xs px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+            >
+              Forward
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

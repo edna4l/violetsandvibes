@@ -749,7 +749,7 @@ const UserVerification: React.FC = () => {
               onClick={() => {
                 const params = new URLSearchParams(window.location.search);
                 const redirect = params.get('redirect');
-                const target = redirect && redirect.startsWith('/') ? redirect : '/social';
+                const target = getSafeRedirectPath(redirect, '/social');
                 navigate(target, { replace: true });
               }}
             >

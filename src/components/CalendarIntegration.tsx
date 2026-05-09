@@ -708,7 +708,7 @@ const CalendarIntegration: React.FC = () => {
                     id="event-title"
                     value={form.title}
                     onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Queer Meetup Night"
+                    placeholder="Women's Meetup Night"
                     className="bg-violet-900/30 border-violet-400/30 text-white placeholder:text-white/50"
                     required
                   />

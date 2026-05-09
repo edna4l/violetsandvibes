@@ -10,7 +10,7 @@ interface IdentityStepProps {
 
 const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
   const genderOptions = ['Woman', 'Man', 'Non-binary', 'Genderfluid', 'Transgender', 'Questioning'];
-  const orientationOptions = ['Lesbian', 'Gay', 'Bisexual', 'Pansexual', 'Queer', 'Questioning', 'Asexual'];
+  const orientationOptions = ['Straight', 'Lesbian', 'Bisexual', 'Pansexual', 'Queer', 'Questioning', 'Asexual'];
   const prideFlags = [
     { name: 'LGBTQ+', color: 'bg-gradient-to-r from-red-400 to-purple-400' },
     { name: 'Trans', color: 'bg-gradient-to-r from-blue-300 to-pink-300' },

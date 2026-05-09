@@ -15,12 +15,12 @@ interface CommunityEvent {
 const mockEvents: CommunityEvent[] = [
   {
     id: '1',
-    title: 'Lesbian Book Club',
+    title: "Women's Book Club",
     date: 'Today, 7:00 PM',
     location: 'Downtown Library',
     attendees: 12,
     type: 'social',
-    identity: 'lesbian'
+    identity: 'rainbow'
   },
   {
     id: '2',
@@ -33,12 +33,12 @@ const mockEvents: CommunityEvent[] = [
   },
   {
     id: '3',
-    title: 'Bi+ Support Group',
+    title: "Women's Support Circle",
     date: 'Friday, 5:30 PM',
     location: 'Safe Space Café',
     attendees: 8,
     type: 'support',
-    identity: 'bisexual'
+    identity: 'rainbow'
   }
 ];
 
@@ -56,7 +56,7 @@ const CommunityView: React.FC = () => {
       <div className="relative z-10">
         <PrideHeader 
           title="Community" 
-          subtitle="Connect with your local queer community"
+          subtitle="Connect with women in your community"
         />
         
         <div className="padding-responsive">

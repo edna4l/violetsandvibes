@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Heart, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Users, Heart, Sparkles, Check, HelpCircle, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+
+type RSVPStatus = 'going' | 'maybe' | 'not_going';
 
 interface EventCardProps {
   event: {
@@ -18,12 +23,44 @@ interface EventCardProps {
     organizer: string;
     image?: string;
     isAttending?: boolean;
+    rsvpStatus?: RSVPStatus | null;
   };
   onJoin?: (eventId: string) => void;
   onLike?: (eventId: string) => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event, onJoin, onLike }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [rsvp, setRsvp] = useState<RSVPStatus | null>(event.rsvpStatus ?? (event.isAttending ? 'going' : null));
+  const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [attendeeCount, setAttendeeCount] = useState(event.attendees);
+
+  const handleRSVP = async (status: RSVPStatus) => {
+    if (!user) return;
+    setRsvpLoading(true);
+    const prev = rsvp;
+    const prevCount = attendeeCount;
+    try {
+      const nextStatus = rsvp === status ? null : status;
+      setRsvp(nextStatus);
+      if (status === 'going' && prev !== 'going') setAttendeeCount((c) => c + 1);
+      if (prev === 'going' && status !== 'going') setAttendeeCount((c) => Math.max(0, c - 1));
+
+      if (!nextStatus) {
+        await supabase.from('event_rsvps').delete().eq('event_id', event.id).eq('user_id', user.id);
+      } else {
+        await supabase.from('event_rsvps').upsert({ event_id: event.id, user_id: user.id, status: nextStatus });
+      }
+    } catch (e: any) {
+      setRsvp(prev);
+      setAttendeeCount(prevCount);
+      toast({ title: 'Could not update RSVP', description: e?.message, variant: 'destructive' });
+    } finally {
+      setRsvpLoading(false);
+    }
+  };
+
   return (
     <Card className="mb-4 overflow-hidden border-0 hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 group relative bg-black/90 backdrop-blur-sm text-white">
       {/* Identity-based gradient overlay */}
@@ -95,27 +132,57 @@ const EventCard: React.FC<EventCardProps> = ({ event, onJoin, onLike }) => {
           
           <div className="flex items-center text-sm text-gray-300 group-hover:text-gray-200 transition-colors duration-300">
             <Users className="w-4 h-4 mr-3 text-pink-500 group-hover:text-purple-500 group-hover:scale-110 transition-all duration-300" />
-            <span className="font-medium">{event.attendees}/{event.maxAttendees} attending</span>
+            <span className="font-medium">{attendeeCount}{event.maxAttendees > 0 ? `/${event.maxAttendees}` : ''} attending</span>
           </div>
         </div>
 
-        <div className="flex justify-between items-center">
+        <div className="space-y-2">
           <span className="text-sm text-gray-400 font-medium group-hover:text-gray-300 transition-colors duration-300">
             by {event.organizer}
           </span>
-          
-          <Button
-            onClick={() => onJoin?.(event.id)}
-            size="sm"
-            className={`font-bold transition-all duration-300 hover:scale-105 hover:shadow-lg relative overflow-hidden group/btn ${
-              event.isAttending
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
-                : 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600'
-            }`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent" />
-            <span className="relative z-10">{event.isAttending ? 'Attending' : 'Join Event'}</span>
-          </Button>
+
+          {/* RSVP buttons */}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={rsvpLoading}
+              onClick={() => void handleRSVP('going')}
+              className={`flex-1 text-xs font-semibold transition-all ${
+                rsvp === 'going'
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-white/10 hover:bg-green-500/30 text-white/80 border border-white/20'
+              }`}
+            >
+              <Check className="w-3 h-3 mr-1" />
+              Going
+            </Button>
+            <Button
+              size="sm"
+              disabled={rsvpLoading}
+              onClick={() => void handleRSVP('maybe')}
+              className={`flex-1 text-xs font-semibold transition-all ${
+                rsvp === 'maybe'
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                  : 'bg-white/10 hover:bg-yellow-500/30 text-white/80 border border-white/20'
+              }`}
+            >
+              <HelpCircle className="w-3 h-3 mr-1" />
+              Maybe
+            </Button>
+            <Button
+              size="sm"
+              disabled={rsvpLoading}
+              onClick={() => void handleRSVP('not_going')}
+              className={`flex-1 text-xs font-semibold transition-all ${
+                rsvp === 'not_going'
+                  ? 'bg-red-500/80 hover:bg-red-600 text-white'
+                  : 'bg-white/10 hover:bg-red-500/20 text-white/80 border border-white/20'
+              }`}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Can't go
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

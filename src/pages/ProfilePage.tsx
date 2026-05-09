@@ -7,12 +7,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Ban, Edit, MapPin, Camera, Star, Loader2, UserPlus } from "lucide-react";
+import { Ban, Edit, MapPin, Star, Loader2, UserPlus, Share2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import ProfileMenu from "@/components/ProfileMenu";
 import MessageButton from "@/components/MessageButton";
+import ProfileCompletenessScore from "@/components/ProfileCompletenessScore";
+import BoostPanel from "@/components/BoostPanel";
+import { MultiPhotoUpload } from "@/components/MultiPhotoUpload";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,7 +43,6 @@ type EditableProfileForm = {
   gender_identity: string;
   sexual_orientation: string;
   interestsText: string;
-  primaryPhoto: string;
 };
 
 const EMPTY_FORM: EditableProfileForm = {
@@ -50,7 +52,6 @@ const EMPTY_FORM: EditableProfileForm = {
   gender_identity: "",
   sexual_orientation: "",
   interestsText: "",
-  primaryPhoto: "",
 };
 
 function toStringArray(value: unknown): string[] {
@@ -60,8 +61,6 @@ function toStringArray(value: unknown): string[] {
 
 function formFromProfile(profile: any): EditableProfileForm {
   const interests = toStringArray(profile?.interests);
-  const photos = toStringArray(profile?.photos);
-
   return {
     full_name: profile?.full_name ?? "",
     location: profile?.location ?? "",
@@ -69,7 +68,6 @@ function formFromProfile(profile: any): EditableProfileForm {
     gender_identity: profile?.gender_identity ?? "",
     sexual_orientation: profile?.sexual_orientation ?? "",
     interestsText: interests.join(", "),
-    primaryPhoto: photos[0] ?? "",
   };
 }
 
@@ -92,6 +90,7 @@ const ProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState<EditableProfileForm>(EMPTY_FORM);
+  const [editPhotos, setEditPhotos] = useState<string[]>([]);
 
   const isOwnProfile = !!user && !!profile && profile.id === user.id;
   const [liked, setLiked] = useState(false);
@@ -215,6 +214,7 @@ const ProfilePage: React.FC = () => {
     if (!profile) return;
     setSaveError(null);
     setFormData(formFromProfile(profile));
+    setEditPhotos(toStringArray(profile.photos));
     setEditing(true);
   };
 
@@ -234,13 +234,6 @@ const ProfilePage: React.FC = () => {
       .map((v) => v.trim())
       .filter(Boolean);
 
-    const existingPhotos = toStringArray(profile.photos);
-    const remainingPhotos = existingPhotos.slice(1);
-    const nextPrimaryPhoto = formData.primaryPhoto.trim();
-    const photos = nextPrimaryPhoto
-      ? [nextPrimaryPhoto, ...remainingPhotos]
-      : remainingPhotos;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -252,7 +245,7 @@ const ProfilePage: React.FC = () => {
         gender_identity: formData.gender_identity.trim(),
         sexual_orientation: formData.sexual_orientation.trim(),
         interests,
-        photos,
+        photos: editPhotos,
         updated_at: new Date().toISOString(),
       });
 
@@ -354,6 +347,22 @@ const ProfilePage: React.FC = () => {
       });
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!profile) return;
+    const url = `${window.location.origin}/profile/${profile.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${displayName} on Violets & Vibes`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Profile link copied!", description: url });
+      }
+    } catch {
+      await navigator.clipboard.writeText(url).catch(() => {});
+      toast({ title: "Profile link copied!" });
     }
   };
 
@@ -522,6 +531,10 @@ const ProfilePage: React.FC = () => {
           </CardContent>
         </Card>
 
+        {isOwnProfile && (
+          <ProfileCompletenessScore profile={profile} />
+        )}
+
         {/* About */}
         <Card className="bg-black/70 border-white/15 text-white">
           <CardHeader className="pb-2">
@@ -643,19 +656,12 @@ const ProfilePage: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="profile-photo" className="flex items-center gap-2">
-                  <Camera className="w-4 h-4" />
-                  Primary Photo URL
-                </Label>
-                <Input
-                  id="profile-photo"
-                  name="primaryPhoto"
-                  type="url"
-                  value={formData.primaryPhoto}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                  className="bg-black/30 border-white/20 text-white"
+              <div className="space-y-2">
+                <Label>Photos</Label>
+                <MultiPhotoUpload
+                  photos={editPhotos}
+                  onPhotosChange={setEditPhotos}
+                  maxPhotos={6}
                 />
               </div>
 
@@ -697,6 +703,8 @@ const ProfilePage: React.FC = () => {
         <div className="space-y-3 pb-8">
           {isOwnProfile ? (
             <>
+              <BoostPanel />
+
               <Button
                 className="w-full"
                 onClick={() => {
@@ -709,6 +717,15 @@ const ProfilePage: React.FC = () => {
               >
                 <Edit className="w-4 h-4 mr-2" />
                 {editing ? "Close inline editor" : "Edit my profile"}
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full border-white/20 text-white hover:bg-white/10"
+                onClick={() => void handleShareProfile()}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share my profile
               </Button>
 
               <Button

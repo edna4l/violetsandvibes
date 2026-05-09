@@ -50,22 +50,12 @@ const applyInitialUiPreferences = () => {
 
 applyInitialUiPreferences()
 
-const cleanupLegacyServiceWorkers = async () => {
-  if (!('serviceWorker' in navigator)) return
-
-  try {
-    const registrations = await navigator.serviceWorker.getRegistrations()
-    await Promise.all(registrations.map((registration) => registration.unregister()))
-
-    if ('caches' in window) {
-      const keys = await caches.keys()
-      await Promise.all(keys.map((key) => caches.delete(key)))
-    }
-  } catch (error) {
-    console.error('Service worker cleanup failed:', error)
-  }
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err)
+    })
+  })
 }
 
-cleanupLegacyServiceWorkers().finally(() => {
-  createRoot(document.getElementById('root')!).render(<App />)
-})
+createRoot(document.getElementById('root')!).render(<App />)

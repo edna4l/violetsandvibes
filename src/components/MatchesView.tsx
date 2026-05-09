@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Heart, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import { Heart, Loader2, MessageCircle, Sparkles, Star, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchMyMatches, type MatchRow } from "@/lib/matches";
 import { getOrCreateDirectConversation } from "@/lib/messaging";
 import { loadBlockedUserIdSet } from "@/lib/safety";
+import WhoLikedMeView from "@/components/WhoLikedMeView";
 
 type MatchProfileRow = {
   id: string;
@@ -52,10 +53,14 @@ const MatchesView: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState<"matches" | "liked">("matches");
   const [matches, setMatches] = useState<UiMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  const [icebreakerMatchId, setIcebreakerMatchId] = useState<string | null>(null);
+  const [icebreakerSuggestions, setIcebreakerSuggestions] = useState<string[]>([]);
+  const [icebreakerLoading, setIcebreakerLoading] = useState(false);
   const blockedUserIdsKey = useMemo(
     () => Array.from(blockedUserIds).sort().join(","),
     [blockedUserIds]
@@ -83,6 +88,53 @@ const MatchesView: React.FC = () => {
       isNewMatch:
         !Number.isNaN(createdAtMs) && Date.now() - createdAtMs <= NEW_MATCH_WINDOW_MS,
     };
+  };
+
+  const fetchIcebreakers = async (match: UiMatch) => {
+    if (icebreakerMatchId === match.matchId) {
+      setIcebreakerMatchId(null);
+      setIcebreakerSuggestions([]);
+      return;
+    }
+    setIcebreakerMatchId(match.matchId);
+    setIcebreakerSuggestions([]);
+    setIcebreakerLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const res = await fetch(`${supabaseUrl}/functions/v1/ai-icebreaker`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ matchProfileId: match.otherUserId }),
+      });
+      const json = await res.json();
+      setIcebreakerSuggestions(json.suggestions ?? []);
+    } catch {
+      toast({ title: "Could not load icebreakers", variant: "destructive" });
+      setIcebreakerMatchId(null);
+    } finally {
+      setIcebreakerLoading(false);
+    }
+  };
+
+  const sendIcebreaker = async (match: UiMatch, text: string) => {
+    try {
+      let conversationId = match.conversationId;
+      if (!conversationId) {
+        conversationId = await getOrCreateDirectConversation(user!.id, match.otherUserId);
+      }
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: user!.id,
+        content: text,
+      });
+      setIcebreakerMatchId(null);
+      setIcebreakerSuggestions([]);
+      navigate(`/chat?c=${conversationId}`);
+    } catch (e: any) {
+      toast({ title: "Could not send message", description: e?.message, variant: "destructive" });
+    }
   };
 
   const openMatchChat = async (match: UiMatch) => {
@@ -368,155 +420,194 @@ const MatchesView: React.FC = () => {
 
   return (
     <div className="padding-responsive">
-      {/* New Matches Section */}
-      <div className="mb-6">
-        <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
-          <Heart className="w-5 h-5 mr-2 text-red-400" />
-          New Matches
-        </h2>
-        {newMatches.length === 0 ? (
-          <div className="text-white/70 text-sm mt-2">No new matches this week.</div>
-        ) : (
-          <div className="flex space-x-4 overflow-x-auto pb-2">
-            {newMatches.map((match) => (
-              <div
-                key={match.matchId}
-                className="flex-shrink-0 text-center"
-                role="button"
-                tabIndex={0}
-                onClick={() => void openMatchChat(match)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    void openMatchChat(match);
-                  }
-                }}
-              >
-                <div className="relative">
-                  {match.photo ? (
-                    <img
-                      src={match.photo}
-                      alt={match.name}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-pink-400 shadow-lg"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-pink-400 shadow-lg bg-white/10 flex items-center justify-center text-white font-semibold">
-                      {match.name.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute -top-1 -right-1 w-6 h-6 btn-pride rounded-full flex items-center justify-center">
-                    <Sparkles className="w-3 h-3 text-white" />
-                  </div>
-                </div>
-                <p className="text-sm font-medium text-white mt-2">{match.name}</p>
-                {match.location ? (
-                  <p className="text-xs text-white/70">{match.location}</p>
-                ) : null}
-                <div className="mt-2 flex gap-2 justify-center">
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded-md bg-white/10 text-white hover:bg-white/15"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void openMatchChat(match);
-                    }}
-                  >
-                    Message
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 hover:bg-white/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/profile/${match.otherUserId}`);
-                    }}
-                  >
-                    View profile
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("matches")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "matches"
+              ? "bg-gradient-to-r from-pink-500/80 to-purple-600/80 text-white shadow"
+              : "text-white/60 hover:text-white"
+          }`}
+        >
+          <Heart className="w-4 h-4 inline mr-1.5" />
+          Matches
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("liked")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "liked"
+              ? "bg-gradient-to-r from-yellow-400/80 to-orange-500/80 text-white shadow"
+              : "text-white/60 hover:text-white"
+          }`}
+        >
+          <Star className="w-4 h-4 inline mr-1.5" />
+          Liked Me
+        </button>
       </div>
 
-      {/* Messages Section */}
-      <div>
-        <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
-          <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
-          Messages
-        </h2>
-        {oldMatches.length === 0 ? (
-          <div className="text-white/70 text-sm mt-2">No message threads yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {oldMatches.map((match) => (
-              <div
-                key={match.matchId}
-                className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
-                role="button"
-                tabIndex={0}
-                onClick={() => void openMatchChat(match)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    void openMatchChat(match);
-                  }
-                }}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    {match.photo ? (
-                      <img
-                        src={match.photo}
-                        alt={match.name}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
-                        {match.name.slice(0, 1).toUpperCase()}
+      {activeTab === "liked" ? (
+        <WhoLikedMeView />
+      ) : (
+        <>
+          {/* New Matches Section */}
+          <div className="mb-6">
+            <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
+              <Heart className="w-5 h-5 mr-2 text-red-400" />
+              New Matches
+            </h2>
+            {newMatches.length === 0 ? (
+              <div className="text-white/70 text-sm mt-2">No new matches this week.</div>
+            ) : (
+              <div className="flex space-x-4 overflow-x-auto pb-2">
+                {newMatches.map((match) => (
+                  <div key={match.matchId} className="flex-shrink-0 text-center">
+                    <button
+                      type="button"
+                      className="block"
+                      onClick={() => void openMatchChat(match)}
+                    >
+                      <div className="relative">
+                        {match.photo ? (
+                          <img
+                            src={match.photo}
+                            alt={match.name}
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-pink-400 shadow-lg"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-pink-400 shadow-lg bg-white/10 flex items-center justify-center text-white font-semibold">
+                            {match.name.slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="absolute -top-1 -right-1 w-6 h-6 btn-pride rounded-full flex items-center justify-center">
+                          <Sparkles className="w-3 h-3 text-white" />
+                        </div>
                       </div>
-                    )}
-                    {match.hasUnread && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-white truncate">{match.name}</h3>
-                      <span className="text-xs text-white/60 shrink-0">
-                        {timeAgo(match.lastMessageAt || match.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-white/80 truncate">
-                      {match.lastMessageText
-                        ? match.lastMessageText
-                        : "Tap to open chat"}
-                    </p>
-                    {match.location ? (
-                      <p className="text-xs text-white/60 truncate">{match.location}</p>
-                    ) : null}
-                    <div className="mt-2">
+                      <p className="text-sm font-medium text-white mt-2">{match.name}</p>
+                      {match.location ? (
+                        <p className="text-xs text-white/70">{match.location}</p>
+                      ) : null}
+                    </button>
+                    <div className="mt-2 flex gap-1 justify-center flex-wrap">
+                      <button
+                        type="button"
+                        className="text-xs px-2 py-1 rounded-md bg-white/10 text-white hover:bg-white/15"
+                        onClick={() => void openMatchChat(match)}
+                      >
+                        Message
+                      </button>
                       <button
                         type="button"
                         className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 hover:bg-white/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/profile/${match.otherUserId}`);
-                        }}
+                        onClick={() => navigate(`/profile/${match.otherUserId}`)}
                       >
                         View profile
                       </button>
+                      <button
+                        type="button"
+                        className={`text-xs px-2 py-1 rounded-md flex items-center gap-1 transition-colors ${
+                          icebreakerMatchId === match.matchId
+                            ? "bg-purple-500/30 text-purple-200 border border-purple-400/30"
+                            : "border border-white/20 text-white/90 hover:bg-white/10"
+                        }`}
+                        onClick={() => void fetchIcebreakers(match)}
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        {icebreakerMatchId === match.matchId && icebreakerLoading ? "..." : "Icebreaker"}
+                      </button>
                     </div>
+                    {icebreakerMatchId === match.matchId && !icebreakerLoading && icebreakerSuggestions.length > 0 && (
+                      <div className="mt-2 space-y-1 w-40">
+                        {icebreakerSuggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className="w-full text-left text-xs px-2 py-1.5 rounded-lg bg-purple-500/20 border border-purple-400/30 text-white/90 hover:bg-purple-500/30 transition-colors leading-snug"
+                            onClick={() => void sendIcebreaker(match, s)}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Messages Section */}
+          <div>
+            <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
+              <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
+              Messages
+            </h2>
+            {oldMatches.length === 0 ? (
+              <div className="text-white/70 text-sm mt-2">No message threads yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {oldMatches.map((match) => (
+                  <button
+                    key={match.matchId}
+                    type="button"
+                    className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
+                    onClick={() => void openMatchChat(match)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="relative">
+                        {match.photo ? (
+                          <img
+                            src={match.photo}
+                            alt={match.name}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
+                            {match.name.slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        {match.hasUnread && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-white truncate">{match.name}</h3>
+                          <span className="text-xs text-white/60 shrink-0">
+                            {timeAgo(match.lastMessageAt || match.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white/80 truncate">
+                          {match.lastMessageText ? match.lastMessageText : "Tap to open chat"}
+                        </p>
+                        {match.location ? (
+                          <p className="text-xs text-white/60 truncate">{match.location}</p>
+                        ) : null}
+                        <div className="mt-2">
+                          <span
+                            role="link"
+                            className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 cursor-pointer hover:bg-white/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/profile/${match.otherUserId}`);
+                            }}
+                          >
+                            View profile
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };

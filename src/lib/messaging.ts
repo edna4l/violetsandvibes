@@ -1,10 +1,5 @@
 import { supabase } from "@/lib/supabase";
 
-/**
- * For now: 1:1 conversations.
- * Returns an existing conversation id if both users are members of the same convo,
- * otherwise creates a new conversation + both membership rows.
- */
 export async function getOrCreateDirectConversation(myId: string, otherUserId: string) {
   if (!myId || !otherUserId) {
     throw new Error("Both user IDs are required.");
@@ -36,27 +31,15 @@ export async function getOrCreateDirectConversation(myId: string, otherUserId: s
     if (otherMember?.conversation_id) return otherMember.conversation_id as string;
   }
 
-  // 2) Create a new conversation
-  const { data: convo, error: convoError } = await supabase
-    .from("conversations")
-    .insert({ created_by: myId })
-    .select("id")
-    .single();
+  // 2) Create a new conversation with both members in a single transaction
+  // Use a database function to ensure atomicity and avoid RLS issues
+  const { data, error } = await supabase.rpc('create_direct_conversation', {
+    user_id_1: myId,
+    user_id_2: otherUserId
+  });
 
-  if (convoError) throw convoError;
+  if (error) throw error;
+  if (!data) throw new Error("Failed to create conversation");
 
-  const conversationId = convo.id as string;
-
-  // 3) Add both members (insert self first for stricter RLS setups)
-  const { error: meMemberError } = await supabase
-    .from("conversation_members")
-    .insert({ conversation_id: conversationId, user_id: myId });
-  if (meMemberError) throw meMemberError;
-
-  const { error: otherMemberError } = await supabase
-    .from("conversation_members")
-    .insert({ conversation_id: conversationId, user_id: otherUserId });
-  if (otherMemberError) throw otherMemberError;
-
-  return conversationId;
+  return data as string;
 }
