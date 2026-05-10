@@ -521,3 +521,22 @@ html.vv-large-text {
   padding: 8px 10px;
   animation: vvFocusGlow 1.8s ease-out 1;
 }
+
+/* ── Violets & Vibes global theme animations ── */
+@keyframes vibe-bg {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+@keyframes float-up {
+  0%   { transform: translateY(0) rotate(0deg) scale(0.85); opacity: 0; }
+  8%   { opacity: 0.55; }
+  92%  { opacity: 0.3; }
+  100% { transform: translateY(-110vh) rotate(350deg) scale(1.1); opacity: 0; }
+}
+
+.vibe-bg-animated {
+  background: linear-gradient(135deg, #1a0533 0%, #2d1b69 20%, #4c1d95 40%, #7c3aed 60%, #9d174d 80%, #4c1d95 100%);
+  background-size: 300% 300%;
+  animation: vibe-bg 18s ease infinite;
+}

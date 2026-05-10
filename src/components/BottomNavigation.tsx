@@ -101,6 +101,21 @@ const BottomNavigation: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
+  // Hide when user navigates between vibes, show again after 2.5 s
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onVibesNavigate = () => {
+      setIsVisible(false);
+      clearTimeout(timer);
+      timer = setTimeout(() => setIsVisible(true), 2500);
+    };
+    window.addEventListener('vibes-navigate', onVibesNavigate);
+    return () => {
+      window.removeEventListener('vibes-navigate', onVibesNavigate);
+      clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <div className={`fixed bottom-0 left-0 right-0 glass-pride-strong border-t border-white/20 z-40 transition-transform duration-300 ${
       isVisible ? 'translate-y-0' : 'translate-y-full'

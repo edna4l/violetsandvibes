@@ -147,6 +147,8 @@ const VibesPage: React.FC = () => {
       if (!el) return;
       Number(idx) === activeIndex ? el.play().catch(() => {}) : el.pause();
     });
+    // Tell BottomNavigation to briefly hide when the user navigates between vibes
+    window.dispatchEvent(new CustomEvent('vibes-navigate', { detail: { index: activeIndex } }));
   }, [activeIndex]);
 
   useEffect(() => {
@@ -180,7 +182,13 @@ const VibesPage: React.FC = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = accept;
-    input.onchange = (e) => handleFileSelect(e as any);
+    // Must be in DOM before .click() for iOS Safari to open the picker
+    input.style.cssText = "position:fixed;top:-200px;left:-200px;opacity:0;";
+    document.body.appendChild(input);
+    input.onchange = (e) => {
+      handleFileSelect(e as any);
+      document.body.removeChild(input);
+    };
     input.click();
   };
 
@@ -281,15 +289,15 @@ const VibesPage: React.FC = () => {
 
     if (composeFile) {
       const isVideo = composeFile.type.startsWith("video/") || composeFile.type === "video/quicktime";
-      // 50 MB for video (Supabase free-tier infrastructure limit), 25 MB for photos
-      const maxBytes = isVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024;
+      // Supabase Pro allows up to 5 GB per file; keeping practical social-media limits
+      const maxBytes = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024; // 500 MB video / 50 MB photo
       if (composeFile.size > maxBytes) {
         const fileMB = (composeFile.size / 1024 / 1024).toFixed(1);
         toast({
           title: `File too large (${fileMB} MB)`,
           description: isVideo
-            ? "Videos must be under 50 MB. On iPhone: Settings → Camera → Record Video → choose 1080p HD at 30 fps to reduce file size."
-            : "Photos must be under 25 MB. Try reducing the image resolution first.",
+            ? "Videos must be under 500 MB. For very long recordings, try trimming the clip first."
+            : "Photos must be under 50 MB. Try reducing the image resolution first.",
           variant: "destructive",
         });
         return;
@@ -355,14 +363,23 @@ const VibesPage: React.FC = () => {
 
   const handleShare = async (vibe: Vibe) => {
     const url = `${window.location.origin}/vibes`;
+    const text = vibe.caption ? `"${vibe.caption}" — on Violets & Vibes` : "Check this out on Violets & Vibes!";
     try {
       if (navigator.share) {
-        await navigator.share({ title: vibe.authorName + " on Violets & Vibes", url });
+        // Native share sheet (iOS/Android) includes Facebook, Instagram, Messages, etc.
+        await navigator.share({ title: "Violets & Vibes", text, url });
       } else {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied!" });
+        // Desktop fallback: offer Facebook share link + clipboard
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`;
+        window.open(fbUrl, "_blank", "width=600,height=400");
       }
-    } catch {}
+    } catch {
+      // User cancelled or share not supported — fall back to clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied to clipboard!" });
+      } catch {}
+    }
   };
 
   const handleDeleteVibe = async (vibe: Vibe) => {
@@ -443,28 +460,8 @@ const VibesPage: React.FC = () => {
 
   return (
     <>
-      <style>{`
-        @keyframes vibe-bg {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes float-up {
-          0%   { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0; }
-          8%   { opacity: 0.45; }
-          92%  { opacity: 0.2; }
-          100% { transform: translateY(-105vh) rotate(340deg) scale(1.1); opacity: 0; }
-        }
-      `}</style>
-
-      {/* Outer animated gradient — visible as coloured sides on desktop */}
-      <div
-        className="fixed inset-0 flex items-stretch justify-center overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #1a0533 0%, #2d1b69 20%, #4c1d95 40%, #7c3aed 60%, #9d174d 80%, #4c1d95 100%)",
-          backgroundSize: "300% 300%",
-          animation: "vibe-bg 18s ease infinite",
-        }}
-      >
+      {/* Outer animated gradient — keyframes defined in index.css (.vibe-bg-animated) */}
+      <div className="vibe-bg-animated fixed inset-0 flex items-stretch justify-center overflow-hidden">
         {/* Floating themed emojis — only peek out on wide screens behind the phone frame */}
         {FLOAT_EMOJIS.map((emoji, i) => (
           <div

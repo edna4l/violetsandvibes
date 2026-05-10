@@ -5,6 +5,21 @@ import { ResponsiveWrapper } from './ResponsiveWrapper';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+const FLOAT_EMOJIS = ["💜","✨","🌸","💕","🦋","🌙","💫","🌺","⭐","🎶","🌷","💎","🌈","🥰"];
+
+const floatStyle = (i: number): React.CSSProperties => ({
+  position: "absolute",
+  fontSize: `${1.6 + (i % 3) * 0.5}rem`,
+  left: i % 2 === 0
+    ? `${4 + (i % 7) * 12}%`
+    : `${8 + (i % 6) * 14}%`,
+  bottom: `${-8 + (i % 4) * 2}%`,
+  animation: `float-up ${10 + i * 1.3}s ${i * 2.1}s infinite linear`,
+  pointerEvents: "none",
+  userSelect: "none",
+  zIndex: 0,
+});
+
 interface GlobalLayoutProps {
   children: React.ReactNode;
   showHeader?: boolean;
@@ -76,7 +91,12 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
   };
 
   return (
-    <div className={`min-h-screen flex flex-col ${className}`}>
+    <div className={`vibe-bg-animated min-h-screen flex flex-col relative overflow-x-hidden ${className}`}>
+      {/* Floating themed emojis in background */}
+      {FLOAT_EMOJIS.map((emoji, i) => (
+        <span key={i} aria-hidden style={floatStyle(i)}>{emoji}</span>
+      ))}
+
       {/* Header */}
       {showHeader && (
         <div className="relative z-20">
