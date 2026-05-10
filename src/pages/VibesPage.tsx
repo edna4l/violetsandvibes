@@ -47,6 +47,7 @@ const VibesPage: React.FC = () => {
   const [muted, setMuted] = useState(true);
   const [posting, setPosting] = useState(false);
   const [pausedIndexes, setPausedIndexes] = useState<Set<number>>(new Set());
+  const [videoProgress, setVideoProgress] = useState<Record<number, { current: number; duration: number }>>({});
   const videoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
 
   // Compose modal
@@ -307,11 +308,22 @@ const VibesPage: React.FC = () => {
     containerRef.current?.querySelector(`[data-vibe-index="${idx}"]`)?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const updateProgress = (i: number, el: HTMLVideoElement) => {
+    setVideoProgress((prev) => ({ ...prev, [i]: { current: el.currentTime, duration: el.duration || 0 } }));
+  };
+
+  const fmtTime = (s: number) => {
+    if (!isFinite(s) || isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
   const isTextOnly = (vibe: Vibe) => !vibe.media_url || vibe.media_url === "text";
   const gradientFor = (i: number) => TEXT_GRADIENTS[i % TEXT_GRADIENTS.length];
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 flex items-stretch justify-center">
+    <div className="fixed inset-0 bg-gradient-to-br from-violet-950 via-purple-950 to-pink-950 flex items-stretch justify-center">
     <div className="relative w-full max-w-[480px] bg-black flex flex-col overflow-hidden">
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-3 pb-2">
@@ -369,22 +381,15 @@ const VibesPage: React.FC = () => {
                   <div className={`w-full h-full bg-gradient-to-br ${gradientFor(i)} flex flex-col items-center justify-center gap-4 p-6`}>
                     <div className="relative w-full max-h-[65vh] rounded-2xl overflow-hidden shadow-2xl">
                       {vibe.media_type === "video" ? (
-                        <>
-                          <video
-                            ref={(el) => { videoRefs.current[i] = el; }}
-                            src={vibe.media_url!}
-                            className="w-full max-h-[65vh] object-contain bg-black"
-                            loop muted={muted} playsInline autoPlay={i === 0}
-                          />
-                          <div className="absolute bottom-2 left-2 flex gap-2 z-10">
-                            <button type="button" aria-label="Play/Pause" onClick={() => togglePlayPause(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
-                              {pausedIndexes.has(i) ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                            </button>
-                            <button type="button" aria-label="Fullscreen" onClick={() => openFullscreen(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
-                              <Expand className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </>
+                        <video
+                          ref={(el) => { videoRefs.current[i] = el; }}
+                          src={vibe.media_url!}
+                          className="w-full max-h-[65vh] object-contain bg-black"
+                          loop muted={muted} playsInline autoPlay={i === 0}
+                          onTimeUpdate={(e) => updateProgress(i, e.currentTarget)}
+                          onLoadedMetadata={(e) => updateProgress(i, e.currentTarget)}
+                          onClick={() => togglePlayPause(i)}
+                        />
                       ) : (
                         <img src={vibe.media_url!} alt={vibe.authorName} className="w-full max-h-[65vh] object-contain bg-black" />
                       )}
@@ -404,8 +409,10 @@ const VibesPage: React.FC = () => {
                           className="w-full h-full object-cover"
                           loop muted={muted} playsInline autoPlay={i === 0}
                           onClick={() => togglePlayPause(i)}
+                          onTimeUpdate={(e) => updateProgress(i, e.currentTarget)}
+                          onLoadedMetadata={(e) => updateProgress(i, e.currentTarget)}
                         />
-                        {/* Play/pause overlay */}
+                        {/* Paused overlay */}
                         {pausedIndexes.has(i) && (
                           <button
                             type="button"
@@ -418,15 +425,6 @@ const VibesPage: React.FC = () => {
                             </div>
                           </button>
                         )}
-                        {/* Bottom video controls */}
-                        <div className="absolute bottom-28 left-4 flex gap-2 z-10">
-                          <button type="button" aria-label="Play/Pause" onClick={() => togglePlayPause(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
-                            {pausedIndexes.has(i) ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
-                          </button>
-                          <button type="button" aria-label="Fullscreen" onClick={() => openFullscreen(i)} className="w-9 h-9 bg-black/50 rounded-full flex items-center justify-center text-white">
-                            <Expand className="w-4 h-4" />
-                          </button>
-                        </div>
                       </>
                     ) : (
                       <img src={vibe.media_url!} alt={vibe.authorName} className="w-full h-full object-cover" />
@@ -464,8 +462,8 @@ const VibesPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* LEFT: Up/Down nav */}
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
+                {/* LEFT: Up/Down nav + video controls */}
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2">
                   {i > 0 && (
                     <button
                       type="button"
@@ -475,6 +473,35 @@ const VibesPage: React.FC = () => {
                     >
                       <ChevronUp className="w-5 h-5" />
                     </button>
+                  )}
+                  {vibe.media_type === "video" && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Play/Pause"
+                        onClick={() => togglePlayPause(i)}
+                        className="w-9 h-9 rounded-full bg-black/50 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                      >
+                        {pausedIndexes.has(i) ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
+                      </button>
+                      <div className="bg-black/50 rounded-lg px-1.5 py-1 flex flex-col items-center gap-0.5 min-w-[2.5rem]">
+                        <span className="text-white text-[10px] font-mono leading-none">
+                          {fmtTime(videoProgress[i]?.current ?? 0)}
+                        </span>
+                        <div className="w-4 h-px bg-white/30" />
+                        <span className="text-white/50 text-[10px] font-mono leading-none">
+                          {fmtTime(videoProgress[i]?.duration ?? 0)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Fullscreen"
+                        onClick={() => openFullscreen(i)}
+                        className="w-9 h-9 rounded-full bg-black/50 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                      >
+                        <Expand className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                   {i < vibes.length - 1 && (
                     <button
