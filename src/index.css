@@ -540,3 +540,8 @@ html.vv-large-text {
   background-size: 300% 300%;
   animation: vibe-bg 18s ease infinite;
 }
+
+/* Makes this element a containing block for position:fixed children (e.g. Vibes phone frame) */
+.contain-fixed {
+  transform: translateZ(0);
+}

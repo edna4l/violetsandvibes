@@ -483,8 +483,8 @@ const VibesPage: React.FC = () => {
           </div>
         ))}
 
-        {/* Phone frame */}
-        <div className="relative w-full max-w-[480px] bg-black flex flex-col overflow-hidden z-10">
+        {/* contain-fixed: makes this a containing block so position:fixed children (nav, modals) stay within the frame */}
+        <div className="contain-fixed relative w-full max-w-[480px] bg-black flex flex-col overflow-hidden z-10">
 
           {/* Top bar */}
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-3 pb-2">

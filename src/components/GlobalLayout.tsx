@@ -91,7 +91,7 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
   };
 
   return (
-    <div className={`vibe-bg-animated min-h-screen flex flex-col relative overflow-x-hidden ${className}`}>
+    <div className={`vibe-bg-animated min-h-screen flex flex-col relative ${className}`}>
       {/* Floating themed emojis in background */}
       {FLOAT_EMOJIS.map((emoji, i) => (
         <span key={i} aria-hidden style={floatStyle(i)}>{emoji}</span>
