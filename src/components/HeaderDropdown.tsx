@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
-import { Menu, Settings, User, Heart, LogOut, Bell, Compass, MessageCircle, Users, Calendar, Video, Filter, Shield, Sparkles } from 'lucide-react';
+import { Menu, Settings, User, Heart, LogOut, Bell, Compass, MessageCircle, Users, Calendar, Video, Filter, Shield, Sparkles, Play } from 'lucide-react';
 
 interface HeaderDropdownProps {
   onMenuSelect?: (action: string) => void;
@@ -141,15 +141,23 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
         </DropdownMenuItem>
 
         
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => handleMenuClick('matches', '/matches')}
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
           <Heart className="mr-2 h-4 w-4" />
-          Matches
+          Violets
         </DropdownMenuItem>
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
+          onClick={() => handleMenuClick('vibes', '/vibes')}
+          className="text-black hover:bg-gray-100 cursor-pointer"
+        >
+          <Play className="mr-2 h-4 w-4" />
+          Vibes
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
           onClick={() => handleMenuClick('chat', '/chat')}
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
@@ -188,15 +196,15 @@ export const HeaderDropdown: React.FC<HeaderDropdownProps> = ({
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
           <User className="mr-2 h-4 w-4" />
-          My Profile
+          Profile
         </DropdownMenuItem>
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
           onClick={() => handleMenuClick('notifications', '/notifications')}
           className="text-black hover:bg-gray-100 cursor-pointer"
         >
           <Bell className="mr-2 h-4 w-4" />
-          Notifications
+          Alerts
         </DropdownMenuItem>
         
         <DropdownMenuItem 

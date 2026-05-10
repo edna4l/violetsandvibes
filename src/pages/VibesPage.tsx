@@ -616,8 +616,8 @@ const VibesPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Author + caption (bottom left) */}
-                    <div className="absolute bottom-24 left-4 right-20 z-10">
+                    {/* Author + caption (between sidebars) */}
+                    <div className="absolute bottom-24 left-12 right-12 z-10">
                       <button
                         type="button"
                         onClick={() => navigate(`/profile/${vibe.author_id}`)}
@@ -637,16 +637,16 @@ const VibesPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* LEFT: nav + video controls */}
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2">
+                    {/* LEFT: nav + video controls sidebar */}
+                    <div className="absolute left-0 top-0 bottom-0 z-10 flex flex-col items-center justify-center gap-2 w-10 bg-black/40 rounded-r-none">
                       {i > 0 && (
                         <button
                           type="button"
                           aria-label="Previous vibe"
                           onClick={() => scrollTo(i - 1)}
-                          className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                          className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white"
                         >
-                          <ChevronUp className="w-5 h-5" />
+                          <ChevronUp className="w-4 h-4" />
                         </button>
                       )}
                       {vibe.media_type === "video" && (
@@ -655,16 +655,16 @@ const VibesPage: React.FC = () => {
                             type="button"
                             aria-label="Play/Pause"
                             onClick={() => togglePlayPause(i)}
-                            className="w-9 h-9 rounded-full bg-black/50 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                            className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white"
                           >
-                            {pausedIndexes.has(i) ? <Play className="w-4 h-4 ml-0.5" /> : <Pause className="w-4 h-4" />}
+                            {pausedIndexes.has(i) ? <Play className="w-3.5 h-3.5 ml-0.5" /> : <Pause className="w-3.5 h-3.5" />}
                           </button>
-                          <div className="bg-black/55 rounded-lg px-1.5 py-1 flex flex-col items-center gap-0.5 min-w-[2.6rem]">
-                            <span className="text-white text-[10px] font-mono leading-none">
+                          <div className="bg-black/55 rounded-lg px-1 py-1 flex flex-col items-center gap-0.5 w-8">
+                            <span className="text-white text-[9px] font-mono leading-none">
                               {fmtTime(videoProgress[i]?.current ?? 0)}
                             </span>
                             <div className="w-4 h-px bg-white/30" />
-                            <span className="text-white/50 text-[10px] font-mono leading-none">
+                            <span className="text-white/50 text-[9px] font-mono leading-none">
                               {fmtTime(videoProgress[i]?.duration ?? 0)}
                             </span>
                           </div>
@@ -672,9 +672,9 @@ const VibesPage: React.FC = () => {
                             type="button"
                             aria-label="Fullscreen"
                             onClick={() => openFullscreen(i)}
-                            className="w-9 h-9 rounded-full bg-black/50 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                            className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white"
                           >
-                            <Expand className="w-4 h-4" />
+                            <Expand className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
@@ -683,53 +683,52 @@ const VibesPage: React.FC = () => {
                           type="button"
                           aria-label="Next vibe"
                           onClick={() => scrollTo(i + 1)}
-                          className="w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center text-white shadow-lg"
+                          className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white"
                         >
-                          <ChevronDown className="w-5 h-5" />
+                          <ChevronDown className="w-4 h-4" />
                         </button>
                       )}
                     </div>
 
-                    {/* RIGHT: action buttons */}
-                    <div className="absolute right-3 bottom-28 z-10 flex flex-col items-center gap-5">
-                      <button type="button" onClick={() => void handleLike(vibe, i)} className="flex flex-col items-center gap-1">
-                        <Heart className={`w-7 h-7 drop-shadow ${vibe.liked ? "fill-pink-500 text-pink-500" : "text-white"}`} />
-                        <span className="text-white text-xs drop-shadow">{vibe.likeCount}</span>
+                    {/* RIGHT: action buttons sidebar */}
+                    <div className="absolute right-0 top-0 bottom-0 z-10 flex flex-col items-center justify-end gap-4 pb-20 w-10 bg-black/40">
+                      <button type="button" onClick={() => void handleLike(vibe, i)} className="flex flex-col items-center gap-0.5">
+                        <Heart className={`w-6 h-6 drop-shadow ${vibe.liked ? "fill-pink-500 text-pink-500" : "text-white"}`} />
+                        <span className="text-white text-[10px] drop-shadow">{vibe.likeCount}</span>
                       </button>
-                      <button type="button" onClick={() => navigate("/chat")} className="flex flex-col items-center gap-1">
-                        <MessageCircle className="w-7 h-7 text-white drop-shadow" />
-                        <span className="text-white text-xs drop-shadow">Chat</span>
+                      <button type="button" onClick={() => navigate("/chat")} className="flex flex-col items-center gap-0.5">
+                        <MessageCircle className="w-6 h-6 text-white drop-shadow" />
+                        <span className="text-white text-[10px] drop-shadow">Chat</span>
                       </button>
                       {!isOwn && (
-                        <button type="button" onClick={() => { setRepostTarget(vibe); setRepostCaption(""); }} className="flex flex-col items-center gap-1">
-                          <Repeat2 className="w-7 h-7 text-emerald-400 drop-shadow" />
-                          <span className="text-emerald-300 text-xs drop-shadow">Repost</span>
+                        <button type="button" onClick={() => { setRepostTarget(vibe); setRepostCaption(""); }} className="flex flex-col items-center gap-0.5">
+                          <Repeat2 className="w-6 h-6 text-emerald-400 drop-shadow" />
+                          <span className="text-emerald-300 text-[10px] drop-shadow">Repost</span>
                         </button>
                       )}
-                      <button type="button" onClick={() => void handleShare(vibe)} className="flex flex-col items-center gap-1">
-                        <Share2 className="w-7 h-7 text-white drop-shadow" />
-                        <span className="text-white text-xs drop-shadow">Share</span>
+                      <button type="button" onClick={() => void handleShare(vibe)} className="flex flex-col items-center gap-0.5">
+                        <Share2 className="w-6 h-6 text-white drop-shadow" />
+                        <span className="text-white text-[10px] drop-shadow">Share</span>
                       </button>
                       {vibe.media_type === "video" && (
-                        <button type="button" onClick={() => setMuted((m) => !m)} className="flex flex-col items-center gap-1">
-                          {muted ? <VolumeX className="w-6 h-6 text-white drop-shadow" /> : <Volume2 className="w-6 h-6 text-white drop-shadow" />}
+                        <button type="button" onClick={() => setMuted((m) => !m)} className="flex flex-col items-center gap-0.5">
+                          {muted ? <VolumeX className="w-5 h-5 text-white drop-shadow" /> : <Volume2 className="w-5 h-5 text-white drop-shadow" />}
                         </button>
                       )}
                       {isOwn && (
-                        <button type="button" onClick={() => void handleDeleteVibe(vibe)} className="flex flex-col items-center gap-1">
-                          <Trash2 className="w-6 h-6 text-red-400 drop-shadow" />
-                          <span className="text-red-300 text-xs drop-shadow">Delete</span>
+                        <button type="button" onClick={() => void handleDeleteVibe(vibe)} className="flex flex-col items-center gap-0.5">
+                          <Trash2 className="w-5 h-5 text-red-400 drop-shadow" />
+                          <span className="text-red-300 text-[10px] drop-shadow">Delete</span>
                         </button>
                       )}
                       {!isOwn && (
                         <button
                           type="button"
                           onClick={() => setReportVibe({ id: vibe.id, authorId: vibe.author_id, authorName: vibe.authorName })}
-                          className="flex flex-col items-center gap-1"
+                          className="flex flex-col items-center gap-0.5"
                           aria-label="Report this vibe"
                         >
-                          <Flag className="w-5 h-5 text-white/50 drop-shadow" />
-                          <span className="text-white/40 text-xs drop-shadow">Report</span>
+                          <Flag className="w-4 h-4 text-white/40 drop-shadow" />
                         </button>
                       )}
                     </div>

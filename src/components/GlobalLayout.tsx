@@ -40,6 +40,9 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
       case 'heroes':
         navigate('/heroes');
         break;
+      case 'vibes':
+        navigate('/vibes');
+        break;
       case 'discover':
         navigate('/discover');
         break;
