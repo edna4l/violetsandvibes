@@ -8,8 +8,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const FLOAT_EMOJIS = ["💜","✨","🌸","💕","🦋","🌙","💫","🌺","⭐","🎶","🌷","💎","🌈","🥰"];
 
 const floatStyle = (i: number): React.CSSProperties => ({
-  position: "absolute",
-  fontSize: `${1.6 + (i % 3) * 0.5}rem`,
+  position: "fixed",
+  fontSize: `${1.8 + (i % 3) * 0.55}rem`,
   left: i % 2 === 0
     ? `${4 + (i % 7) * 12}%`
     : `${8 + (i % 6) * 14}%`,
@@ -17,7 +17,7 @@ const floatStyle = (i: number): React.CSSProperties => ({
   animation: `float-up ${10 + i * 1.3}s ${i * 2.1}s infinite linear`,
   pointerEvents: "none",
   userSelect: "none",
-  zIndex: 0,
+  zIndex: 30,
 });
 
 interface GlobalLayoutProps {

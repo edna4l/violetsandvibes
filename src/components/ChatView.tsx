@@ -261,7 +261,20 @@ const ChatView: React.FC = () => {
       if (memErr) throw memErr;
 
       const memberships = (myMemberships ?? []) as ConversationMemberRow[];
-      const convoIds = memberships.map((m) => m.conversation_id);
+      const allConvoIds = memberships.map((m) => m.conversation_id);
+
+      if (allConvoIds.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      // Filter out conversations the user has hidden (cleared)
+      const { data: hiddenRows } = await supabase
+        .from("hidden_conversations")
+        .select("conversation_id")
+        .eq("user_id", user.id);
+      const hiddenSet = new Set((hiddenRows ?? []).map((r: any) => r.conversation_id as string));
+      const convoIds = allConvoIds.filter((id) => !hiddenSet.has(id));
 
       if (convoIds.length === 0) {
         setConversations([]);
@@ -479,14 +492,20 @@ const ChatView: React.FC = () => {
 
   const clearConversation = async (conversationId: string) => {
     if (!user) return;
-    if (!window.confirm("Delete this entire conversation? This removes all messages for you and cannot be undone.")) return;
-    await supabase.from("messages").delete().eq("conversation_id", conversationId);
+    if (!window.confirm("Clear this conversation? It will be hidden from your view and cannot be undone.")) return;
+    // Persist the "hidden" state in DB so it survives refresh / sign-out
+    await supabase.from("hidden_conversations").upsert(
+      { user_id: user.id, conversation_id: conversationId },
+      { onConflict: "user_id,conversation_id" }
+    );
+    // Also delete own messages (best-effort — RLS allows deleting own rows)
+    await supabase.from("messages").delete()
+      .eq("conversation_id", conversationId)
+      .eq("sender_id", user.id);
     setMessages([]);
-    if (activeConversationId === conversationId) {
-      setActiveConversationId(null);
-    }
+    if (activeConversationId === conversationId) setActiveConversationId(null);
     setConversations((prev) => prev.filter((c) => c.conversationId !== conversationId));
-    toast({ title: "Conversation deleted" });
+    toast({ title: "Conversation cleared" });
   };
 
   const deleteMessage = async (messageId: string) => {
