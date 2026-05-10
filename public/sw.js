@@ -1,5 +1,5 @@
-const CACHE = "vv-v1";
-const PRECACHE = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const CACHE = "vv-v3";
+const PRECACHE = ["/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -14,6 +14,11 @@ self.addEventListener("activate", (e) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() =>
+        // Tell all open tabs to reload so they get the fresh app immediately
+        self.clients.matchAll({ type: "window", includeUncontrolled: true })
+          .then((clients) => clients.forEach((c) => c.navigate(c.url)))
+      )
   );
 });
 
@@ -23,13 +28,24 @@ self.addEventListener("fetch", (e) => {
 
   // Network-first for Supabase API — always want fresh data
   if (url.hostname.includes("supabase.co")) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
+
+  // Network-first for HTML (index.html / root) — ensures new deploys are always picked up
+  if (url.pathname === "/" || url.pathname.endsWith(".html")) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Cache-first for everything else (JS, CSS, images, fonts)
+  // Cache-first for hashed assets (JS/CSS bundles never change their content for a given filename)
   e.respondWith(
     caches.match(e.request).then((cached) => {
       if (cached) return cached;
