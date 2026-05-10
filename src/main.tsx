@@ -52,10 +52,27 @@ applyInitialUiPreferences()
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      console.warn('Service worker registration failed:', err)
-    })
-  })
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        // Force an immediate update check on every page load so stale SWs
+        // are evicted without waiting for the browser's 24-hour update cycle.
+        registration.update().catch(() => { /* network offline — ignore */ });
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+              // New SW just took control — reload to get the fresh bundle.
+              window.location.reload();
+            }
+          });
+        });
+      })
+      .catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+  });
 }
 
 createRoot(document.getElementById('root')!).render(<App />)

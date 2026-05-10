@@ -123,14 +123,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
   );
 
   const invokeVerificationReview = async (body: Record<string, unknown>) => {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      console.warn('Failed to load current session before admin invoke:', sessionError.message);
+    // Try existing session first; if missing, refresh it once (handles page-reload timing)
+    let { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      session = refreshed?.session ?? null;
     }
 
     const accessToken = session?.access_token;
     if (!accessToken) {
-      throw new Error('No active session token found. Please sign out and sign in again.');
+      throw new Error('Session not found — please sign out and sign back in.');
     }
 
     return supabase.functions.invoke('verification-review', {
@@ -148,7 +150,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
     setQueueLoading(true);
     setQueueError(null);
 
-    const { data, error } = await invokeVerificationReview({ action: 'list_pending' });
+    let data: any, error: any;
+    try {
+      ({ data, error } = await invokeVerificationReview({ action: 'list_pending' }));
+    } catch (invokeErr) {
+      setIsAdmin(true);
+      setQueueError((invokeErr as Error)?.message || 'Could not load queue.');
+      setQueueLoading(false);
+      return;
+    }
 
     if (error) {
       const message = await resolveFunctionErrorMessage(error);
