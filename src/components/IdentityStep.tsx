@@ -11,6 +11,8 @@ interface IdentityStepProps {
 const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
   const genderOptions = ['Woman', 'Man', 'Non-binary', 'Genderfluid', 'Transgender', 'Questioning'];
   const orientationOptions = ['Straight', 'Lesbian', 'Bisexual', 'Pansexual', 'Queer', 'Questioning', 'Asexual'];
+  const pronounOptions = ['She/Her', 'They/Them', 'He/Him', 'Ze/Zir', 'Any/All'];
+  const relationshipStyleOptions = ['Monogamous', 'Polyamorous', 'Open Relationship', 'Exploring', 'Solo Poly', 'Not Looking'];
   const prideFlags = [
     { name: 'LGBTQ+', color: 'bg-gradient-to-r from-red-400 to-purple-400' },
     { name: 'Trans', color: 'bg-gradient-to-r from-blue-300 to-pink-300' },
@@ -113,13 +115,43 @@ const IdentityStep: React.FC<IdentityStepProps> = ({ profile, onUpdate }) => {
 
       <div>
         <label className="block text-sm font-medium mb-3">Pronouns (Optional)</label>
-        <div className="flex items-center space-x-2">
-          <Checkbox 
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          {pronounOptions.map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={profile.pronouns === option ? 'default' : 'outline'}
+              className="justify-start text-sm"
+              onClick={() => onUpdate({ pronouns: profile.pronouns === option ? '' : option })}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center space-x-2 mt-2">
+          <Checkbox
             id="show-pronouns"
             checked={profile.showPronouns}
             onCheckedChange={(checked) => onUpdate({ showPronouns: checked })}
           />
           <label htmlFor="show-pronouns" className="text-sm">Show pronouns on my profile</label>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-3">Relationship Style (Optional)</label>
+        <div className="grid grid-cols-2 gap-2">
+          {relationshipStyleOptions.map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={profile.relationshipStyle === option ? 'default' : 'outline'}
+              className="justify-start text-sm"
+              onClick={() => onUpdate({ relationshipStyle: profile.relationshipStyle === option ? '' : option })}
+            >
+              {option}
+            </Button>
+          ))}
         </div>
       </div>
 

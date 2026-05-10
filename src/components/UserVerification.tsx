@@ -737,9 +737,13 @@ const UserVerification: React.FC = () => {
           </div>
 
           {verificationState.submittedForReview && (
-            <div className="mt-4 p-4 bg-purple-50 rounded-lg text-center">
-              <p className="text-purple-700 font-medium">Verification Submitted!</p>
-              <p className="text-sm text-purple-600 mt-1">Review typically takes 24-48 hours</p>
+            <div className="mt-4 p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 text-center space-y-2">
+              <div className="text-2xl">💜</div>
+              <p className="text-purple-800 font-semibold">Your Vibe Check is in progress</p>
+              <p className="text-sm text-purple-700">
+                We personally review every new member to keep this space safe, kind, and women-centered. You'll hear from us soon!
+              </p>
+              <p className="text-xs text-purple-500 mt-1">While you wait, complete your profile and explore the community.</p>
             </div>
           )}
 

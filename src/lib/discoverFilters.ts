@@ -9,6 +9,8 @@ export type DiscoverFilters = {
   interests: string[];
   pronouns: DiscoverPronoun[];
   lookingFor: DiscoverLookingFor[];
+  vibeCategories: string[];
+  connectionIntent: string[];
 };
 
 export const DEFAULT_DISCOVER_FILTERS: DiscoverFilters = {
@@ -17,6 +19,8 @@ export const DEFAULT_DISCOVER_FILTERS: DiscoverFilters = {
   interests: [],
   pronouns: ["Any"],
   lookingFor: [],
+  vibeCategories: [],
+  connectionIntent: [],
 };
 
 const clamp = (value: number, min: number, max: number) =>
@@ -64,12 +68,17 @@ export function normalizeDiscoverFilters(source: unknown): DiscoverFilters {
     allowedLookingFor.includes(v as DiscoverLookingFor)
   );
 
+  const vibeCategories = cleanStringArray(raw.vibeCategories);
+  const connectionIntent = cleanStringArray(raw.connectionIntent);
+
   return {
     ageRange,
     distanceMiles,
     interests: Array.from(new Set(interests)),
     pronouns: normalizedPronouns,
     lookingFor: Array.from(new Set(lookingFor)),
+    vibeCategories: Array.from(new Set(vibeCategories)),
+    connectionIntent: Array.from(new Set(connectionIntent)),
   };
 }
 

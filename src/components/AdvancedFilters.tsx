@@ -31,6 +31,15 @@ const AdvancedFilters: React.FC = () => {
   const interestOptions = ['Art', 'Music', 'Travel', 'Books', 'Sports', 'Cooking', 'Gaming', 'Photography', 'Dancing', 'Hiking'];
   const pronounOptions = ['She/Her', 'They/Them', 'He/Him', 'Any'];
   const relationshipOptions = ['Casual', 'Serious', 'Friends', 'Networking'];
+  const vibeCategoryOptions = [
+    'Introvert Nights', 'Outdoor Adventures', 'Safe Travel for Women', 'Queer Tech Founders',
+    'Creative Women', 'Moms & Caregivers', 'Healing & Self-Care', 'Fitness & Wellness',
+    'Book Club Vibes', 'Local Sacramento Meetups', 'Women Entrepreneurs', 'Soft Life & Self-Care Club',
+  ];
+  const connectionIntentOptions = [
+    'Friends Only', 'Dating Only', 'Social Only', 'Community Only',
+    'Local Events Only', 'Romantic Interest', 'Women-Only Connections', 'Queer Connections', 'Open to Everything',
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -292,6 +301,56 @@ const AdvancedFilters: React.FC = () => {
                   }
                 >
                   {type}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Vibe Categories */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Vibe Categories</label>
+            <div className="flex flex-wrap gap-2">
+              {vibeCategoryOptions.map(cat => (
+                <Badge
+                  key={cat}
+                  variant={filters.vibeCategories.includes(cat) ? "default" : "outline"}
+                  className={`cursor-pointer transition-all ${
+                    filters.vibeCategories.includes(cat)
+                      ? 'bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700'
+                      : 'hover:bg-white/10 text-white border-white/30'
+                  }`}
+                  onClick={() =>
+                    toggleSelection(cat, filters.vibeCategories, (next) =>
+                      setFilters((prev) => ({ ...prev, vibeCategories: next }))
+                    )
+                  }
+                >
+                  {cat}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Connection Intent */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mb-2 block">Connection Intent</label>
+            <div className="flex flex-wrap gap-2">
+              {connectionIntentOptions.map(intent => (
+                <Badge
+                  key={intent}
+                  variant={filters.connectionIntent.includes(intent) ? "default" : "outline"}
+                  className={`cursor-pointer transition-all ${
+                    filters.connectionIntent.includes(intent)
+                      ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600'
+                      : 'hover:bg-white/10 text-white border-white/30'
+                  }`}
+                  onClick={() =>
+                    toggleSelection(intent, filters.connectionIntent, (next) =>
+                      setFilters((prev) => ({ ...prev, connectionIntent: next }))
+                    )
+                  }
+                >
+                  {intent}
                 </Badge>
               ))}
             </div>

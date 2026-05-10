@@ -39,6 +39,9 @@ type DiscoverProfileRowRaw = ProfileRow & {
   privacy_settings?: Record<string, any> | null;
   safety_settings?: Record<string, any> | null;
   lifestyle_interests?: Record<string, any> | null;
+  vibe_categories?: string[] | null;
+  connection_intent?: string[] | null;
+  pronouns?: string | null;
 };
 
 const isTruthy = (value: unknown, fallback: boolean) =>
@@ -282,7 +285,7 @@ export async function fetchDiscoverProfiles(myId: string) {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, bio, location, photos, profile_completed, birthdate, interests, gender_identity, updated_at, privacy_settings, safety_settings, lifestyle_interests"
+      "id, full_name, bio, location, photos, profile_completed, birthdate, interests, gender_identity, updated_at, privacy_settings, safety_settings, lifestyle_interests, vibe_categories, connection_intent, pronouns"
     )
     .neq("id", myId)
     .eq("profile_completed", true)
@@ -350,6 +353,24 @@ export async function fetchDiscoverProfiles(myId: string) {
 
     return true;
   });
+
+  // Filter by vibe categories (viewer has selected specific ones)
+  const vibeCatFilters = discoverFilters.vibeCategories;
+  if (vibeCatFilters.length > 0) {
+    rows = rows.filter((row) => {
+      const cats = Array.isArray(row.vibe_categories) ? row.vibe_categories : [];
+      return vibeCatFilters.some((f) => cats.includes(f));
+    });
+  }
+
+  // Filter by connection intent (must share at least one OR profile is open to everything)
+  const intentFilters = discoverFilters.connectionIntent;
+  if (intentFilters.length > 0) {
+    rows = rows.filter((row) => {
+      const intents = Array.isArray(row.connection_intent) ? row.connection_intent : [];
+      return intents.includes("Open to Everything") || intentFilters.some((f) => intents.includes(f));
+    });
+  }
 
   if (safetyPrefs.requireVerification) {
     rows = rows.filter((row) => row.safety_settings?.photoVerification === true);

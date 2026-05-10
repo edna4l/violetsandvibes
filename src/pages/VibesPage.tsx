@@ -6,9 +6,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, Share2, Plus, Volume2, VolumeX,
   ChevronUp, ChevronDown, Image, Video, Type, X, Send,
-  Trash2, Repeat2, Maximize2, LayoutTemplate, Play, Pause, Expand, Smile
+  Trash2, Repeat2, Maximize2, LayoutTemplate, Play, Pause, Expand, Smile, Flag
 } from "lucide-react";
 import BottomNavigation from "@/components/BottomNavigation";
+import ReportModal from "@/components/ReportModal";
 
 type Vibe = {
   id: string;
@@ -88,6 +89,7 @@ const VibesPage: React.FC = () => {
   const [repostTarget, setRepostTarget] = useState<Vibe | null>(null);
   const [repostCaption, setRepostCaption] = useState("");
   const [reposting, setReposting] = useState(false);
+  const [reportVibe, setReportVibe] = useState<{ id: string; authorId: string; authorName: string } | null>(null);
 
   const loadVibes = async () => {
     if (!user) return;
@@ -719,6 +721,17 @@ const VibesPage: React.FC = () => {
                           <span className="text-red-300 text-xs drop-shadow">Delete</span>
                         </button>
                       )}
+                      {!isOwn && (
+                        <button
+                          type="button"
+                          onClick={() => setReportVibe({ id: vibe.id, authorId: vibe.author_id, authorName: vibe.authorName })}
+                          className="flex flex-col items-center gap-1"
+                          aria-label="Report this vibe"
+                        >
+                          <Flag className="w-5 h-5 text-white/50 drop-shadow" />
+                          <span className="text-white/40 text-xs drop-shadow">Report</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1005,6 +1018,17 @@ const VibesPage: React.FC = () => {
 
         </div>{/* end phone frame */}
       </div>{/* end outer */}
+
+      {/* Report modal */}
+      {reportVibe && (
+        <ReportModal
+          open={!!reportVibe}
+          onClose={() => setReportVibe(null)}
+          reportedUserId={reportVibe.authorId}
+          reportedPostId={reportVibe.id}
+          targetName={`${reportVibe.authorName}'s Vibe`}
+        />
+      )}
     </>
   );
 };

@@ -11,6 +11,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useLocation } from 'react-router-dom';
 import BasicInfoStep from './BasicInfoStep';
 import IdentityStep from './IdentityStep';
+import VibeProfileStep from './VibeProfileStep';
 import PhotosStep from './PhotosStep';
 import InterestsSelector from './InterestsSelector';
 import LifestyleStep from './LifestyleStep';
@@ -71,6 +72,11 @@ function toDbProfileData(profile: any, user: any, profileCompleted: boolean) {
     birthdate: computeBirthdateISO(profile.age),
     gender_identity: profile.genderIdentity?.trim() || null,
     sexual_orientation: profile.sexualOrientation?.trim() || null,
+    pronouns: profile.pronouns?.trim() || null,
+    relationship_style: profile.relationshipStyle?.trim() || null,
+    vibe_categories: Array.isArray(profile.vibeCategories) ? profile.vibeCategories : [],
+    connection_intent: Array.isArray(profile.connectionIntent) ? profile.connectionIntent : [],
+    profile_prompts: profile.profilePrompts && typeof profile.profilePrompts === 'object' ? profile.profilePrompts : {},
     interests: Array.isArray(profile.interests) ? profile.interests : [],
     photos: persistedPhotoUrls(profile.photos),
     lifestyle_interests: lifestyleInterests,
@@ -106,8 +112,13 @@ const EnhancedProfileCreationFlow = forwardRef<
     bio: '',
     genderIdentity: '',
     sexualOrientation: '',
+    pronouns: '',
+    relationshipStyle: '',
     showPronouns: false,
     pridePins: [],
+    vibeCategories: [],
+    connectionIntent: [],
+    profilePrompts: {},
     interests: [],
     photos: [],
     lifestyle: {},
@@ -141,12 +152,17 @@ const EnhancedProfileCreationFlow = forwardRef<
         bio: existingProfile.bio || '',
         genderIdentity: existingProfile.gender_identity || '',
         sexualOrientation: existingProfile.sexual_orientation || '',
+        pronouns: (existingProfile as any).pronouns || '',
+        relationshipStyle: (existingProfile as any).relationship_style || '',
         showPronouns: false,
         pridePins: Array.isArray((existingProfile.lifestyle_interests as any)?.pride_pins)
           ? (existingProfile.lifestyle_interests as any).pride_pins
           : [],
         interests: existingProfile.interests || [],
         photos: existingProfile.photos || [],
+        vibeCategories: Array.isArray((existingProfile as any).vibe_categories) ? (existingProfile as any).vibe_categories : [],
+        connectionIntent: Array.isArray((existingProfile as any).connection_intent) ? (existingProfile as any).connection_intent : [],
+        profilePrompts: (existingProfile as any).profile_prompts && typeof (existingProfile as any).profile_prompts === 'object' ? (existingProfile as any).profile_prompts : {},
         lifestyle: existingProfile.lifestyle_interests || {},
         safety: existingProfile.safety_settings || {
           blockUsers: [],
@@ -170,6 +186,7 @@ const EnhancedProfileCreationFlow = forwardRef<
   const steps = [
     { title: 'Basic Info', component: BasicInfoStep },
     { title: 'Identity', component: IdentityStep },
+    { title: 'Your Vibe', component: VibeProfileStep },
     { title: 'Interests', component: InterestsSelector },
     { title: 'Lifestyle', component: LifestyleStep },
     { title: 'Photos', component: PhotosStep },
