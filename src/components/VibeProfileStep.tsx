@@ -72,13 +72,13 @@ const VibeProfileStep: React.FC<VibeProfileStepProps> = ({ profile, onUpdate }) 
     <div className="space-y-8">
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-1">Your Vibe Profile</h2>
-        <p className="text-sm text-white/70">Help others find you through shared interests and intentions</p>
+        <p className="text-sm text-gray-500">Help others find you through shared interests and intentions</p>
       </div>
 
       {/* Vibe Categories */}
       <div>
-        <label className="block text-sm font-semibold mb-1">Vibe Categories</label>
-        <p className="text-xs text-white/60 mb-3">Select all that feel like you. These show on your profile and help with discovery.</p>
+        <label className="block text-sm font-semibold mb-1 text-gray-700">Vibe Categories</label>
+        <p className="text-xs text-gray-500 mb-3">Select all that feel like you. These show on your profile and help with discovery.</p>
         <div className="grid grid-cols-2 gap-2">
           {VIBE_CATEGORIES.map((cat) => (
             <Button
@@ -97,8 +97,8 @@ const VibeProfileStep: React.FC<VibeProfileStepProps> = ({ profile, onUpdate }) 
 
       {/* Connection Intent */}
       <div>
-        <label className="block text-sm font-semibold mb-1">Connection Intent</label>
-        <p className="text-xs text-white/60 mb-3">What kind of connection are you open to? Select all that apply.</p>
+        <label className="block text-sm font-semibold mb-1 text-gray-700">Connection Intent</label>
+        <p className="text-xs text-gray-500 mb-3">What kind of connection are you open to? Select all that apply.</p>
         <div className="grid grid-cols-2 gap-2">
           {CONNECTION_INTENT_OPTIONS.map((opt) => (
             <Button
@@ -117,8 +117,8 @@ const VibeProfileStep: React.FC<VibeProfileStepProps> = ({ profile, onUpdate }) 
 
       {/* Profile Prompts */}
       <div>
-        <label className="block text-sm font-semibold mb-1">Vibe Prompts</label>
-        <p className="text-xs text-white/60 mb-3">Answer a few — they make your profile warmer and easier to connect with.</p>
+        <label className="block text-sm font-semibold mb-1 text-gray-700">Vibe Prompts</label>
+        <p className="text-xs text-gray-500 mb-3">Answer a few — they make your profile warmer and easier to connect with.</p>
         <div className="space-y-3">
           {PROMPTS.map((p) => (
             <Textarea
@@ -128,14 +128,14 @@ const VibeProfileStep: React.FC<VibeProfileStepProps> = ({ profile, onUpdate }) 
               onChange={(e) => updatePrompt(p.key, e.target.value)}
               maxLength={280}
               rows={2}
-              className="bg-white/10 border-white/20 text-white placeholder:text-white/40 resize-none text-sm"
+              className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 resize-none text-sm"
             />
           ))}
         </div>
       </div>
 
-      <div className="rounded-lg border border-purple-400/30 bg-purple-900/20 p-4 text-xs text-white/70 leading-relaxed">
-        <span className="font-semibold text-purple-300">About this space: </span>
+      <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-xs text-gray-600 leading-relaxed">
+        <span className="font-semibold text-purple-700">About this space: </span>
         Violets & Vibes is a women-centered and trans-inclusive community for friendship, dating, and belonging.
         We welcome cis women, trans women, lesbian, bisexual, pansexual, queer, and gender-diverse people who belong here.
       </div>
