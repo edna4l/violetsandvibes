@@ -71,11 +71,28 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
 
   const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
 
-  const getCustomOptions = (key: string): string[] => {
+  const getCustomOptions = (key: string, categoryTitle?: string, builtInOptions?: string[]): string[] => {
     const currentLifestyle = profile.lifestyle || {};
     const raw = currentLifestyle[`${key}_custom_options`];
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0);
+    const stored: string[] = Array.isArray(raw)
+      ? raw.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+      : [];
+
+    if (stored.length > 0) return stored;
+
+    // Fallback: derive custom options from profile.interests if the stored list is empty.
+    // This handles profiles where the value was saved to interests but lifestyle_custom_options
+    // was not persisted (e.g. older saves or data imported from another path).
+    if (categoryTitle && builtInOptions) {
+      const builtInSet = new Set(builtInOptions.map(normalize));
+      const prefix = `${categoryTitle}:`;
+      return (Array.isArray(profile.interests) ? (profile.interests as string[]) : [])
+        .filter((i) => typeof i === 'string' && i.startsWith(prefix))
+        .map((i) => i.slice(prefix.length))
+        .filter((v) => v.length > 0 && !builtInSet.has(normalize(v)));
+    }
+
+    return stored;
   };
 
   const ensureSelected = (category: string, interest: string) => {
@@ -190,12 +207,12 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-2">Lifestyle & Values</h2>
-        <p className="text-sm text-white/70">Share what matters to you and how you like to spend your time</p>
+        <p className="text-sm text-gray-500">Share what matters to you and how you like to spend your time</p>
       </div>
 
       {lifestyleCategories.map((category) => {
         const key = categoryKey(category.title);
-        const customOptions = getCustomOptions(key);
+        const customOptions = getCustomOptions(key, category.title, category.options);
         const optionSet = new Set(category.options.map((option) => normalize(option)));
         const mergedOptions = [
           ...category.options,
@@ -240,7 +257,7 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
                   setCustomInputs((prev) => ({ ...prev, [key]: e.target.value }))
                 }
                 placeholder={`Add custom ${category.title.toLowerCase()}`}
-                className="bg-black/20 border-white/25 text-white placeholder:text-white/50"
+                className="bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
               />
               <Button
                 type="button"
@@ -253,23 +270,40 @@ const LifestyleStep: React.FC<LifestyleStepProps> = ({ profile, onUpdate }) => {
             </div>
           )}
           {customOptions.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {customOptions.map((option) => (
-                <div
-                  key={`${key}-custom-chip-${option}`}
-                  className="inline-flex items-center rounded-full border border-white/25 bg-white/5 px-3 py-1 text-xs text-white/85"
-                >
-                  <span>{option}</span>
-                  <button
-                    type="button"
-                    className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full text-white/70 hover:bg-white/15 hover:text-white"
-                    onClick={() => removeCustomOption(category.title, option)}
-                    aria-label={`Remove custom ${category.title} option ${option}`}
+            <div className="mt-2 space-y-1">
+              {customOptions.map((option) => {
+                const prefixKey = `${key}_show_prefix_${normalize(option)}`;
+                const showPrefix = (profile.lifestyle || {})[prefixKey] !== false;
+                return (
+                  <div
+                    key={`${key}-custom-chip-${option}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs text-gray-700 mr-2"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+                    <span>{showPrefix ? `${category.title}: ${option}` : option}</span>
+                    <button
+                      type="button"
+                      title={showPrefix ? 'Show label without category prefix' : 'Show with category prefix'}
+                      className="ml-1 text-purple-500 hover:text-purple-700 font-semibold"
+                      onClick={() => onUpdate({
+                        lifestyle: {
+                          ...(profile.lifestyle || {}),
+                          [prefixKey]: !showPrefix,
+                        }
+                      })}
+                    >
+                      {showPrefix ? category.title.charAt(0) + ':' : '—'}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500"
+                      onClick={() => removeCustomOption(category.title, option)}
+                      aria-label={`Remove custom ${category.title} option ${option}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
