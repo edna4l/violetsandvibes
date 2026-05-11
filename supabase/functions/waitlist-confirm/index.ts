@@ -49,10 +49,14 @@ const emailHtml = (name: string) => `<!DOCTYPE html>
           </table>
         </td></tr>
 
-        <!-- CTA -->
+        <!-- CTA share buttons -->
         <tr><td align="center" style="padding:28px 32px 0;">
-          <a href="https://violetsandvibes.com/waitlist/" style="display:inline-block;background:linear-gradient(135deg,#9333ea,#db2777);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:50px;">
-            Share with someone who belongs here
+          <p style="margin:0 0 14px;font-size:13px;color:rgba(255,255,255,0.5);letter-spacing:0.04em;text-transform:uppercase;">Share with someone who belongs here</p>
+          <a href="https://x.com/intent/tweet?text=Just%20joined%20the%20Founding%20Circle%20of%20Violets%20%26%20Vibes%20%E2%80%94%20a%20safer%2C%20women-centered%20space%20for%20friendship%2C%20dating%20%26%20community.%20Come%20join%20me%20%F0%9F%92%9C&url=https%3A%2F%2Fvioletsandvibes.com%2Fwaitlist%2F" style="display:inline-block;background:linear-gradient(135deg,#9333ea,#db2777);color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:50px;margin:0 6px 10px;">
+            Post on X/Twitter
+          </a>
+          <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fvioletsandvibes.com%2Fwaitlist%2F" style="display:inline-block;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:50px;margin:0 6px 10px;">
+            Share on Facebook
           </a>
         </td></tr>
 
