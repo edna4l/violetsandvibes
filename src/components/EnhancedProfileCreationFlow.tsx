@@ -242,9 +242,9 @@ const EnhancedProfileCreationFlow = forwardRef<
         return !!(profile.name && profile.age && profile.bio);
       case 1:
         return !!(profile.genderIdentity && profile.sexualOrientation);
-      case 2:
+      case 3:
         return profile.interests.length > 0;
-      case 4:
+      case 5:
         return persistedPhotoUrls((profile as any).photos).length > 0;
       default:
         return true;
@@ -381,7 +381,7 @@ const EnhancedProfileCreationFlow = forwardRef<
 
         <ProfileValidation profile={profile} currentStep={currentStep} />
         
-        {currentStep === 2 ? (
+        {currentStep === 3 ? (
           <InterestsSelector
             selectedInterests={profile.interests}
             onSelectionChange={(interests) => updateProfile({ interests })}
