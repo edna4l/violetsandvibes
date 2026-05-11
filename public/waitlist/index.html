@@ -497,6 +497,17 @@
           }
         }
 
+        // Send confirmation email via Edge Function (fire-and-forget — don't block UI)
+        fetch(`${SUPABASE_URL}/functions/v1/waitlist-confirm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': `Bearer ${SUPABASE_ANON}`,
+          },
+          body: JSON.stringify({ name, email }),
+        }).catch(() => { /* email failure is silent — signup still succeeded */ });
+
         document.getElementById('form-view').style.display = 'none';
         document.getElementById('success-view').style.display = 'block';
 
