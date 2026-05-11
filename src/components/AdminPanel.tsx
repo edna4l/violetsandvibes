@@ -2,10 +2,23 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, CheckCircle2, XCircle, RefreshCw, Eye, PauseCircle, Keyboard } from 'lucide-react';
+import { Shield, CheckCircle2, XCircle, RefreshCw, Eye, PauseCircle, Keyboard, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+
+type WaitlistEntry = {
+  id: string;
+  name: string;
+  email: string;
+  city: string | null;
+  looking_for: string[] | null;
+  community_values: string[] | null;
+  what_is_missing: string | null;
+  heard_from: string | null;
+  founding_member: boolean;
+  created_at: string;
+};
 
 interface AdminPanelProps {
   user: any;
@@ -87,6 +100,7 @@ const resolveFunctionErrorMessage = async (error: unknown) => {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<'queue' | 'waitlist'>('queue');
   const [queueLoading, setQueueLoading] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -94,6 +108,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
   const [decisionLoadingKey, setDecisionLoadingKey] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -179,6 +195,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
     setIsAdmin(true);
     setQueue((data?.items ?? []) as QueueItem[]);
     setQueueLoading(false);
+  };
+
+  const loadWaitlist = async () => {
+    setWaitlistLoading(true);
+    const { data, error } = await supabase
+      .from('waitlist')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setWaitlist(data as WaitlistEntry[]);
+    setWaitlistLoading(false);
   };
 
   const handleDecision = async (
@@ -285,8 +311,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center space-x-2">
           <Shield className="h-6 w-6 text-primary" />
-          <h1 className="wedding-title text-2xl font-bold rainbow-header">Admin Verification Queue</h1>
-          <Badge variant="secondary">{queue.length} pending</Badge>
+          <h1 className="wedding-title text-2xl font-bold rainbow-header">Admin Panel</h1>
         </div>
         <Button
           variant="ghost"
@@ -298,6 +323,108 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
           Shortcuts
         </Button>
       </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-2 border-b border-border pb-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('queue')}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-md transition-colors ${activeTab === 'queue' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <Shield className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
+          Verification Queue
+          <Badge variant="secondary" className="ml-2 text-xs">{queue.length}</Badge>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('waitlist'); void loadWaitlist(); }}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-md transition-colors ${activeTab === 'waitlist' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <Users className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
+          Waitlist
+          {waitlist.length > 0 && <Badge variant="secondary" className="ml-2 text-xs">{waitlist.length}</Badge>}
+        </button>
+      </div>
+
+      {/* ── WAITLIST TAB ── */}
+      {activeTab === 'waitlist' && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Waitlist Signups
+              <Badge variant="secondary">{waitlist.length}</Badge>
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => void loadWaitlist()} disabled={waitlistLoading}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${waitlistLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {waitlistLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {!waitlistLoading && waitlist.length === 0 && (
+              <p className="text-sm text-muted-foreground">No signups yet. Share the waitlist link!</p>
+            )}
+            {!waitlistLoading && waitlist.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-muted-foreground text-xs uppercase tracking-wide">
+                      <th className="text-left py-2 pr-4">Name</th>
+                      <th className="text-left py-2 pr-4">Email</th>
+                      <th className="text-left py-2 pr-4">City</th>
+                      <th className="text-left py-2 pr-4">Looking for</th>
+                      <th className="text-left py-2 pr-4">Values</th>
+                      <th className="text-left py-2 pr-4">Missing</th>
+                      <th className="text-left py-2 pr-4">Source</th>
+                      <th className="text-left py-2 pr-4">Founder</th>
+                      <th className="text-left py-2">Joined</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {waitlist.map((entry) => (
+                      <tr key={entry.id} className="border-b hover:bg-muted/30 transition-colors">
+                        <td className="py-2 pr-4 font-medium">{entry.name}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">{entry.email}</td>
+                        <td className="py-2 pr-4">{entry.city ?? '—'}</td>
+                        <td className="py-2 pr-4">
+                          <div className="flex flex-wrap gap-1">
+                            {(entry.looking_for ?? []).map((v) => (
+                              <Badge key={v} variant="outline" className="text-xs">{v}</Badge>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-4">
+                          <div className="flex flex-wrap gap-1">
+                            {(entry.community_values ?? []).map((v) => (
+                              <Badge key={v} variant="secondary" className="text-xs">{v}</Badge>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-4 max-w-[200px] text-xs text-muted-foreground truncate" title={entry.what_is_missing ?? ''}>
+                          {entry.what_is_missing || '—'}
+                        </td>
+                        <td className="py-2 pr-4 text-xs">{entry.heard_from ?? '—'}</td>
+                        <td className="py-2 pr-4">
+                          {entry.founding_member
+                            ? <Badge className="bg-purple-600 text-white text-xs">Yes</Badge>
+                            : <span className="text-muted-foreground text-xs">No</span>}
+                        </td>
+                        <td className="py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(entry.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── VERIFICATION QUEUE TAB ── */}
+      {activeTab === 'queue' && <>
 
       {showShortcuts && (
         <Card className="bg-muted/30">
@@ -506,6 +633,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
           )}
         </CardContent>
       </Card>
+      </>}
     </div>
   );
 };

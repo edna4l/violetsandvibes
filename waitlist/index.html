@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join the Founding Circle — Violets &amp; Vibes</title>
+
+  <!-- Social sharing (Open Graph) -->
+  <meta property="og:title" content="Join the Founding Circle — Violets &amp; Vibes" />
+  <meta property="og:description" content="A safer, women-centered space for friendship, dating, and community. Be among the first inside." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://join.violetsandvibes.com" />
+
+  <!-- Twitter / X card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Join the Founding Circle — Violets &amp; Vibes" />
+  <meta name="twitter:description" content="A safer, women-centered space for friendship, dating, and community." />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f0020 0%, #1e0545 30%, #3b0f8c 65%, #6d28d9 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .float-emoji {
+      position: fixed;
+      pointer-events: none;
+      -webkit-user-select: none;
+      user-select: none;
+      z-index: 0;
+      animation: floatUp linear infinite;
+      opacity: 0.3;
+    }
+    @keyframes floatUp {
+      from { transform: translateY(110vh) rotate(0deg); }
+      to   { transform: translateY(-15vh) rotate(25deg); }
+    }
+
+    .logo {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      font-weight: 800;
+      background: linear-gradient(90deg, #f9a8d4, #c084fc, #818cf8, #f9a8d4);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 4s linear infinite;
+      text-align: center;
+      margin-bottom: 0.25rem;
+      position: relative; z-index: 1;
+    }
+    @keyframes shimmer { to { background-position: 200% center; } }
+
+    .tagline {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      margin-bottom: 2.5rem;
+      position: relative; z-index: 1;
+      letter-spacing: 0.03em;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.07);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 1.5rem;
+      padding: clamp(1.5rem, 5vw, 2.5rem);
+      width: 100%;
+      max-width: 500px;
+      position: relative; z-index: 1;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.45);
+    }
+
+    .card-headline {
+      font-size: clamp(1.3rem, 4vw, 1.8rem);
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: center;
+      margin-bottom: 0.6rem;
+    }
+    .card-sub {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      margin-bottom: 2rem;
+      line-height: 1.55;
+    }
+
+    .field { margin-bottom: 1.3rem; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 0.45rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      -webkit-appearance: none;
+    }
+    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.35); }
+    input:focus, textarea:focus, select:focus {
+      border-color: #c084fc;
+      background: rgba(255,255,255,0.12);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    select option { background: #2d1065; color: #fff; }
+
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .chip {
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      border: 1.5px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.78);
+      font-size: 0.86rem;
+      cursor: pointer;
+      transition: all 0.18s;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .chip:hover { border-color: #c084fc; color: #fff; }
+    .chip.active {
+      background: linear-gradient(135deg, #9333ea, #ec4899);
+      border-color: transparent;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(236,72,153,0.35);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 0.95rem;
+      border-radius: 0.9rem;
+      border: none;
+      background: linear-gradient(135deg, #9333ea, #ec4899);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1.75rem;
+      transition: opacity 0.2s, transform 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .btn-submit:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+    .btn-submit:active:not(:disabled) { transform: scale(0.98); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .success-box {
+      display: none;
+      text-align: center;
+      padding: 1rem 0 0.5rem;
+    }
+    .success-box .check { font-size: 3.5rem; margin-bottom: 0.75rem; }
+    .success-box h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .success-box p { color: rgba(255,255,255,0.62); font-size: 0.95rem; line-height: 1.55; }
+
+    .error-msg {
+      display: none;
+      color: #fca5a5;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      text-align: center;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin: 2rem 0 1.25rem;
+    }
+
+    .share-label {
+      text-align: center;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .share-row { display: flex; justify-content: center; gap: 0.65rem; flex-wrap: wrap; }
+    .share-btn {
+      padding: 0.45rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.84rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .share-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+    .footer-note {
+      margin-top: 2rem;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.28);
+      text-align: center;
+      position: relative; z-index: 1;
+    }
+    .footer-note a { color: rgba(255,255,255,0.42); }
+
+    .field-hint {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 0.6rem;
+    }
+
+    .section-divider {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #c084fc;
+      margin: 1.75rem 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .section-divider::before, .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+    }
+  </style>
+</head>
+<body>
+
+  <script>
+    const emojis = ['💜','✨','🌸','💕','🦋','🌙','💫','🌺','⭐','🎶','🌷','💎','🌈','🥰'];
+    emojis.forEach((e, i) => {
+      const el = document.createElement('span');
+      el.className = 'float-emoji';
+      el.textContent = e;
+      el.style.cssText = `font-size:${1.4+(i%3)*0.5}rem;left:${4+(i%7)*13}%;bottom:-10%;animation-duration:${12+i*1.4}s;animation-delay:${i*1.8}s;`;
+      document.body.appendChild(el);
+    });
+  </script>
+
+  <div class="logo">Violets &amp; Vibes</div>
+  <p class="tagline">Women-centered &nbsp;·&nbsp; Safe &nbsp;·&nbsp; Real</p>
+
+  <div class="card">
+
+    <div id="form-view">
+      <h1 class="card-headline">Join the Founding Circle</h1>
+      <p class="card-sub">A safer, women-centered space for friendship, dating, and community.<br>Be among the very first inside.</p>
+
+      <form id="waitlist-form" novalidate>
+
+        <!-- Basic info -->
+        <div class="field">
+          <label for="name">Your Name</label>
+          <input type="text" id="name" placeholder="First name or nickname" required />
+        </div>
+
+        <div class="field">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" placeholder="you@example.com" required />
+        </div>
+
+        <div class="field">
+          <label for="city">City</label>
+          <input type="text" id="city" placeholder="Where are you based?" />
+        </div>
+
+        <!-- What are you looking for -->
+        <div class="field">
+          <label>What are you looking for?</label>
+          <div class="chip-group" id="looking-for-group">
+            <span class="chip" data-value="Friendship">Friendship</span>
+            <span class="chip" data-value="Dating">Dating</span>
+            <span class="chip" data-value="Community">Community</span>
+            <span class="chip" data-value="All">All of the above</span>
+          </div>
+        </div>
+
+        <div class="section-divider">Tell us a little more</div>
+
+        <!-- What matters most -->
+        <div class="field">
+          <label>What matters most to you in a community space?</label>
+          <div class="chip-group" id="values-group">
+            <span class="chip" data-value="Safety first">Safety first</span>
+            <span class="chip" data-value="Real connections">Real connections</span>
+            <span class="chip" data-value="No judgment">No judgment</span>
+            <span class="chip" data-value="LGBTQ+ inclusive">LGBTQ+ inclusive</span>
+            <span class="chip" data-value="Local meetups">Local meetups</span>
+            <span class="chip" data-value="Emotional support">Emotional support</span>
+            <span class="chip" data-value="Women-only spaces">Women-only spaces</span>
+            <span class="chip" data-value="Dating without pressure">Dating without pressure</span>
+          </div>
+        </div>
+
+        <!-- What's missing -->
+        <div class="field">
+          <label for="missing">What's missing from the apps or spaces you've tried?</label>
+          <textarea id="missing" placeholder="Feel free to be honest — this helps us build something better for you."></textarea>
+        </div>
+
+        <!-- How they heard -->
+        <div class="field">
+          <label for="heard">How did you hear about us?</label>
+          <select id="heard">
+            <option value="" disabled selected>Select one…</option>
+            <option value="Instagram">Instagram</option>
+            <option value="TikTok">TikTok</option>
+            <option value="Twitter / X">Twitter / X</option>
+            <option value="Facebook">Facebook</option>
+            <option value="A friend">A friend referred me</option>
+            <option value="Google / Search">Google / Search</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <!-- Founding member -->
+        <div class="field">
+          <label>Would you like to be considered as a Founding Member?</label>
+          <p class="field-hint">Founding Members get early access, input on features, and a special badge.</p>
+          <div class="chip-group" id="founding-group">
+            <span class="chip" data-value="yes">Yes, count me in</span>
+            <span class="chip" data-value="no">Not right now</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">
+          Join the Founding Circle 💜
+        </button>
+        <p class="error-msg" id="error-msg"></p>
+      </form>
+
+      <hr class="divider" />
+      <p class="share-label">Share with someone who belongs here</p>
+      <div class="share-row">
+        <a class="share-btn" id="share-twitter" href="#" target="_blank" rel="noopener">𝕏 Twitter</a>
+        <a class="share-btn" id="share-facebook" href="#" target="_blank" rel="noopener">Facebook</a>
+        <a class="share-btn" href="#" onclick="copyLink(event)">Copy link</a>
+      </div>
+    </div>
+
+    <!-- Success -->
+    <div class="success-box" id="success-view">
+      <div class="check">💜</div>
+      <h2>You're on the list!</h2>
+      <p>Thank you for joining the Founding Circle.<br>We'll be in touch soon with early access details.</p>
+      <hr class="divider" />
+      <p class="share-label">Spread the word</p>
+      <div class="share-row">
+        <a class="share-btn" id="success-twitter" href="#" target="_blank" rel="noopener">𝕏 Twitter</a>
+        <a class="share-btn" id="success-facebook" href="#" target="_blank" rel="noopener">Facebook</a>
+        <a class="share-btn" href="#" onclick="copyLink(event)">Copy link</a>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">
+    No spam, ever. &nbsp;·&nbsp;
+    <a href="https://violetsandvibes.com/terms" target="_blank" rel="noopener noreferrer">Terms</a>
+    &nbsp;·&nbsp; &copy; 2026 Violets &amp; Vibes
+  </p>
+
+  <script>
+    const SUPABASE_URL  = 'https://uafjwdkxcybsxxlkeivg.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZmp3ZGt4Y3lic3h4bGtlaXZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NzAwMjcsImV4cCI6MjA4NDU0NjAyN30.BeAtQcJuh9Uilk4oyEAcXEbzMTo2xmIG-apN7mRf8jc';
+    const PAGE_URL      = window.location.href;
+    const SHARE_TEXT    = encodeURIComponent('Just joined the Founding Circle of Violets & Vibes — a safer, women-centered space for friendship, dating & community. Come join me 💜');
+    const SHARE_URL_ENC = encodeURIComponent(PAGE_URL);
+
+    document.getElementById('share-twitter').href   = `https://twitter.com/intent/tweet?text=${SHARE_TEXT}&url=${SHARE_URL_ENC}`;
+    document.getElementById('share-facebook').href  = `https://www.facebook.com/sharer/sharer.php?u=${SHARE_URL_ENC}`;
+    document.getElementById('success-twitter').href  = `https://twitter.com/intent/tweet?text=${SHARE_TEXT}&url=${SHARE_URL_ENC}`;
+    document.getElementById('success-facebook').href = `https://www.facebook.com/sharer/sharer.php?u=${SHARE_URL_ENC}`;
+
+    // Chip toggle logic
+    function wireChips(groupId, multi) {
+      document.getElementById(groupId).addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        if (multi) {
+          chip.classList.toggle('active');
+        } else {
+          [...e.currentTarget.querySelectorAll('.chip')].forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+        }
+      });
+    }
+    wireChips('looking-for-group', true);
+    wireChips('values-group', true);
+    wireChips('founding-group', false);
+
+    function copyLink(e) {
+      e.preventDefault();
+      navigator.clipboard.writeText(PAGE_URL).then(() => {
+        const btn = e.currentTarget;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
+      });
+    }
+
+    document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name  = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const city  = document.getElementById('city').value.trim();
+      const missing = document.getElementById('missing').value.trim();
+      const heard   = document.getElementById('heard').value;
+
+      const lookingFor = [...document.querySelectorAll('#looking-for-group .chip.active')].map(c => c.dataset.value);
+      const values     = [...document.querySelectorAll('#values-group .chip.active')].map(c => c.dataset.value);
+      const foundingChip = document.querySelector('#founding-group .chip.active');
+      const foundingMember = foundingChip ? foundingChip.dataset.value === 'yes' : false;
+
+      const errEl = document.getElementById('error-msg');
+
+      if (!name || !email) {
+        errEl.textContent = 'Please enter your name and email.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errEl.textContent = 'Please enter a valid email address.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Joining…';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': `Bearer ${SUPABASE_ANON}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            name,
+            email,
+            city,
+            looking_for: lookingFor,
+            community_values: values,
+            what_is_missing: missing,
+            heard_from: heard,
+            founding_member: foundingMember
+          })
+        });
+
+        if (!res.ok) {
+          const body = await res.text();
+          if (body.includes('duplicate') || body.includes('unique')) {
+            // Already signed up — still show success
+          } else {
+            throw new Error(body);
+          }
+        }
+
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('success-view').style.display = 'block';
+
+      } catch (err) {
+        console.error(err);
+        errEl.textContent = 'Something went wrong. Please try again in a moment.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Join the Founding Circle 💜';
+      }
+    });
+  </script>
+</body>
+</html>
