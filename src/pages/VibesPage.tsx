@@ -334,10 +334,11 @@ const VibesPage: React.FC = () => {
         caption: composeText.trim() || null,
         display_mode: composeFile ? composeDisplayMode : "full",
         filter_preset: composeFilter,
+        expires_at: "2099-12-31T23:59:59.000Z",
       });
       if (error) throw error;
 
-      toast({ title: "Vibe posted! 💜", description: "Live for 24 hours." });
+      toast({ title: "Vibe posted! 💜", description: "Stays until you delete it." });
       setShowCompose(false);
       setComposeText("");
       setComposeDisplayMode("full");
@@ -408,10 +409,11 @@ const VibesPage: React.FC = () => {
         filter_preset: repostTarget.filter_preset,
         repost_of_id: repostTarget.id,
         repost_of_author: repostTarget.authorName,
+        expires_at: "2099-12-31T23:59:59.000Z",
       });
       if (error) throw error;
 
-      toast({ title: "Reposted! 🔁", description: "Live for 24 hours." });
+      toast({ title: "Reposted! 🔁", description: "Stays until you delete it." });
       setRepostTarget(null);
       setRepostCaption("");
       await loadVibes();
@@ -508,7 +510,7 @@ const VibesPage: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 text-center">
               <div className="text-6xl">💜</div>
               <div className="text-white text-xl font-semibold">No vibes yet</div>
-              <div className="text-white/60 text-sm">Be the first! Share a thought, photo, or video — lives for 24 hours.</div>
+              <div className="text-white/60 text-sm">Be the first! Share a thought, photo, or video — stays until you delete it.</div>
               <button
                 type="button"
                 onClick={() => setShowCompose(true)}
