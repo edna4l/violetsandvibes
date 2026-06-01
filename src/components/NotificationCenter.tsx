@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Heart, MessageCircle, Calendar, Settings } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -394,22 +395,24 @@ const NotificationCenter: React.FC = () => {
         </Button>
       </div>
 
-      {/* Push toggle (UI only) */}
+      {/* Push toggle */}
       <Card className="bg-black/40 border-white/15 text-white">
-        <CardHeader className="pb-3">
+        <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Push Notifications</CardTitle>
-            <Button
-              variant={pushEnabled ? "default" : "outline"}
-              size="sm"
-              onClick={() => setPushEnabled(!pushEnabled)}
-              className={pushEnabled ? "bg-green-500 hover:bg-green-600" : ""}
-            >
-              {pushEnabled ? "On" : "Off"}
-            </Button>
+            <div>
+              <p className="text-sm font-semibold text-violet-300">Push Notifications</p>
+              <p className="text-xs text-white/60 mt-0.5">Get notified about likes, matches, and messages.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={pushEnabled}
+                onCheckedChange={setPushEnabled}
+                className="data-[state=checked]:bg-green-500"
+              />
+              <span className="text-xs font-medium text-white/80">{pushEnabled ? "On" : "Off"}</span>
+            </div>
           </div>
-          <div className="text-xs text-white/70">Get notified about likes, matches, and messages.</div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       {/* Controls */}

@@ -119,19 +119,34 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
           ) : null}
         </div>
 
-        {interests.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {interests.map((interest) => (
-              <Badge
-                key={interest}
-                variant="outline"
-                className="text-[11px] border-violet-400/40 text-violet-200 px-1.5 py-0"
-              >
-                {String(interest).split(":").pop()?.trim() || interest}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Relationship type + interests badges */}
+        <div className="flex flex-wrap gap-1">
+          {(profile as any).relationship_type && (
+            <Badge
+              variant="outline"
+              className="text-[11px] border-pink-400/40 text-pink-200 px-1.5 py-0"
+            >
+              {(profile as any).relationship_type}
+            </Badge>
+          )}
+          {(profile as any).has_children && (
+            <Badge
+              variant="outline"
+              className="text-[11px] border-violet-400/40 text-violet-200 px-1.5 py-0"
+            >
+              Has children
+            </Badge>
+          )}
+          {interests.map((interest) => (
+            <Badge
+              key={interest}
+              variant="outline"
+              className="text-[11px] border-violet-400/40 text-violet-200 px-1.5 py-0"
+            >
+              {String(interest).split(":").pop()?.trim() || interest}
+            </Badge>
+          ))}
+        </div>
 
         {icebreaker ? (
           <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">

@@ -406,13 +406,44 @@ const MatchesView: React.FC = () => {
 
   if (matches.length === 0) {
     return (
-      <div className="padding-responsive">
-        <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
-          <Heart className="w-5 h-5 mr-2 text-red-400" />
-          Matches
-        </h2>
-        <div className="text-white/70 mt-3">
-          No matches yet. Keep connecting and check back soon.
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
+        {/* Illustration area */}
+        <div className="relative w-52 h-60 mb-6 flex items-center justify-center">
+          {/* Background glow */}
+          <div className="absolute inset-0 rounded-full bg-violet-600/15 blur-3xl" />
+          {/* Outer ring */}
+          <div className="absolute w-44 h-44 rounded-full border border-violet-400/20 bg-violet-900/30" />
+          {/* Inner decoration */}
+          <div className="relative w-32 h-32 rounded-full bg-gradient-to-b from-violet-700/50 to-violet-900/60 border border-violet-400/30 flex items-center justify-center shadow-xl shadow-violet-900/50">
+            <div className="flex flex-col items-center gap-1">
+              <Heart className="w-10 h-10 fill-violet-300/60 text-violet-300/60" />
+              <div className="w-10 h-px bg-violet-400/40 rounded" />
+              <Heart className="w-6 h-6 fill-pink-400/60 text-pink-400/60" />
+            </div>
+          </div>
+          {/* Floating hearts */}
+          <Heart className="absolute top-6 right-8 w-8 h-8 fill-pink-400 text-pink-400 drop-shadow-lg" />
+          <Heart className="absolute top-14 right-2 w-6 h-6 fill-violet-400 text-violet-400 drop-shadow-lg" />
+          {/* Sparkle dots */}
+          <span className="absolute top-4 left-8 w-1.5 h-1.5 rounded-full bg-violet-300/60" />
+          <span className="absolute bottom-10 right-14 w-1 h-1 rounded-full bg-pink-300/60" />
+          <span className="absolute top-20 left-4 w-1 h-1 rounded-full bg-violet-200/50" />
+        </div>
+
+        {/* Label */}
+        <div className="flex items-center gap-2 mb-3">
+          <Heart className="w-5 h-5 fill-pink-400 text-pink-400" />
+          <span className="wedding-heading text-2xl rainbow-header">Matches</span>
+        </div>
+
+        <h2 className="text-2xl font-bold text-white mb-2">No matches yet.</h2>
+        <p className="text-white/70 text-base mb-8">Keep connecting and check back soon.</p>
+
+        {/* Divider with flower */}
+        <div className="flex items-center gap-3 w-full max-w-xs">
+          <div className="flex-1 h-px bg-violet-400/30" />
+          <span className="text-violet-300 text-base">🌸</span>
+          <div className="flex-1 h-px bg-violet-400/30" />
         </div>
       </div>
     );
