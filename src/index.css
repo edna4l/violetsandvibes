@@ -387,7 +387,18 @@
     @apply rainbow-gradient min-h-screen relative overflow-hidden;
   }
   
-  /* Calm page background for focus screens (auth/settings/forms) */
+  .page-signin {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-image: url('/signin.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Calm page background for focus screens (auth/settings/forms) */
 .page-calm {
   @apply min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900;
   isolation: isolate;
