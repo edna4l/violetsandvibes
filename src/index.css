@@ -833,29 +833,6 @@ html.vv-large-text {
   display: none;
 }
 
-.app-shell-discover::before {
-  content: "";
-  position: fixed;
-  top: var(--discover-header-h);
-  bottom: calc(var(--discover-nav-h) + 4px);
-  left: 50%;
-  z-index: 2;
-  width: min(940px, calc(100vw - 20px));
-  transform: translateX(-50%);
-  background:
-    radial-gradient(circle at 50% 43%, rgba(67, 20, 121, 0.42), transparent 43%),
-    linear-gradient(
-      90deg,
-      rgba(3, 5, 31, 0) 0%,
-      rgba(3, 5, 31, 0.88) 7%,
-      #03051f 18%,
-      #03051f 82%,
-      rgba(3, 5, 31, 0.88) 93%,
-      rgba(3, 5, 31, 0) 100%
-    );
-  pointer-events: none;
-}
-
 .app-shell-discover::after {
   content: "";
   position: fixed;
