@@ -19,6 +19,7 @@ export const PrideHeader: React.FC<PrideHeaderProps> = ({
 }) => {
   return (
     <div className={`
+      pride-header
       glass-pride-strong 
       padding-responsive 
       mb-4 sm:mb-6 md:mb-8
@@ -26,12 +27,12 @@ export const PrideHeader: React.FC<PrideHeaderProps> = ({
       ${className}
     `}>
       {/* Header Dropdown */}
-      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10">
+      <div className="pride-header-menu absolute top-2 right-2 sm:top-4 sm:right-4 z-10">
         <HeaderDropdown onMenuSelect={onMenuSelect} />
       </div>
 
       {/* Immediate safety visibility */}
-      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
+      <div className="pride-header-safety absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
         <Link
           to="/terms#community-standards"
           className="inline-flex items-center gap-1 rounded-full border border-pink-300/40 bg-black/45 px-2 py-1 text-[11px] sm:text-xs font-medium text-pink-100 hover:bg-black/60 transition-colors"

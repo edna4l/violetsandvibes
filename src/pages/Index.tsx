@@ -4,10 +4,34 @@ import { fetchDiscoverProfiles, type ProfileRow } from "@/lib/profiles";
 import { DiscoverProfileCard } from "@/components/DiscoverProfileCard";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import BrandPrideCard from "@/components/BrandPrideCard";
 import { useStreak } from "@/hooks/useStreak";
 import { Flame, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { isSupabaseConfigured } from "@/lib/supabase";
+
+const previewProfiles: Array<ProfileRow & Record<string, unknown>> = [
+  {
+    id: "preview-marie",
+    full_name: "marie",
+    bio: "nada",
+    location: "anywhere",
+    photos: ["/discover-profile-marie.png"],
+    profile_completed: true,
+    birthdate: "1979-01-01",
+    relationship_type: "Monogamous",
+  },
+  {
+    id: "preview-misty",
+    full_name: "Misty Cole",
+    bio: "I am woman truck driver. Mom of 4, granma of 8.",
+    location: "Harker Heights, TX",
+    photos: ["/discover-profile-misty.png"],
+    profile_completed: true,
+    birthdate: "1979-01-01",
+    relationship_type: "Monogamous",
+    has_children: true,
+  },
+];
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -17,8 +41,17 @@ const Index: React.FC = () => {
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const showLocalPreview = import.meta.env.DEV && !isSupabaseConfigured;
+  const displayStreak = showLocalPreview ? 1 : currentStreak;
 
   useEffect(() => {
+    if (showLocalPreview) {
+      setRows(previewProfiles as ProfileRow[]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     if (!user) {
       setRows([]);
       setError(null);
@@ -41,7 +74,7 @@ const Index: React.FC = () => {
     };
 
     void run();
-  }, [user?.id]);
+  }, [showLocalPreview, user?.id]);
 
   const handleShareProfile = async () => {
     if (!user) return;
@@ -60,16 +93,16 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div className="page-calm min-h-screen p-4">
-      <div className="max-w-4xl mx-auto relative z-10">
+    <div className="discover-page">
+      <div className="discover-content-shell">
         {/* Streak banner */}
-        {currentStreak > 0 && (
-          <div className="mb-3 flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-400/20">
+        {displayStreak > 0 && (
+          <div className="discover-streak-banner">
             <div className="flex items-center gap-2 text-sm text-white/90">
               <Flame className="w-4 h-4 text-orange-400" />
               <span>
-                <strong className="text-orange-300">{currentStreak}-day streak</strong>
-                {currentStreak >= 7 ? " 🔥 On fire!" : " — keep it up!"}
+                <strong className="text-orange-300">{displayStreak}-day streak</strong>
+                {displayStreak >= 7 ? " 🔥 On fire!" : " — keep it up!"}
               </span>
             </div>
             <button
@@ -83,37 +116,31 @@ const Index: React.FC = () => {
           </div>
         )}
 
-        <BrandPrideCard
-          title="Discover"
-          subtitle="Find your people and feel the vibe"
-          points={["Women-centered", "Inclusive", "Safety-first"]}
-          description="Meet people who value real connection and community."
-          className="mb-5"
-          cta={
-            user ? (
-              <Button asChild className="btn-pride-celebrate">
-                <Link to="/social">Go to Social</Link>
-              </Button>
-            ) : (
-              <Button asChild className="btn-pride-celebrate">
-                <Link to="/signin">Sign In to Start</Link>
-              </Button>
-            )
-          }
-        />
+        <section className="discover-hero-live" aria-labelledby="discover-heading">
+          <h1 id="discover-heading" className="sr-only">
+            Discover people and feel the vibe
+          </h1>
+          <p className="sr-only">
+            Women-centered, inclusive, safety-first. Meet people who value real connection and
+            community.
+          </p>
+          <Button asChild className="discover-social-cta">
+            <Link to={user || showLocalPreview ? "/social" : "/signin"}>Go to Social</Link>
+          </Button>
+        </section>
 
         {loading ? (
-          <div className="text-white/70 relative z-10">Loading profiles...</div>
+          <div className="discover-status">Loading profiles...</div>
         ) : error ? (
-          <div className="text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2 relative z-10">
+          <div className="discover-status discover-status-error">
             {error}
           </div>
         ) : rows.length === 0 ? (
-          <div className="text-white/70 relative z-10">
-            No profiles found. Invite a friend or check back soon 💜
+          <div className="discover-status">
+            No profiles found. Invite a friend or check back soon.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+          <div className="discover-card-grid">
             {rows.map((p) => (
               <DiscoverProfileCard key={p.id} profile={p} />
             ))}

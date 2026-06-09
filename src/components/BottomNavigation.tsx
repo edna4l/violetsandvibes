@@ -117,7 +117,7 @@ const BottomNavigation: React.FC = () => {
   }, []);
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 glass-pride-strong border-t border-white/20 z-40 transition-transform duration-300 ${
+    <div className={`bottom-navigation-shell fixed bottom-0 left-0 right-0 glass-pride-strong border-t border-white/20 z-40 transition-transform duration-300 ${
       isVisible ? 'translate-y-0' : 'translate-y-full'
     }`}>
       <div className="flex justify-around items-center py-2">

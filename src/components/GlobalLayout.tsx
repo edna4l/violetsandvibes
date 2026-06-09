@@ -1,8 +1,7 @@
 import React from 'react';
 import { PrideHeader } from './PrideHeader';
 import { BottomNavigation } from './BottomNavigation';
-import { ResponsiveWrapper } from './ResponsiveWrapper';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const FLOAT_EMOJIS = ["💜","✨","🌸","💕","🦋","🌙","💫","🌺","⭐","🎶","🌷","💎","🌈","🥰"];
@@ -34,6 +33,8 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
   className = ""
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isDiscoverShell = location.pathname === '/discover';
 
   const handleMenuSelect = (action: string) => {
     switch (action) {
@@ -94,21 +95,23 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
   };
 
   return (
-    <div className={`vibe-bg-animated min-h-screen flex flex-col relative ${className}`}>
+    <div
+      className={`app-shell ${isDiscoverShell ? 'app-shell-discover' : ''} vibe-bg-animated min-h-screen flex flex-col relative ${className}`}
+    >
       {/* Floating themed emojis in background */}
       {FLOAT_EMOJIS.map((emoji, i) => (
-        <span key={i} aria-hidden style={floatStyle(i)}>{emoji}</span>
+        <span key={i} aria-hidden className="app-shell-float" style={floatStyle(i)}>{emoji}</span>
       ))}
 
       {/* Header */}
       {showHeader && (
-        <div className="relative z-20">
+        <div className="app-shell-header relative z-20">
           <PrideHeader
             onMenuSelect={handleMenuSelect}
             className="mb-0 sm:mb-0 md:mb-0"
           />
           {/* Back / Forward navigation bar */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/10">
+          <div className="app-shell-history-nav flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/10">
             <button
               type="button"
               onClick={() => navigate(-1)}
@@ -130,13 +133,13 @@ export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto pb-20">
+      <div className="app-shell-main flex-1 overflow-auto pb-20">
         {children}
       </div>
 
       {/* Bottom Navigation */}
       {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 z-30">
+        <div className="app-shell-bottom-nav fixed bottom-0 left-0 right-0 z-30">
           <BottomNavigation />
         </div>
       )}

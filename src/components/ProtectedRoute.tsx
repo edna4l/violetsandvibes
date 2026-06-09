@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type Props = {
   children: React.ReactNode;
@@ -9,6 +10,10 @@ type Props = {
 export const ProtectedRoute: React.FC<Props> = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (import.meta.env.DEV && !isSupabaseConfigured) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (

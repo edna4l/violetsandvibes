@@ -556,3 +556,828 @@ html.vv-large-text {
 .contain-fixed {
   transform: translateZ(0);
 }
+
+/* Sign-in composition aligned to the illustrated /signin.png template. */
+.page-signin {
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  background-color: #020520;
+  background-image: url('/signin.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.signin-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  padding: 10px;
+}
+
+.signin-panel-overlay {
+  --signin-panel-width: min(
+    calc(100vw - 32px),
+    calc((100vh - 20px) * 0.7195),
+    max(37.44vw, 66.52vh)
+  );
+  --signin-panel-width: min(
+    calc(100vw - 32px),
+    calc((100svh - 20px) * 0.7195),
+    max(37.44vw, 66.52svh)
+  );
+  position: relative;
+  width: var(--signin-panel-width);
+  aspect-ratio: 626 / 870;
+  color: #fff;
+}
+
+.signin-controls {
+  position: absolute;
+  top: 35.1%;
+  left: 5.6%;
+  z-index: 2;
+  width: 88.8%;
+}
+
+.signin-tabs,
+.signin-tab-content {
+  width: 100%;
+}
+
+.signin-tabs-list {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100% !important;
+  height: clamp(38px, calc(var(--signin-panel-width) * 0.08), 50px) !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(156, 145, 230, 0.32);
+  border-radius: clamp(7px, calc(var(--signin-panel-width) * 0.013), 9px) !important;
+  background: rgba(8, 9, 48, 0.24) !important;
+  box-shadow: inset 0 0 24px rgba(143, 83, 244, 0.1);
+}
+
+.signin-tab-trigger {
+  height: 100% !important;
+  gap: clamp(7px, calc(var(--signin-panel-width) * 0.018), 12px);
+  border-radius: clamp(7px, calc(var(--signin-panel-width) * 0.013), 9px) !important;
+  background: transparent !important;
+  color: rgba(236, 232, 255, 0.72) !important;
+  font-size: clamp(12px, calc(var(--signin-panel-width) * 0.026), 16px) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.signin-tab-trigger svg {
+  width: clamp(16px, calc(var(--signin-panel-width) * 0.034), 21px);
+  height: clamp(16px, calc(var(--signin-panel-width) * 0.034), 21px);
+  stroke-width: 1.8;
+}
+
+.signin-tab-trigger[data-state="active"] {
+  background: linear-gradient(105deg, #ef3e96 0%, #b124f1 100%) !important;
+  color: #fff !important;
+  text-shadow: 0 1px 12px rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 28px rgba(210, 55, 232, 0.28) !important;
+}
+
+.signin-tab-content {
+  margin-top: clamp(18px, calc(var(--signin-panel-width) * 0.0415), 26px) !important;
+}
+
+.signin-tab-content[data-state="inactive"] {
+  display: none;
+}
+
+.signin-controls form {
+  display: grid;
+  gap: clamp(16px, calc(var(--signin-panel-width) * 0.028), 18px);
+}
+
+.signin-controls form > :not([hidden]) ~ :not([hidden]),
+.signin-controls .space-y-6 > :not([hidden]) ~ :not([hidden]),
+.signin-controls .space-y-4 > :not([hidden]) ~ :not([hidden]),
+.signin-controls .space-y-2 > :not([hidden]) ~ :not([hidden]),
+.signin-controls .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0 !important;
+}
+
+.signin-controls form > div,
+.signin-controls .space-y-2,
+.signin-controls .space-y-1\.5 {
+  display: grid;
+  gap: clamp(7px, calc(var(--signin-panel-width) * 0.014), 9px);
+}
+
+.signin-controls label {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: clamp(12px, calc(var(--signin-panel-width) * 0.0255), 16px) !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+}
+
+.signin-controls input {
+  height: clamp(40px, calc(var(--signin-panel-width) * 0.0815), 51px) !important;
+  border: 1px solid rgba(164, 154, 232, 0.36) !important;
+  border-radius: clamp(7px, calc(var(--signin-panel-width) * 0.013), 9px) !important;
+  background: rgba(5, 9, 46, 0.44) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  font-size: clamp(13px, calc(var(--signin-panel-width) * 0.0255), 16px) !important;
+  line-height: 1 !important;
+  padding-left: clamp(44px, calc(var(--signin-panel-width) * 0.088), 55px) !important;
+  box-shadow:
+    inset 0 0 18px rgba(80, 72, 156, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.signin-controls input::placeholder {
+  color: rgba(214, 207, 246, 0.58) !important;
+}
+
+.signin-controls input:focus {
+  border-color: rgba(214, 99, 255, 0.76) !important;
+  box-shadow:
+    inset 0 0 18px rgba(80, 72, 156, 0.16),
+    0 0 0 3px rgba(190, 62, 244, 0.16) !important;
+}
+
+.signin-controls form .relative > svg {
+  left: clamp(17px, calc(var(--signin-panel-width) * 0.028), 18px) !important;
+  width: clamp(17px, calc(var(--signin-panel-width) * 0.032), 20px) !important;
+  height: clamp(17px, calc(var(--signin-panel-width) * 0.032), 20px) !important;
+  color: rgba(219, 211, 251, 0.68) !important;
+}
+
+.signin-controls form button[type="submit"] {
+  height: clamp(42px, calc(var(--signin-panel-width) * 0.078), 49px) !important;
+  margin-top: clamp(2px, calc(var(--signin-panel-width) * 0.006), 4px) !important;
+  border: 0 !important;
+  border-radius: clamp(7px, calc(var(--signin-panel-width) * 0.013), 9px) !important;
+  background: linear-gradient(105deg, #ef3e96 0%, #b124f1 100%) !important;
+  color: #fff !important;
+  font-size: clamp(13px, calc(var(--signin-panel-width) * 0.026), 16px) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  box-shadow: 0 0 26px rgba(224, 55, 212, 0.25) !important;
+}
+
+.signin-controls form button[type="button"] {
+  color: #a948ff !important;
+  font-size: clamp(11px, calc(var(--signin-panel-width) * 0.021), 13px) !important;
+  font-weight: 500 !important;
+}
+
+.signin-reset {
+  margin-top: clamp(4px, calc(var(--signin-panel-width) * 0.01), 8px);
+}
+
+.signin-reset form {
+  display: grid;
+  gap: clamp(14px, calc(var(--signin-panel-width) * 0.026), 18px);
+}
+
+.signin-register-content {
+  max-height: calc(var(--signin-panel-width) * 0.54);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.signin-register-content input {
+  padding-left: clamp(14px, calc(var(--signin-panel-width) * 0.024), 16px) !important;
+}
+
+.signin-register-content .rounded-lg {
+  border-color: rgba(233, 91, 180, 0.32) !important;
+  background: rgba(160, 38, 141, 0.12) !important;
+}
+
+.signin-footer-links {
+  position: absolute;
+  right: 0;
+  bottom: 2.25%;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(22px, calc(var(--signin-panel-width) * 0.071), 44px);
+  font-size: clamp(10px, calc(var(--signin-panel-width) * 0.0225), 14px);
+  line-height: 1.2;
+}
+
+.signin-footer-links a {
+  color: rgba(237, 232, 255, 0.75);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.15s ease;
+}
+
+.signin-footer-links a:hover {
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .page-signin {
+    background-size: auto 100%;
+  }
+
+  .signin-stage {
+    padding: 8px;
+  }
+
+  .signin-panel-overlay {
+    --signin-panel-width: min(calc(100vw - 18px), calc((100vh - 18px) * 0.7195));
+    --signin-panel-width: min(calc(100vw - 18px), calc((100svh - 18px) * 0.7195));
+  }
+
+  .signin-footer-links {
+    gap: 14px;
+    flex-wrap: wrap;
+    bottom: 1.8%;
+  }
+}
+
+/* Discover page art-directed layout. The background image is the non-interactive
+   decorative layer; buttons, cards, and navigation stay live on top. */
+.app-shell-discover {
+  --discover-header-h: clamp(78px, 10.5svh, 98px);
+  --discover-history-row-h: 0px;
+  --discover-nav-h: clamp(82px, 10.5svh, 98px);
+  --discover-content-w: min(890px, calc(100vw - 48px));
+  --discover-top-gap: clamp(14px, 3svh, 28px);
+  --discover-hero-h: calc(var(--discover-content-w) * 0.3506);
+  --discover-hero-gap: clamp(16px, 2.8svh, 26px);
+  --discover-card-h: clamp(268px, 32.6svh, 307px);
+  --discover-photo-h: clamp(122px, 15.4svh, 145px);
+  height: 100vh;
+  height: 100svh;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  background-color: #03051f !important;
+  background-image: url('/discover-background.png') !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-size: cover !important;
+  animation: none !important;
+}
+
+.app-shell-discover .app-shell-float {
+  display: none;
+}
+
+.app-shell-discover::before {
+  content: "";
+  position: fixed;
+  top: var(--discover-header-h);
+  bottom: calc(var(--discover-nav-h) + 4px);
+  left: 50%;
+  z-index: 2;
+  width: min(940px, calc(100vw - 20px));
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle at 50% 43%, rgba(67, 20, 121, 0.42), transparent 43%),
+    linear-gradient(
+      90deg,
+      rgba(3, 5, 31, 0) 0%,
+      rgba(3, 5, 31, 0.88) 7%,
+      #03051f 18%,
+      #03051f 82%,
+      rgba(3, 5, 31, 0.88) 93%,
+      rgba(3, 5, 31, 0) 100%
+    );
+  pointer-events: none;
+}
+
+.app-shell-discover::after {
+  content: "";
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  height: calc(var(--discover-nav-h) + 14px);
+  background: #03051f;
+  pointer-events: none;
+}
+
+.app-shell-discover .app-shell-header {
+  position: relative;
+  z-index: 40;
+  min-height: calc(var(--discover-header-h) + var(--discover-history-row-h));
+}
+
+.app-shell-discover .pride-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--discover-header-h);
+  margin: 1px 10px 0;
+  padding: 0 28px !important;
+  border: 1px solid rgba(154, 98, 240, 0.56) !important;
+  border-radius: 26px !important;
+  background: rgba(3, 4, 22, 0.78) !important;
+  box-shadow:
+    inset 0 -2px 0 rgba(242, 55, 181, 0.68),
+    inset 0 -3px 0 rgba(238, 151, 34, 0.4),
+    0 0 34px rgba(110, 53, 214, 0.24) !important;
+  backdrop-filter: blur(8px);
+}
+
+.app-shell-discover .pride-header .flex.items-center.justify-center {
+  margin: 0 !important;
+}
+
+.app-shell-discover .pride-header h1 {
+  font-size: clamp(30px, min(3.05vw, 6svh), 52px) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-shell-discover .pride-header-safety {
+  top: calc((var(--discover-header-h) - 32px) / 2) !important;
+  left: 24px !important;
+}
+
+.app-shell-discover .pride-header-safety a {
+  height: 32px;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  border-radius: 11px !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  padding: 0 11px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.app-shell-discover .pride-header-menu {
+  top: calc((var(--discover-header-h) - 43px) / 2) !important;
+  right: 17px !important;
+}
+
+.app-shell-discover .pride-header-menu button {
+  width: 43px !important;
+  height: 43px !important;
+  border-radius: 11px !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  padding: 0 !important;
+}
+
+.app-shell-discover .pride-header-menu svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.app-shell-discover .pride-header .floating-orb {
+  display: none;
+}
+
+.app-shell-discover .pride-header::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: 11px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #7c5cff;
+  box-shadow: 0 0 18px rgba(124, 92, 255, 0.72);
+}
+
+.app-shell-discover .app-shell-history-nav {
+  position: absolute;
+  top: calc(var(--discover-header-h) + 15px);
+  left: 24px;
+  z-index: 45;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell-discover .app-shell-history-nav button {
+  height: 34px;
+  border-radius: 999px;
+  padding: 0 18px;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 9px 24px rgba(91, 36, 195, 0.28);
+}
+
+.app-shell-discover .app-shell-main {
+  position: relative;
+  z-index: 10;
+  overflow: visible !important;
+  padding-bottom: 0 !important;
+}
+
+.discover-page {
+  min-height: calc(100vh - var(--discover-header-h));
+  min-height: calc(100svh - var(--discover-header-h));
+  padding-bottom: calc(var(--discover-nav-h) + 24px);
+  color: #fff;
+}
+
+.discover-content-shell {
+  position: relative;
+  width: var(--discover-content-w);
+  margin: 0 auto;
+  padding-top: var(--discover-top-gap);
+}
+
+.discover-streak-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 41px;
+  padding: 0 25px;
+  border: 1px solid rgba(179, 86, 226, 0.42);
+  border-radius: 14px;
+  background: rgba(42, 15, 77, 0.68);
+  box-shadow: inset 0 0 22px rgba(230, 72, 190, 0.08);
+}
+
+.discover-streak-banner > div,
+.discover-streak-banner button {
+  font-size: 16px !important;
+}
+
+.discover-streak-banner button {
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+
+.discover-hero-live {
+  position: relative;
+  height: var(--discover-hero-h);
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: clamp(10px, 1.55vw, 18px);
+  background-image: url('/discover-hero-card.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  box-shadow: 0 16px 34px rgba(12, 5, 42, 0.28);
+}
+
+.discover-social-cta {
+  position: absolute;
+  bottom: 7.5%;
+  left: 3.25%;
+  z-index: 2;
+  height: clamp(34px, calc(var(--discover-hero-h) * 0.128), 40px) !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  padding: 0 clamp(14px, calc(var(--discover-hero-h) * 0.055), 17px) !important;
+  background: linear-gradient(100deg, #ef3e96 0%, #7b3cff 100%) !important;
+  color: #fff !important;
+  font-size: clamp(13px, calc(var(--discover-hero-h) * 0.048), 15px) !important;
+  font-weight: 800 !important;
+  box-shadow: 0 10px 24px rgba(212, 59, 207, 0.24) !important;
+}
+
+.discover-social-cta::after {
+  content: "›";
+  margin-left: 11px;
+  font-size: 24px;
+  line-height: 0;
+}
+
+.discover-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: var(--discover-hero-gap);
+}
+
+.discover-status {
+  margin-top: 14px;
+  border: 1px solid rgba(190, 110, 255, 0.34);
+  border-radius: 10px;
+  background: rgba(14, 8, 48, 0.75);
+  padding: 14px 16px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.discover-status-error {
+  color: #ffd0e7;
+  border-color: rgba(244, 114, 182, 0.42);
+}
+
+.discover-profile-card {
+  height: var(--discover-card-h);
+  border-color: rgba(187, 90, 238, 0.66) !important;
+  border-radius: 10px !important;
+  background: rgba(27, 9, 72, 0.92) !important;
+  box-shadow: 0 18px 34px rgba(7, 4, 32, 0.28) !important;
+}
+
+.discover-profile-card:hover {
+  transform: translateY(-1px) !important;
+}
+
+.discover-profile-photo,
+.discover-profile-photo img {
+  height: var(--discover-photo-h) !important;
+}
+
+.discover-profile-photo img {
+  object-fit: cover;
+}
+
+.discover-super-like {
+  top: 10px !important;
+  right: 12px !important;
+  width: 42px !important;
+  height: 42px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(18, 19, 34, 0.6) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px);
+}
+
+.discover-super-like svg {
+  width: 22px !important;
+  height: 22px !important;
+}
+
+.discover-profile-content {
+  padding: 13px 18px 16px !important;
+}
+
+.discover-profile-content > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 7px !important;
+}
+
+.discover-profile-content > div:first-child .font-semibold {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.discover-profile-content .text-sm {
+  font-size: 16px !important;
+}
+
+.discover-profile-content .text-xs {
+  font-size: 13px !important;
+}
+
+.discover-profile-content .flex.flex-wrap .rounded-full {
+  background: rgba(104, 64, 180, 0.5) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.1 !important;
+  padding: 2px 7px !important;
+}
+
+.discover-view-profile {
+  height: 43px !important;
+  margin-top: 12px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(100deg, #dc3d9d 0%, #7735f4 100%) !important;
+  color: #fff !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+.app-shell-discover .app-shell-bottom-nav {
+  z-index: 50;
+}
+
+.app-shell-discover .bottom-navigation-shell {
+  right: 9px !important;
+  bottom: 10px !important;
+  left: 9px !important;
+  height: var(--discover-nav-h);
+  overflow: hidden;
+  border: 1px solid rgba(130, 119, 188, 0.34) !important;
+  border-radius: 14px !important;
+  background: rgba(2, 3, 17, 0.88) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 -20px 40px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(12px);
+}
+
+.app-shell-discover .bottom-navigation-shell > div {
+  height: 100%;
+  padding: 0 42px !important;
+}
+
+.app-shell-discover .bottom-navigation-shell a {
+  min-width: 84px;
+}
+
+.app-shell-discover .bottom-navigation-shell a > div > div {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.app-shell-discover .bottom-navigation-shell span {
+  margin-top: 9px !important;
+  font-size: 14px !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell-discover {
+    --discover-content-w: min(720px, calc(100vw - 28px));
+    --discover-top-gap: 12px;
+    --discover-hero-h: calc(var(--discover-content-w) * 0.3506);
+    --discover-card-h: auto;
+    --discover-photo-h: clamp(150px, 34vw, 220px);
+    --discover-nav-h: 86px;
+    overflow-y: auto;
+    background-size: auto 100% !important;
+  }
+
+  .discover-content-shell {
+    width: var(--discover-content-w);
+  }
+
+  .discover-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-profile-card {
+    height: auto;
+    min-height: 286px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell-discover {
+    --discover-header-h: 82px;
+    --discover-content-w: min(100vw - 20px, 520px);
+    --discover-top-gap: 10px;
+    --discover-hero-h: calc(var(--discover-content-w) * 0.3506);
+    --discover-nav-h: 82px;
+  }
+
+  .app-shell-discover .pride-header {
+    height: var(--discover-header-h);
+    margin-inline: 6px;
+  }
+
+  .app-shell-discover .pride-header h1 {
+    font-size: clamp(28px, 8vw, 34px) !important;
+  }
+
+  .app-shell-discover .pride-header-safety {
+    top: 10px !important;
+    left: 10px !important;
+  }
+
+  .app-shell-discover .pride-header-menu {
+    top: 10px !important;
+    right: 10px !important;
+  }
+
+  .app-shell-discover .app-shell-history-nav {
+    top: calc(var(--discover-header-h) + 12px);
+    left: 14px;
+  }
+
+  .discover-page {
+    height: auto;
+    min-height: calc(100svh - var(--discover-header-h));
+  }
+
+  .discover-content-shell {
+    padding-top: var(--discover-top-gap);
+  }
+
+  .discover-hero-live {
+    height: var(--discover-hero-h);
+  }
+
+  .app-shell-discover .bottom-navigation-shell > div {
+    padding: 0 10px !important;
+  }
+}
+
+@media (max-width: 1160px) {
+  .app-shell-discover {
+    --discover-history-row-h: 52px;
+    --discover-top-gap: 12px;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 860px) {
+  .app-shell-discover {
+    --discover-header-h: 86px;
+    --discover-top-gap: 16px;
+    --discover-hero-h: calc(var(--discover-content-w) * 0.3506);
+    --discover-hero-gap: 18px;
+    --discover-card-h: clamp(264px, 31svh, 292px);
+    --discover-photo-h: clamp(118px, 15svh, 136px);
+    --discover-nav-h: 88px;
+  }
+
+  .app-shell-discover .app-shell-history-nav {
+    top: calc(var(--discover-header-h) + 12px);
+  }
+
+  .discover-streak-banner {
+    height: 38px;
+  }
+}
+
+@media (min-width: 901px) and (max-height: 740px) {
+  .app-shell-discover {
+    --discover-header-h: 76px;
+    --discover-top-gap: 12px;
+    --discover-hero-h: calc(var(--discover-content-w) * 0.3506);
+    --discover-hero-gap: 16px;
+    --discover-card-h: 258px;
+    --discover-photo-h: 116px;
+    --discover-nav-h: 78px;
+  }
+
+  .app-shell-discover .pride-header {
+    border-radius: 20px !important;
+  }
+
+  .app-shell-discover .pride-header h1 {
+    font-size: 34px !important;
+  }
+
+  .app-shell-discover .app-shell-history-nav button {
+    height: 30px;
+    font-size: 14px;
+    padding-inline: 14px;
+  }
+
+  .discover-streak-banner {
+    height: 34px;
+  }
+
+  .discover-streak-banner > div,
+  .discover-streak-banner button {
+    font-size: 14px !important;
+  }
+
+  .discover-profile-content {
+    padding: 10px 16px 12px !important;
+  }
+
+  .discover-profile-content > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 5px !important;
+  }
+
+  .discover-view-profile {
+    height: 38px !important;
+    margin-top: 8px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell-discover .pride-header-safety a {
+    width: 32px;
+    max-width: 32px;
+    overflow: hidden;
+    justify-content: center;
+    padding: 0 !important;
+    font-size: 0 !important;
+    white-space: nowrap;
+  }
+
+  .app-shell-discover .pride-header-safety a svg {
+    flex: none;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .app-shell-discover .bottom-navigation-shell a {
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    justify-content: center;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    transform: none !important;
+  }
+
+  .app-shell-discover .bottom-navigation-shell > div {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    justify-content: stretch !important;
+    justify-items: center;
+    width: 100%;
+    padding: 0 8px !important;
+  }
+
+  .app-shell-discover .bottom-navigation-shell a > div > div {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .app-shell-discover .bottom-navigation-shell span {
+    display: none;
+  }
+}

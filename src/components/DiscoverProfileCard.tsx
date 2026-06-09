@@ -61,10 +61,10 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
   };
 
   return (
-    <Card className="bg-violet-950/90 border-violet-400/35 text-white overflow-hidden shadow-xl hover:shadow-pink-500/20 hover:scale-[1.01] transition-all duration-200">
+    <Card className="discover-profile-card bg-violet-950/90 border-violet-400/35 text-white overflow-hidden shadow-xl hover:shadow-pink-500/20 hover:scale-[1.01] transition-all duration-200">
       <div className="relative">
         {showPhoto ? (
-          <div className="h-52 w-full">
+          <div className="discover-profile-photo h-52 w-full">
             <img
               src={photo}
               alt={name}
@@ -74,7 +74,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
             />
           </div>
         ) : (
-          <div className="h-52 w-full bg-white/5 flex items-center justify-center text-white/60">
+          <div className="discover-profile-photo h-52 w-full bg-white/5 flex items-center justify-center text-white/60">
             No photo yet
           </div>
         )}
@@ -92,7 +92,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
           type="button"
           onClick={handleSuperLike}
           disabled={superLiked || superLiking}
-          className={`absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+          className={`discover-super-like absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
             superLiked
               ? "bg-yellow-400 text-white shadow-lg shadow-yellow-400/40"
               : "bg-black/50 text-white/80 hover:bg-yellow-400/80 hover:text-white"
@@ -103,7 +103,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
         </button>
       </div>
 
-      <CardContent className="p-4 space-y-2">
+      <CardContent className="discover-profile-content p-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-base">{name}</span>
@@ -160,7 +160,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
         )}
 
         <Button
-          className="w-full mt-1 bg-gradient-to-r from-pink-500/80 to-purple-600/80 hover:from-pink-500 hover:to-purple-600 border-0"
+          className="discover-view-profile w-full mt-1 bg-gradient-to-r from-pink-500/80 to-purple-600/80 hover:from-pink-500 hover:to-purple-600 border-0"
           onClick={() => navigate(`/profile/${profile.id}`)}
         >
           View profile

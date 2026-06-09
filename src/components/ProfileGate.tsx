@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useProfileStatus } from "@/hooks/useProfileStatus";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type Props = {
   children: React.ReactNode;
@@ -9,6 +10,10 @@ type Props = {
 export const ProfileGate: React.FC<Props> = ({ children }) => {
   const { status } = useProfileStatus();
   const location = useLocation();
+
+  if (import.meta.env.DEV && !isSupabaseConfigured) {
+    return <>{children}</>;
+  }
 
   if (status === "loading") {
     return (
