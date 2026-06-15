@@ -7,7 +7,7 @@ import { ResponsiveWrapper } from '@/components/ResponsiveWrapper';
 
 const EventsPage: React.FC = () => {
   return (
-    <div className="page-gradient min-h-screen flex flex-col relative">
+    <div className="h-full flex flex-col">
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-pink-400/20 rounded-full floating-orb blur-xl"></div>

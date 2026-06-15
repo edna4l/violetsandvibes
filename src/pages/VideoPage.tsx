@@ -46,7 +46,7 @@ const VideoPage: React.FC = () => {
 
   if (authLoading || tierLoading) {
     return (
-      <div className="page-gradient min-h-screen flex items-center justify-center text-white/85">
+      <div className="h-full flex items-center justify-center text-white/85">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Checking video access…
@@ -57,7 +57,7 @@ const VideoPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="page-gradient min-h-screen flex items-center justify-center px-4">
+      <div className="h-full flex items-center justify-center px-4">
         <div className="glass-pride rounded-2xl p-6 w-full max-w-md">
           <p className="text-white/90 mb-4">Sign in to use video chat.</p>
           <button
@@ -73,7 +73,7 @@ const VideoPage: React.FC = () => {
 
   if (!SUBSCRIPTION_FEATURES[tier].videoChat) {
     return (
-      <div className="page-gradient min-h-screen flex items-center justify-center px-4">
+      <div className="h-full flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <SubscriptionGate
             requiredTier="premium"
@@ -87,7 +87,7 @@ const VideoPage: React.FC = () => {
   }
 
   return (
-    <div className="page-gradient min-h-screen flex flex-col relative">
+    <div className="h-full flex flex-col">
       {/* Animated Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-pink-400/20 rounded-full floating-orb blur-xl"></div>

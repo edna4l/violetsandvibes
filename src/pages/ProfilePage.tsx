@@ -116,8 +116,8 @@ const ProfilePage: React.FC = () => {
 
   const profilePhoto = useMemo(() => {
     const p = profile?.photos?.[0];
-    return p || "";
-  }, [profile?.photos]);
+    return p || (profile?.avatar_url ?? "").trim();
+  }, [profile?.photos, profile?.avatar_url]);
 
   useEffect(() => {
     if (!profile || editing) return;
@@ -436,7 +436,7 @@ const ProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="page-calm min-h-screen flex items-center justify-center p-4">
+      <div className="h-full flex items-center justify-center p-4">
         <div className="glass-pride rounded-2xl p-6 w-full max-w-md text-center relative z-10">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-white" />
           <p className="text-white/90">Loading profile…</p>
@@ -448,7 +448,7 @@ const ProfilePage: React.FC = () => {
   if (error || !profile) {
     const isMeRoute = !id; // /profile
     return (
-      <div className="page-calm min-h-screen flex items-center justify-center p-4">
+      <div className="h-full flex items-center justify-center p-4">
         <Card className="bg-black/70 border-white/15 text-white w-full max-w-md relative z-10">
           <CardContent className="p-6 text-center space-y-3">
             <div className="text-xl font-semibold">No profile found</div>
@@ -478,7 +478,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="page-calm min-h-screen p-4">
+    <div className="h-full p-4">
       <div className="max-w-2xl mx-auto space-y-6 relative z-10">
         {/* Header card */}
         <Card className="bg-black/70 border-white/15 text-white overflow-hidden">

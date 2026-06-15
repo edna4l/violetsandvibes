@@ -96,6 +96,20 @@ const Index: React.FC = () => {
           <span className="vv-hero-heart vv-hero-heart-3">♥</span>
         </div>
         <div className="vv-hero-text-col">
+          <span aria-hidden className="vv-hero-star vv-hero-star-8">✦</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-9">✧</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-10">✦</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-11">✧</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-12">✦</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-13">✦</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-14">✧</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-15">✦</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-16">✧</span>
+          <span aria-hidden className="vv-hero-star vv-hero-star-17">✦</span>
+          <span aria-hidden className="vv-hero-heart vv-hero-heart-4">♥</span>
+          <span aria-hidden className="vv-hero-heart vv-hero-heart-5">♥</span>
+          <span aria-hidden className="vv-hero-heart vv-hero-heart-6">♥</span>
+          <span aria-hidden className="vv-hero-heart vv-hero-heart-7">♥</span>
           <h2 className="vv-hero-heading">Discover</h2>
           <p className="vv-hero-tagline">Find your people and feel the vibe</p>
           <div className="vv-hero-pills" aria-label="Platform values">

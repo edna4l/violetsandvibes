@@ -35,7 +35,7 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
 
   const name = profile.full_name || "Member";
   const bio = (profile.bio || "").trim();
-  const photo = profile.photos?.[0];
+  const photo = profile.photos?.[0] || (profile.avatar_url ?? "").trim();
   const showPhoto = !!photo && !imageFailed;
   const age = calcAge(profile.birthdate);
   const online = isOnline(profile.last_active_at);

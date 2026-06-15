@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import BottomNavigation from "@/components/BottomNavigation";
 import {
   Dialog,
   DialogContent,
@@ -193,7 +192,7 @@ const GroupsPage: React.FC = () => {
   const discover = filtered.filter((g) => !g.isMember);
 
   return (
-    <div className="page-gradient min-h-screen flex flex-col">
+    <div className="h-full flex flex-col">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-32 h-32 bg-pink-400/20 rounded-full floating-orb blur-xl" />
         <div className="absolute bottom-40 right-20 w-24 h-24 bg-purple-400/20 rounded-full floating-orb blur-lg" style={{ animationDelay: "2s" }} />
@@ -276,8 +275,6 @@ const GroupsPage: React.FC = () => {
           )}
         </div>
       </div>
-
-      <BottomNavigation />
 
       {/* Create group dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

@@ -48,7 +48,7 @@ const FiltersPage: React.FC = () => {
 
   if (authLoading || tierLoading) {
     return (
-      <div className="page-calm min-h-screen flex items-center justify-center text-white/80">
+      <div className="h-full flex items-center justify-center text-white/80">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Checking access…
@@ -59,7 +59,7 @@ const FiltersPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="page-calm min-h-screen flex items-center justify-center px-4">
+      <div className="h-full flex items-center justify-center px-4">
         <div className="glass-pride rounded-2xl p-6 w-full max-w-md">
           <p className="text-white/85 mb-4">Sign in to use advanced filters.</p>
           <button
@@ -75,7 +75,7 @@ const FiltersPage: React.FC = () => {
 
   if (tier === 'free') {
     return (
-      <div className="page-calm min-h-screen flex items-center justify-center px-4">
+      <div className="h-full flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <SubscriptionGate
             requiredTier="premium"
@@ -89,7 +89,7 @@ const FiltersPage: React.FC = () => {
   }
 
   return (
-    <div className="page-calm min-h-screen flex flex-col relative">
+    <div className="h-full flex flex-col">
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative z-10">
         <ResponsiveWrapper maxWidth="2xl" className="h-full">

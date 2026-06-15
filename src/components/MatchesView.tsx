@@ -66,14 +66,9 @@ const MatchesView: React.FC = () => {
     [blockedUserIds]
   );
 
-  const toUiMatch = (
-    row: MatchRow,
-    myId: string,
-    prof?: MatchProfileRow
-  ): UiMatch => {
+  const toUiMatch = (row: MatchRow, myId: string, prof?: MatchProfileRow): UiMatch => {
     const otherUserId = row.user1_id === myId ? row.user2_id : row.user1_id;
     const createdAtMs = new Date(row.created_at).getTime();
-
     return {
       matchId: row.id,
       conversationId: row.conversation_id,
@@ -85,8 +80,7 @@ const MatchesView: React.FC = () => {
       hasUnread: false,
       lastMessageText: null,
       lastMessageAt: null,
-      isNewMatch:
-        !Number.isNaN(createdAtMs) && Date.now() - createdAtMs <= NEW_MATCH_WINDOW_MS,
+      isNewMatch: !Number.isNaN(createdAtMs) && Date.now() - createdAtMs <= NEW_MATCH_WINDOW_MS,
     };
   };
 
@@ -139,31 +133,20 @@ const MatchesView: React.FC = () => {
 
   const openMatchChat = async (match: UiMatch) => {
     if (!user) return;
-
     try {
       setMatches((prev) =>
-        prev.map((m) =>
-          m.matchId === match.matchId ? { ...m, hasUnread: false } : m
-        )
+        prev.map((m) => m.matchId === match.matchId ? { ...m, hasUnread: false } : m)
       );
-
       let conversationId = match.conversationId;
       if (!conversationId) {
         conversationId = await getOrCreateDirectConversation(user.id, match.otherUserId);
         setMatches((prev) =>
-          prev.map((m) =>
-            m.matchId === match.matchId ? { ...m, conversationId } : m
-          )
+          prev.map((m) => m.matchId === match.matchId ? { ...m, conversationId } : m)
         );
       }
-
       navigate(`/chat?c=${conversationId}`);
     } catch (e: any) {
-      console.error("Failed to open chat from match:", e);
-      toast({
-        title: "Could not open chat",
-        description: e?.message || "Please try again.",
-      });
+      toast({ title: "Could not open chat", description: e?.message || "Please try again." });
     }
   };
 
@@ -179,42 +162,31 @@ const MatchesView: React.FC = () => {
     const run = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const blockedSet = await loadBlockedUserIdSet(user.id);
         const nextBlockedKey = Array.from(blockedSet).sort().join(",");
-        if (nextBlockedKey !== blockedUserIdsKey) {
-          setBlockedUserIds(blockedSet);
-        }
+        if (nextBlockedKey !== blockedUserIdsKey) setBlockedUserIds(blockedSet);
 
         const rows = await fetchMyMatches(user.id);
         const visibleRows = rows.filter((row) => {
-          const otherUserId = row.user1_id === user.id ? row.user2_id : row.user1_id;
-          return !blockedSet.has(otherUserId);
+          const otherId = row.user1_id === user.id ? row.user2_id : row.user1_id;
+          return !blockedSet.has(otherId);
         });
 
-        if (visibleRows.length === 0) {
-          setMatches([]);
-          return;
-        }
+        if (visibleRows.length === 0) { setMatches([]); return; }
 
         const { data: memRows, error: memErr } = await supabase
           .from("conversation_members")
           .select("conversation_id, last_read_at")
           .eq("user_id", user.id);
-
         if (memErr) throw memErr;
 
         const lastReadByConvo = new Map<string, string | null>();
-        (memRows ?? []).forEach((m: any) => {
-          lastReadByConvo.set(m.conversation_id, m.last_read_at ?? null);
-        });
+        (memRows ?? []).forEach((m: any) => lastReadByConvo.set(m.conversation_id, m.last_read_at ?? null));
 
-        const otherUserIds = Array.from(
-          new Set(
-            visibleRows.map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
-          )
-        );
+        const otherUserIds = Array.from(new Set(
+          visibleRows.map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
+        ));
 
         let profileRows: MatchProfileRow[] = [];
         if (otherUserIds.length > 0) {
@@ -222,7 +194,6 @@ const MatchesView: React.FC = () => {
             .from("profiles")
             .select("id, full_name, username, photos, location")
             .in("id", otherUserIds);
-
           if (profileError) throw profileError;
           profileRows = (data ?? []) as MatchProfileRow[];
         }
@@ -231,15 +202,11 @@ const MatchesView: React.FC = () => {
         profileRows.forEach((p) => profileById.set(p.id, p));
 
         const uiRows = visibleRows.map((m: MatchRow) => {
-          const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-          const prof = profileById.get(otherUserId);
-          return toUiMatch(m, user.id, prof);
+          const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+          return toUiMatch(m, user.id, profileById.get(otherId));
         });
 
-        const convoIds = uiRows
-          .map((m) => m.conversationId)
-          .filter(Boolean) as string[];
-
+        const convoIds = uiRows.map((m) => m.conversationId).filter(Boolean) as string[];
         if (convoIds.length > 0) {
           const { data: msgRows, error: msgErr } = await supabase
             .from("messages")
@@ -248,21 +215,12 @@ const MatchesView: React.FC = () => {
             .order("created_at", { ascending: false })
             .limit(200);
 
-          if (msgErr) {
-            console.warn("last message lookup failed:", msgErr.message);
-          } else {
+          if (!msgErr) {
             const latestByConvo = new Map<string, { body: string; created_at: string }>();
-
             for (const r of msgRows ?? []) {
-              // Ordered desc: first message seen per conversation is the latest
-              if (!latestByConvo.has(r.conversation_id)) {
-                latestByConvo.set(r.conversation_id, {
-                  body: r.body,
-                  created_at: r.created_at,
-                });
-              }
+              if (!latestByConvo.has(r.conversation_id))
+                latestByConvo.set(r.conversation_id, { body: r.body, created_at: r.created_at });
             }
-
             uiRows.forEach((m) => {
               if (!m.conversationId) return;
               const latest = latestByConvo.get(m.conversationId);
@@ -274,32 +232,21 @@ const MatchesView: React.FC = () => {
         }
 
         uiRows.forEach((m) => {
-          if (!m.conversationId) {
-            m.hasUnread = false;
-            return;
-          }
-
+          if (!m.conversationId) { m.hasUnread = false; return; }
           const lastReadAt = lastReadByConvo.get(m.conversationId) ?? null;
-          m.hasUnread =
-            !!m.lastMessageAt &&
-            (!lastReadAt ||
-              new Date(m.lastMessageAt).getTime() > new Date(lastReadAt).getTime());
+          m.hasUnread = !!m.lastMessageAt &&
+            (!lastReadAt || new Date(m.lastMessageAt).getTime() > new Date(lastReadAt).getTime());
         });
 
         uiRows.sort((a, b) => {
           if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
-          const ta = a.lastMessageAt
-            ? new Date(a.lastMessageAt).getTime()
-            : new Date(a.createdAt).getTime();
-          const tb = b.lastMessageAt
-            ? new Date(b.lastMessageAt).getTime()
-            : new Date(b.createdAt).getTime();
+          const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : new Date(a.createdAt).getTime();
+          const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : new Date(b.createdAt).getTime();
           return tb - ta;
         });
 
         setMatches(uiRows);
       } catch (e: any) {
-        console.error("Failed to load matches:", e);
         setError(e?.message || "Failed to load matches");
       } finally {
         setLoading(false);
@@ -311,75 +258,44 @@ const MatchesView: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel(`vv-matches-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "matches" },
-        async (payload) => {
-          const row = (payload as any).new as MatchRow | undefined;
-          if (!row) return;
-          if (row.user1_id !== user.id && row.user2_id !== user.id) return;
-
-          const otherUserId = row.user1_id === user.id ? row.user2_id : row.user1_id;
-          if (blockedUserIds.has(otherUserId)) return;
-          const { data: profileRow } = await supabase
-            .from("profiles")
-            .select("id, full_name, username, photos, location")
-            .eq("id", otherUserId)
-            .maybeSingle();
-
-          const ui = toUiMatch(row, user.id, (profileRow as MatchProfileRow | null) ?? undefined);
-
-          setMatches((prev) => {
-            if (prev.some((m) => m.matchId === row.id)) return prev;
-            return [ui, ...prev];
-          });
-          toast({
-            title: "New match 💜",
-            description: `You matched with ${ui.name}.`,
-          });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "matches" },
-        (payload) => {
-          const row = (payload as any).new as MatchRow | undefined;
-          if (!row) return;
-          if (row.user1_id !== user.id && row.user2_id !== user.id) return;
-
-          setMatches((prev) =>
-            prev.map((m) =>
-              m.matchId === row.id
-                ? { ...m, conversationId: row.conversation_id }
-                : m
-            )
-          );
-        }
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "matches" }, async (payload) => {
+        const row = (payload as any).new as MatchRow | undefined;
+        if (!row) return;
+        if (row.user1_id !== user.id && row.user2_id !== user.id) return;
+        const otherUserId = row.user1_id === user.id ? row.user2_id : row.user1_id;
+        if (blockedUserIds.has(otherUserId)) return;
+        const { data: profileRow } = await supabase
+          .from("profiles").select("id, full_name, username, photos, location")
+          .eq("id", otherUserId).maybeSingle();
+        const ui = toUiMatch(row, user.id, (profileRow as MatchProfileRow | null) ?? undefined);
+        setMatches((prev) => {
+          if (prev.some((m) => m.matchId === row.id)) return prev;
+          return [ui, ...prev];
+        });
+        toast({ title: "New match 💜", description: `You matched with ${ui.name}.` });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "matches" }, (payload) => {
+        const row = (payload as any).new as MatchRow | undefined;
+        if (!row) return;
+        if (row.user1_id !== user.id && row.user2_id !== user.id) return;
+        setMatches((prev) =>
+          prev.map((m) => m.matchId === row.id ? { ...m, conversationId: row.conversation_id } : m)
+        );
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id, toast, blockedUserIdsKey]);
 
-  const newMatches = useMemo(
-    () => matches.filter((m) => m.isNewMatch),
-    [matches]
-  );
-  const oldMatches = useMemo(
-    () => matches.filter((m) => !m.isNewMatch),
-    [matches]
-  );
+  const newMatches = useMemo(() => matches.filter((m) => m.isNewMatch), [matches]);
+  const oldMatches = useMemo(() => matches.filter((m) => !m.isNewMatch), [matches]);
 
   if (authLoading || loading) {
     return (
-      <div className="padding-responsive">
-        <div className="text-white/80 flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" />
+      <div className="vv-matches-content">
+        <div className="vv-matches-loading">
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
           Loading matches…
         </div>
       </div>
@@ -388,93 +304,61 @@ const MatchesView: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="padding-responsive text-white/80">
-        Please sign in to see your matches.
+      <div className="vv-matches-content">
+        <p className="vv-matches-none">Please sign in to see your matches.</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="padding-responsive">
-        <div className="text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2">
-          {error}
-        </div>
+      <div className="vv-matches-content">
+        <div className="vv-matches-error">{error}</div>
       </div>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
-        {/* Illustration area */}
-        <div className="relative w-52 h-60 mb-6 flex items-center justify-center">
-          {/* Background glow */}
-          <div className="absolute inset-0 rounded-full bg-violet-600/15 blur-3xl" />
-          {/* Outer ring */}
-          <div className="absolute w-44 h-44 rounded-full border border-violet-400/20 bg-violet-900/30" />
-          {/* Inner decoration */}
-          <div className="relative w-32 h-32 rounded-full bg-gradient-to-b from-violet-700/50 to-violet-900/60 border border-violet-400/30 flex items-center justify-center shadow-xl shadow-violet-900/50">
-            <div className="flex flex-col items-center gap-1">
-              <Heart className="w-10 h-10 fill-violet-300/60 text-violet-300/60" />
-              <div className="w-10 h-px bg-violet-400/40 rounded" />
-              <Heart className="w-6 h-6 fill-pink-400/60 text-pink-400/60" />
-            </div>
-          </div>
-          {/* Floating hearts */}
-          <Heart className="absolute top-6 right-8 w-8 h-8 fill-pink-400 text-pink-400 drop-shadow-lg" />
-          <Heart className="absolute top-14 right-2 w-6 h-6 fill-violet-400 text-violet-400 drop-shadow-lg" />
-          {/* Sparkle dots */}
-          <span className="absolute top-4 left-8 w-1.5 h-1.5 rounded-full bg-violet-300/60" />
-          <span className="absolute bottom-10 right-14 w-1 h-1 rounded-full bg-pink-300/60" />
-          <span className="absolute top-20 left-4 w-1 h-1 rounded-full bg-violet-200/50" />
+      <div className="vv-matches-empty">
+        <div className="vv-matches-empty-emoji" aria-hidden>🌙💜🌸</div>
+        <div className="vv-matches-empty-label">
+          <Heart className="w-5 h-5 fill-current" aria-hidden />
+          Matches
         </div>
-
-        {/* Label */}
-        <div className="flex items-center gap-2 mb-3">
-          <Heart className="w-5 h-5 fill-pink-400 text-pink-400" />
-          <span className="wedding-heading text-2xl rainbow-header">Matches</span>
-        </div>
-
-        <h2 className="text-2xl font-bold text-white mb-2">No matches yet.</h2>
-        <p className="text-white/70 text-base mb-8">Keep connecting and check back soon.</p>
-
-        {/* Divider with flower */}
-        <div className="flex items-center gap-3 w-full max-w-xs">
-          <div className="flex-1 h-px bg-violet-400/30" />
-          <span className="text-violet-300 text-base">🌸</span>
-          <div className="flex-1 h-px bg-violet-400/30" />
+        <h2 className="vv-matches-empty-heading">No matches yet.</h2>
+        <p className="vv-matches-empty-body">Keep connecting and check back soon.</p>
+        <div className="vv-matches-empty-divider">
+          <span className="vv-matches-divider-line" aria-hidden />
+          <span aria-hidden>🌸</span>
+          <span className="vv-matches-divider-line" aria-hidden />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="padding-responsive">
+    <div className="vv-matches-content">
       {/* Tab switcher */}
-      <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
+      <div className="vv-matches-tabs" role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "matches" ? "true" : "false"}
           onClick={() => setActiveTab("matches")}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "matches"
-              ? "bg-gradient-to-r from-pink-500/80 to-purple-600/80 text-white shadow"
-              : "text-white/60 hover:text-white"
-          }`}
+          className={`vv-matches-tab${activeTab === "matches" ? " vv-matches-tab--active" : ""}`}
         >
-          <Heart className="w-4 h-4 inline mr-1.5" />
+          <Heart className="w-4 h-4" aria-hidden />
           Matches
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === "liked" ? "true" : "false"}
           onClick={() => setActiveTab("liked")}
-          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "liked"
-              ? "bg-gradient-to-r from-yellow-400/80 to-orange-500/80 text-white shadow"
-              : "text-white/60 hover:text-white"
-          }`}
+          className={`vv-matches-tab${activeTab === "liked" ? " vv-matches-tab--active-star" : ""}`}
         >
-          <Star className="w-4 h-4 inline mr-1.5" />
+          <Star className="w-4 h-4" aria-hidden />
           Liked Me
         </button>
       </div>
@@ -483,80 +367,75 @@ const MatchesView: React.FC = () => {
         <WhoLikedMeView />
       ) : (
         <>
-          {/* New Matches Section */}
-          <div className="mb-6">
-            <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
-              <Heart className="w-5 h-5 mr-2 text-red-400" />
+          {/* New Matches */}
+          <div className="vv-matches-section">
+            <h2 className="vv-matches-section-title">
+              <Heart className="w-4 h-4 fill-current" aria-hidden />
               New Matches
             </h2>
             {newMatches.length === 0 ? (
-              <div className="text-white/70 text-sm mt-2">No new matches this week.</div>
+              <p className="vv-matches-none">No new matches this week.</p>
             ) : (
-              <div className="flex space-x-4 overflow-x-auto pb-2">
+              <div className="vv-matches-bubble-row" aria-label="New matches">
                 {newMatches.map((match) => (
-                  <div key={match.matchId} className="flex-shrink-0 text-center">
+                  <div key={match.matchId} className="vv-match-bubble">
                     <button
                       type="button"
-                      className="block"
+                      className="vv-match-bubble-btn"
                       onClick={() => void openMatchChat(match)}
                     >
-                      <div className="relative">
+                      <div className="vv-match-bubble-avatar">
                         {match.photo ? (
                           <img
                             src={match.photo}
                             alt={match.name}
-                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-pink-400 shadow-lg"
+                            className="vv-match-bubble-img"
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-pink-400 shadow-lg bg-white/10 flex items-center justify-center text-white font-semibold">
+                          <div className="vv-match-bubble-placeholder">
                             {match.name.slice(0, 1).toUpperCase()}
                           </div>
                         )}
-                        <div className="absolute -top-1 -right-1 w-6 h-6 btn-pride rounded-full flex items-center justify-center">
+                        <div className="vv-match-sparkle-badge" aria-hidden>
                           <Sparkles className="w-3 h-3 text-white" />
                         </div>
                       </div>
-                      <p className="text-sm font-medium text-white mt-2">{match.name}</p>
-                      {match.location ? (
-                        <p className="text-xs text-white/70">{match.location}</p>
-                      ) : null}
+                      <p className="vv-match-bubble-name">{match.name}</p>
                     </button>
-                    <div className="mt-2 flex gap-1 justify-center flex-wrap">
+
+                    <div className="vv-match-bubble-actions">
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 rounded-md bg-white/10 text-white hover:bg-white/15"
+                        className="vv-match-action-btn"
                         onClick={() => void openMatchChat(match)}
                       >
                         Message
                       </button>
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 hover:bg-white/10"
+                        className="vv-match-action-btn"
                         onClick={() => navigate(`/profile/${match.otherUserId}`)}
                       >
-                        View profile
+                        Profile
                       </button>
                       <button
                         type="button"
-                        className={`text-xs px-2 py-1 rounded-md flex items-center gap-1 transition-colors ${
-                          icebreakerMatchId === match.matchId
-                            ? "bg-purple-500/30 text-purple-200 border border-purple-400/30"
-                            : "border border-white/20 text-white/90 hover:bg-white/10"
-                        }`}
+                        className={`vv-match-action-btn${icebreakerMatchId === match.matchId ? " vv-match-action-btn--ice" : ""}`}
                         onClick={() => void fetchIcebreakers(match)}
                       >
-                        <Wand2 className="w-3 h-3" />
-                        {icebreakerMatchId === match.matchId && icebreakerLoading ? "..." : "Icebreaker"}
+                        <Wand2 className="w-3 h-3" aria-hidden />
+                        {icebreakerMatchId === match.matchId && icebreakerLoading ? "…" : "Icebreaker"}
                       </button>
                     </div>
+
                     {icebreakerMatchId === match.matchId && !icebreakerLoading && icebreakerSuggestions.length > 0 && (
-                      <div className="mt-2 space-y-1 w-40">
+                      <div className="vv-icebreaker-list">
                         {icebreakerSuggestions.map((s, i) => (
                           <button
                             key={i}
                             type="button"
-                            className="w-full text-left text-xs px-2 py-1.5 rounded-lg bg-purple-500/20 border border-purple-400/30 text-white/90 hover:bg-purple-500/30 transition-colors leading-snug"
+                            className="vv-icebreaker-btn"
                             onClick={() => void sendIcebreaker(match, s)}
                           >
                             {s}
@@ -570,67 +449,45 @@ const MatchesView: React.FC = () => {
             )}
           </div>
 
-          {/* Messages Section */}
-          <div>
-            <h2 className="wedding-heading text-lg font-semibold rainbow-header flex items-center">
-              <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
+          {/* Messages */}
+          <div className="vv-matches-section">
+            <h2 className="vv-matches-section-title">
+              <MessageCircle className="w-4 h-4" aria-hidden />
               Messages
             </h2>
             {oldMatches.length === 0 ? (
-              <div className="text-white/70 text-sm mt-2">No message threads yet.</div>
+              <p className="vv-matches-none">No message threads yet.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="vv-matches-list">
                 {oldMatches.map((match) => (
                   <button
                     key={match.matchId}
                     type="button"
-                    className="w-full text-left glass-pride-strong p-4 rounded-xl hover:scale-[1.01] transition-all duration-200"
+                    className="vv-match-row"
                     onClick={() => void openMatchChat(match)}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        {match.photo ? (
-                          <img
-                            src={match.photo}
-                            alt={match.name}
-                            className="w-12 h-12 rounded-full object-cover border-2 border-pink-400"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-pink-400 flex items-center justify-center text-white font-semibold">
-                            {match.name.slice(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                        {match.hasUnread && (
-                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-white truncate">{match.name}</h3>
-                          <span className="text-xs text-white/60 shrink-0">
-                            {timeAgo(match.lastMessageAt || match.createdAt)}
-                          </span>
+                    <div className="vv-match-row-avatar">
+                      {match.photo ? (
+                        <img src={match.photo} alt={match.name} loading="lazy" />
+                      ) : (
+                        <div className="vv-match-row-avatar-placeholder">
+                          {match.name.slice(0, 1).toUpperCase()}
                         </div>
-                        <p className="text-sm text-white/80 truncate">
-                          {match.lastMessageText ? match.lastMessageText : "Tap to open chat"}
-                        </p>
-                        {match.location ? (
-                          <p className="text-xs text-white/60 truncate">{match.location}</p>
-                        ) : null}
-                        <div className="mt-2">
-                          <span
-                            role="link"
-                            className="text-xs px-2 py-1 rounded-md border border-white/20 text-white/90 cursor-pointer hover:bg-white/10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/profile/${match.otherUserId}`);
-                            }}
-                          >
-                            View profile
-                          </span>
-                        </div>
+                      )}
+                      {match.hasUnread && <span className="vv-match-unread-dot" aria-label="Unread message" />}
+                    </div>
+
+                    <div className="vv-match-row-info">
+                      <div className="vv-match-row-name-row">
+                        <span className="vv-match-row-name">{match.name}</span>
+                        <span className="vv-match-row-time">{timeAgo(match.lastMessageAt || match.createdAt)}</span>
                       </div>
+                      <p className="vv-match-row-preview">
+                        {match.lastMessageText ?? "Tap to open chat"}
+                      </p>
+                      {match.location && (
+                        <p className="vv-match-row-location">{match.location}</p>
+                      )}
                     </div>
                   </button>
                 ))}
