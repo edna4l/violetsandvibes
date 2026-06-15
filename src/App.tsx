@@ -44,7 +44,7 @@ function PushBootstrapper() {
 }
 
 const App = () => (
-  <ThemeProvider defaultTheme="light">
+  <ThemeProvider defaultTheme="dark">
     <QueryClientProvider client={queryClient}>
       <AppPreferencesBootstrapper />
       <TooltipProvider>

@@ -1,7 +1,4 @@
-import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Star, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -24,11 +21,15 @@ function isOnline(lastActiveAt?: string | null) {
   return Date.now() - new Date(lastActiveAt).getTime() < 5 * 60 * 1000;
 }
 
+function getInitials(name: string) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
 export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_active_at?: string | null; icebreaker_prompts?: Array<{ prompt: string; answer: string }> | null } }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [imageFailed, setImageFailed] = React.useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const [superLiked, setSuperLiked] = useState(false);
   const [superLiking, setSuperLiking] = useState(false);
 
@@ -61,111 +62,89 @@ export function DiscoverProfileCard({ profile }: { profile: ProfileRow & { last_
   };
 
   return (
-    <Card className="bg-violet-950/90 border-violet-400/35 text-white overflow-hidden shadow-xl hover:shadow-pink-500/20 hover:scale-[1.01] transition-all duration-200">
-      <div className="relative">
+    <li className="vv-profile-card">
+      <div className="vv-card-photo-wrap">
         {showPhoto ? (
-          <div className="h-52 w-full">
-            <img
-              src={photo}
-              alt={name}
-              className="h-52 w-full object-cover"
-              loading="lazy"
-              onError={() => setImageFailed(true)}
-            />
-          </div>
+          <img
+            src={photo}
+            alt={name}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
-          <div className="h-52 w-full bg-white/5 flex items-center justify-center text-white/60">
-            No photo yet
+          <div className="vv-card-photo-placeholder">
+            <span className="vv-photo-initials">{getInitials(name)}</span>
           </div>
         )}
 
-        {/* Online indicator */}
         {online && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/50 rounded-full px-2 py-0.5">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[11px] text-green-300 font-medium">Online</span>
+          <div className="vv-card-online-badge">
+            <span aria-hidden className="vv-card-online-dot" />
+            <span className="vv-card-online-text">Online</span>
           </div>
         )}
 
-        {/* Super like button */}
         <button
           type="button"
           onClick={handleSuperLike}
           disabled={superLiked || superLiking}
-          className={`absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-            superLiked
-              ? "bg-yellow-400 text-white shadow-lg shadow-yellow-400/40"
-              : "bg-black/50 text-white/80 hover:bg-yellow-400/80 hover:text-white"
-          }`}
-          title={superLiked ? "Super liked!" : "Super like"}
+          className={`vv-card-star-btn${superLiked ? ' vv-card-star-btn--starred' : ''}`}
+          aria-label={superLiked ? `Super liked ${name}` : `Super like ${name}`}
         >
-          <Star className={`w-4 h-4 ${superLiked ? "fill-current" : ""}`} />
+          <Star
+            size={16}
+            aria-hidden
+            className={superLiked ? "fill-yellow-400 text-yellow-400" : "text-[#a78bfa]"}
+          />
         </button>
       </div>
 
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-base">{name}</span>
-            {age !== null && (
-              <span className="text-sm text-white/70">{age}</span>
-            )}
-          </div>
-          {profile.location ? (
-            <div className="flex items-center gap-1 text-xs text-white/60 min-w-0">
-              <MapPin className="w-3 h-3 shrink-0" />
-              <span className="truncate">{profile.location}</span>
-            </div>
-          ) : null}
+      <div className="vv-card-body">
+        <div className="vv-card-name-row">
+          <span className="vv-card-name">{name}</span>
+          {age !== null && <span className="vv-card-age">{age}</span>}
         </div>
 
-        {/* Relationship type + interests badges */}
-        <div className="flex flex-wrap gap-1">
+        {profile.location && (
+          <div className="vv-card-location">
+            <MapPin size={11} aria-hidden />
+            <span>{profile.location}</span>
+          </div>
+        )}
+
+        <div className="vv-card-tags">
           {(profile as any).relationship_type && (
-            <Badge
-              variant="outline"
-              className="text-[11px] border-pink-400/40 text-pink-200 px-1.5 py-0"
-            >
-              {(profile as any).relationship_type}
-            </Badge>
+            <span className="vv-card-tag">{(profile as any).relationship_type}</span>
           )}
           {(profile as any).has_children && (
-            <Badge
-              variant="outline"
-              className="text-[11px] border-violet-400/40 text-violet-200 px-1.5 py-0"
-            >
-              Has children
-            </Badge>
+            <span className="vv-card-tag">Has children</span>
           )}
           {interests.map((interest) => (
-            <Badge
-              key={interest}
-              variant="outline"
-              className="text-[11px] border-violet-400/40 text-violet-200 px-1.5 py-0"
-            >
-              {String(interest).split(":").pop()?.trim() || interest}
-            </Badge>
+            <span key={String(interest)} className="vv-card-tag">
+              {String(interest).split(":").pop()?.trim() || String(interest)}
+            </span>
           ))}
         </div>
 
         {icebreaker ? (
-          <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
-            <p className="text-[11px] text-white/50 mb-0.5">{icebreaker.prompt}</p>
-            <p className="text-sm text-white/90 line-clamp-2">{icebreaker.answer}</p>
+          <div className="vv-card-icebreaker">
+            <p className="vv-card-icebreaker-prompt">{icebreaker.prompt}</p>
+            <p className="vv-card-icebreaker-answer">{icebreaker.answer}</p>
           </div>
         ) : bio ? (
-          <div className="text-sm text-white/85 line-clamp-2">{bio}</div>
+          <p className="vv-card-bio">{bio}</p>
         ) : (
-          <div className="text-sm text-white/50">No bio yet.</div>
+          <p className="vv-card-bio">No bio yet.</p>
         )}
 
-        <Button
-          className="w-full mt-1 bg-gradient-to-r from-pink-500/80 to-purple-600/80 hover:from-pink-500 hover:to-purple-600 border-0"
+        <button
+          type="button"
+          className="vv-view-profile-btn"
           onClick={() => navigate(`/profile/${profile.id}`)}
         >
           View profile
-        </Button>
-      </CardContent>
-    </Card>
+        </button>
+      </div>
+    </li>
   );
 }

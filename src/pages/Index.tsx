@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchDiscoverProfiles, type ProfileRow } from "@/lib/profiles";
 import { DiscoverProfileCard } from "@/components/DiscoverProfileCard";
-import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import BrandPrideCard from "@/components/BrandPrideCard";
+import { useNavigate } from "react-router-dom";
 import { useStreak } from "@/hooks/useStreak";
-import { Flame, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ChevronRight } from "lucide-react";
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -60,66 +58,84 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div className="page-calm min-h-screen p-4">
-      <div className="max-w-4xl mx-auto relative z-10">
-        {/* Streak banner */}
-        {currentStreak > 0 && (
-          <div className="mb-3 flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-400/20">
-            <div className="flex items-center gap-2 text-sm text-white/90">
-              <Flame className="w-4 h-4 text-orange-400" />
-              <span>
-                <strong className="text-orange-300">{currentStreak}-day streak</strong>
+    <div className="vv-discover-content">
+      {/* Streak banner */}
+      {currentStreak > 0 && (
+        <div className="vv-streak-banner" role="status" aria-label="Streak status">
+          <div className="vv-streak-left">
+            <div aria-hidden className="vv-flame-icon" />
+            <span className="vv-streak-text">
+              <strong>{currentStreak}-day streak</strong>
+              <span className="vv-streak-dash">
                 {currentStreak >= 7 ? " 🔥 On fire!" : " — keep it up!"}
               </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleShareProfile()}
-              className="flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              Share
-            </button>
+            </span>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => void handleShareProfile()}
+            className="vv-share-streak-btn"
+          >
+            Share
+          </button>
+        </div>
+      )}
 
-        <BrandPrideCard
-          title="Discover"
-          subtitle="Find your people and feel the vibe"
-          points={["Women-centered", "Inclusive", "Safety-first"]}
-          description="Meet people who value real connection and community."
-          className="mb-5"
-          cta={
-            user ? (
-              <Button asChild className="btn-pride-celebrate">
-                <Link to="/social">Go to Social</Link>
-              </Button>
-            ) : (
-              <Button asChild className="btn-pride-celebrate">
-                <Link to="/signin">Sign In to Start</Link>
-              </Button>
-            )
-          }
-        />
-
-        {loading ? (
-          <div className="text-white/70 relative z-10">Loading profiles...</div>
-        ) : error ? (
-          <div className="text-pink-200 bg-pink-900/20 border border-pink-400/30 rounded-md px-3 py-2 relative z-10">
-            {error}
+      {/* Hero section */}
+      <div className="vv-hero-body">
+        <div className="vv-hero-img-col" aria-hidden>
+          <span className="vv-hero-star vv-hero-star-1">✦</span>
+          <span className="vv-hero-star vv-hero-star-2">✧</span>
+          <span className="vv-hero-star vv-hero-star-3">✦</span>
+          <span className="vv-hero-star vv-hero-star-4">✦</span>
+          <span className="vv-hero-star vv-hero-star-5">✧</span>
+          <span className="vv-hero-star vv-hero-star-6">✦</span>
+          <span className="vv-hero-star vv-hero-star-7">✦</span>
+          <span className="vv-hero-heart vv-hero-heart-1">♥</span>
+          <span className="vv-hero-heart vv-hero-heart-2">♥</span>
+          <span className="vv-hero-heart vv-hero-heart-3">♥</span>
+        </div>
+        <div className="vv-hero-text-col">
+          <h2 className="vv-hero-heading">Discover</h2>
+          <p className="vv-hero-tagline">Find your people and feel the vibe</p>
+          <div className="vv-hero-pills" aria-label="Platform values">
+            <span>Women-centered</span>
+            <div aria-hidden className="vv-hero-pill-dot" />
+            <span>Inclusive</span>
+            <div aria-hidden className="vv-hero-pill-dot" />
+            <span>Safety-first</span>
           </div>
-        ) : rows.length === 0 ? (
-          <div className="text-white/70 relative z-10">
-            No profiles found. Invite a friend or check back soon 💜
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-            {rows.map((p) => (
-              <DiscoverProfileCard key={p.id} profile={p} />
-            ))}
-          </div>
-        )}
+          <p className="vv-hero-body-text">
+            Meet people who value real connection and community.
+          </p>
+          <button
+            type="button"
+            className="vv-hero-cta"
+            onClick={() => navigate('/social')}
+          >
+            Go to Social <ChevronRight size={13} aria-hidden />
+          </button>
+        </div>
       </div>
+
+      {/* Profile cards */}
+      {loading ? (
+        <p className="text-[#a29dc4]">Loading profiles…</p>
+      ) : error ? (
+        <p className="text-[#f472b6] bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-xl px-3 py-2">
+          {error}
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="text-[#a29dc4]">
+          No profiles found. Invite a friend or check back soon 💜
+        </p>
+      ) : (
+        <ul className="vv-cards-grid" aria-label="People to discover">
+          {rows.map((p) => (
+            <DiscoverProfileCard key={p.id} profile={p} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

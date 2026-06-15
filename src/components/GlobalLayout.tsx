@@ -1,24 +1,24 @@
 import React from 'react';
-import { PrideHeader } from './PrideHeader';
-import { BottomNavigation } from './BottomNavigation';
-import { ResponsiveWrapper } from './ResponsiveWrapper';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { BottomNavigation } from './BottomNavigation';
+import { HeaderDropdown } from './HeaderDropdown';
+import { StarCanvas } from './StarCanvas';
 
-const FLOAT_EMOJIS = ["💜","✨","🌸","💕","🦋","🌙","💫","🌺","⭐","🎶","🌷","💎","🌈","🥰"];
+const HEARTS = [
+  { pos: { left: '6%',  top: '32%' }, dur: '5s',   delay: '0s',   emoji: '💜' },
+  { pos: { left: '8%',  top: '55%' }, dur: '4.2s', delay: '1.4s', emoji: '🤍' },
+  { pos: { left: '4%',  top: '70%' }, dur: '6s',   delay: '2.8s', emoji: '💜' },
+  { pos: { right: '7%', top: '40%' }, dur: '4.8s', delay: '0.9s', emoji: '💜' },
+  { pos: { right: '5%', top: '62%' }, dur: '5.5s', delay: '2.1s', emoji: '🤍' },
+];
 
-const floatStyle = (i: number): React.CSSProperties => ({
-  position: "fixed",
-  fontSize: `${1.8 + (i % 3) * 0.55}rem`,
-  left: i % 2 === 0
-    ? `${4 + (i % 7) * 12}%`
-    : `${8 + (i % 6) * 14}%`,
-  bottom: `${-8 + (i % 4) * 2}%`,
-  animation: `float-up ${10 + i * 1.3}s ${i * 2.1}s infinite linear`,
-  pointerEvents: "none",
-  userSelect: "none",
-  zIndex: 30,
-});
+const SPARKLES = [
+  { pos: { top: '22%', right: '16%' }, char: '✦', dur: '3.5s', delay: '0s' },
+  { pos: { top: '35%', left: '17%'  }, char: '+',  dur: '4.2s', delay: '1.1s' },
+  { pos: { top: '60%', right: '20%' }, char: '✦', dur: '3.8s', delay: '2s' },
+  { pos: { top: '72%', left: '14%'  }, char: '+',  dur: '5s',   delay: '0.6s' },
+];
 
 interface GlobalLayoutProps {
   children: React.ReactNode;
@@ -27,114 +27,99 @@ interface GlobalLayoutProps {
   className?: string;
 }
 
-export const GlobalLayout: React.FC<GlobalLayoutProps> = ({ 
-  children, 
-  showHeader = true, 
+export const GlobalLayout: React.FC<GlobalLayoutProps> = ({
+  children,
+  showHeader = true,
   showBottomNav = true,
-  className = ""
+  className = '',
 }) => {
   const navigate = useNavigate();
 
   const handleMenuSelect = (action: string) => {
-    switch (action) {
-      case 'heroes':
-        navigate('/heroes');
-        break;
-      case 'vibes':
-        navigate('/vibes');
-        break;
-      case 'discover':
-        navigate('/discover');
-        break;
-      case 'profile':
-        navigate('/profile');
-        break;
-      case 'matches':
-        navigate('/matches');
-        break;
-      case 'social':
-        navigate('/social');
-        break;
-      case 'chat':
-        navigate('/chat');
-        break;
-      case 'video':
-        navigate('/video');
-        break;
-      case 'events':
-        navigate('/events');
-        break;
-      case 'calendar':
-        navigate('/calendar');
-        break;
-      case 'notifications':
-        navigate('/notifications');
-        break;
-      case 'verification':
-        navigate('/verification');
-        break;
-      case 'filters':
-        navigate('/filters');
-        break;
-      case 'settings':
-        navigate('/settings');
-        break;
-      case 'subscription':
-        navigate('/subscription');
-        break;
-      case 'admin':
-        navigate('/admin');
-        break;
-      case 'logout':
-        navigate('/signin');
-        break;
-      default:
-        break;
-    }
+    const routes: Record<string, string> = {
+      heroes: '/heroes', vibes: '/vibes', discover: '/discover',
+      profile: '/profile', matches: '/matches', social: '/social',
+      chat: '/chat', video: '/video', events: '/events',
+      calendar: '/calendar', notifications: '/notifications',
+      verification: '/verification', filters: '/filters',
+      settings: '/settings', subscription: '/subscription',
+      admin: '/admin', logout: '/signin',
+    };
+    if (routes[action]) navigate(routes[action]);
   };
 
   return (
-    <div className={`vibe-bg-animated min-h-screen flex flex-col relative ${className}`}>
-      {/* Floating themed emojis in background */}
-      {FLOAT_EMOJIS.map((emoji, i) => (
-        <span key={i} aria-hidden style={floatStyle(i)}>{emoji}</span>
+    <div className={`vv-page flex flex-col min-h-dvh overflow-x-hidden relative ${className}`}>
+      <StarCanvas />
+
+      {/* Floral panels */}
+      <div aria-hidden className="vv-floral-panel vv-floral-panel-left">
+        <img src="/vv-floral-left.png" alt="" />
+        <div className="vv-floral-overlay" />
+      </div>
+      <div aria-hidden className="vv-floral-panel vv-floral-panel-right">
+        <img src="/vv-floral-left.png" alt="" />
+        <div className="vv-floral-overlay" />
+      </div>
+
+      {/* Decorative hearts */}
+      {HEARTS.map((h, i) => (
+        <div
+          key={i}
+          aria-hidden
+          className="vv-deco-heart"
+          style={{ ...h.pos, '--dur': h.dur, '--delay': h.delay } as React.CSSProperties}
+        >
+          {h.emoji}
+        </div>
       ))}
 
-      {/* Header */}
-      {showHeader && (
-        <div className="relative z-20">
-          <PrideHeader
-            onMenuSelect={handleMenuSelect}
-            className="mb-0 sm:mb-0 md:mb-0"
-          />
-          {/* Back / Forward navigation bar */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/10">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 text-white font-semibold text-sm px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 shadow-md hover:opacity-90 active:scale-95 transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(1)}
-              className="flex items-center gap-1.5 text-white font-semibold text-sm px-4 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-md hover:opacity-90 active:scale-95 transition-all"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Sparkle crosses */}
+      {SPARKLES.map((s, i) => (
+        <div
+          key={i}
+          aria-hidden
+          className="vv-sparkle"
+          style={{ ...s.pos, '--dur': s.dur, '--delay': s.delay } as React.CSSProperties}
+        >
+          {s.char}
         </div>
+      ))}
+
+      {/* Rainbow bar */}
+      <div aria-hidden className="vv-rainbow-bar" />
+
+      {showHeader && (
+        <>
+          <header className="vv-header">
+            <Link to="/terms#community-standards" className="vv-safety-badge">
+              <div aria-hidden className="vv-shield-icon" />
+              Safety Standards
+            </Link>
+
+            <h1 className="vv-brand-title">Violets &amp; Vibes</h1>
+
+            <div className="flex items-center gap-2.5">
+              <div aria-hidden className="vv-online-dot" />
+              <HeaderDropdown onMenuSelect={handleMenuSelect} />
+            </div>
+          </header>
+
+          <nav aria-label="Page navigation" className="vv-subnav">
+            <button type="button" className="vv-subnav-btn" onClick={() => navigate(-1)}>
+              <ChevronLeft size={13} aria-hidden />Back
+            </button>
+            <button type="button" className="vv-subnav-btn" onClick={() => navigate(1)}>
+              Next<ChevronRight size={13} aria-hidden />
+            </button>
+          </nav>
+        </>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto pb-20">
+      <div className="flex-1 overflow-auto pb-20 relative z-[5]">
         {children}
       </div>
 
-      {/* Bottom Navigation */}
       {showBottomNav && (
         <div className="fixed bottom-0 left-0 right-0 z-30">
           <BottomNavigation />
