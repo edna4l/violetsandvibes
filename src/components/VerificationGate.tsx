@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { getVerificationState } from "@/lib/verification";
 import { isAdminBypassUser } from "@/lib/subscriptionTier";
 
@@ -16,7 +16,14 @@ export const VerificationGate: React.FC<Props> = ({ children }) => {
   const location = useLocation();
   const [status, setStatus] = useState<Status>("loading");
 
+  const useLocalPreviewBypass = import.meta.env.DEV && !isSupabaseConfigured;
+
   useEffect(() => {
+    if (useLocalPreviewBypass) {
+      setStatus("complete");
+      return;
+    }
+
     let cancelled = false;
 
     const run = async () => {
@@ -58,7 +65,11 @@ export const VerificationGate: React.FC<Props> = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, authLoading]);
+  }, [user?.id, authLoading, useLocalPreviewBypass]);
+
+  if (useLocalPreviewBypass) {
+    return <>{children}</>;
+  }
 
   if (status === "loading") {
     return (
