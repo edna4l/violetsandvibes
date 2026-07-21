@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(pkill -f \"node.*vite\")",
+      "Bash(node node_modules/.bin/vite --port 7777)",
+      "Bash(ps -p 28607 -o pid,command)",
+      "Bash(npm --version)",
+      "Bash(open -a \"Safari\" \"http://localhost:7777/\")",
+      "Bash(echo \"open exit: $?\")",
+      "Bash(node node_modules/.bin/vite --port 8080)",
+      "Bash(ps -p 28834 -o pid,state,command)",
+      "Bash(pkill -9 -f \"node.*vite\")",
+      "Bash(curl -v --max-time 10 -6 http://localhost:8080/)",
+      "Bash(open \"http://localhost:8080/\")",
+      "Bash(open \"http://localhost:8080/signin\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

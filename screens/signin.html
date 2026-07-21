@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Violets &amp; Vibes — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+    :root {
+      --bg: #07071a; --violet: #7c3aed; --violet-soft: #a78bfa;
+      --violet-faint: rgba(124, 58, 237, 0.15); --pink: #ec4899; --pink-hot: #f43f8e;
+      --orange-title: #f97316; --teal-title: #2dd4bf;
+      --text: #ede9fe; --text-muted: #a29dc4; --text-faint: #4c4570;
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Sans', system-ui, sans-serif;
+      --trans: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --trans-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+      --radius-full: 9999px; --radius-xl: 24px; --radius-lg: 14px; --radius-md: 10px;
+    }
+    body {
+      font-family: var(--font-body); color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(ellipse 70% 55% at 20% 65%, rgba(55, 10, 120, 0.6) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 45% at 80% 35%, rgba(70, 8, 130, 0.45) 0%, transparent 60%),
+        radial-gradient(ellipse 90% 60% at 50% 100%, rgba(35, 8, 80, 0.55) 0%, transparent 65%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100dvh; overflow: hidden; position: relative; padding: 16px;
+    }
+    button, input { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+    input { cursor: text; }
+    img { display: block; max-width: 100%; }
+    #star-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .floral-panel { position: fixed; top: 0; bottom: 0; width: clamp(100px, 15vw, 200px); z-index: 1; pointer-events: none; }
+    .floral-panel img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .floral-left { left: 0; }
+    .floral-right { right: 0; }
+    .floral-left::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, transparent 45%, #07071a 100%); }
+    .floral-right::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to left, transparent 45%, #07071a 100%); }
+    .right-deco { position: fixed; right: 0; top: 0; bottom: 0; width: clamp(140px, 20vw, 260px); z-index: 1; pointer-events: none; }
+    .right-deco img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .right-deco::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to left, transparent 40%, #07071a 95%); }
+    .deco-heart { position: fixed; pointer-events: none; z-index: 2; opacity: 0; font-size: 1.5rem; animation: heart-idle var(--hd, 4s) var(--hdelay, 0s) ease-in-out infinite; }
+    @keyframes heart-idle { 0%, 100% { opacity: 0; transform: translateY(3px) scale(0.8); } 40%, 60% { opacity: 0.7; transform: translateY(-5px) scale(1); } }
+    .sparkle-cross { position: fixed; pointer-events: none; z-index: 2; color: rgba(200, 180, 255, 0.65); font-size: 1rem; font-weight: 700; animation: sparkle-pulse var(--sp-dur, 4s) var(--sp-delay, 0s) ease-in-out infinite; }
+    @keyframes sparkle-pulse { 0%, 100% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1); } }
+    .card { position: relative; z-index: 10; width: min(500px, 100%); background: rgba(12, 7, 38, 0.72); border: 1px solid rgba(100, 60, 180, 0.28); border-radius: var(--radius-xl); overflow: hidden; backdrop-filter: blur(20px); box-shadow: 0 0 0 1px rgba(110, 55, 200, 0.08), 0 12px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(180, 140, 255, 0.06); }
+    .card-top { display: flex; align-items: center; gap: 0; position: relative; }
+    .avatar-wrap { flex-shrink: 0; width: clamp(130px, 28%, 180px); aspect-ratio: 1; position: relative; overflow: hidden; }
+    .avatar-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .avatar-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, transparent 55%, rgba(12, 7, 38, 0.72) 100%), linear-gradient(to bottom, transparent 60%, rgba(12, 7, 38, 0.72) 100%); }
+    .tagline { flex: 1; padding: 20px 22px 20px 12px; }
+    .tagline-text { font-family: var(--font-display); font-size: clamp(1.2rem, 3vw, 1.65rem); font-weight: 700; font-style: italic; line-height: 1.25; background: linear-gradient(135deg, #f472b6 0%, #c084fc 50%, #818cf8 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .top-divider { display: flex; align-items: center; justify-content: center; padding: 2px 0 10px; }
+    .sparkle-dot { color: rgba(180, 150, 255, 0.7); font-size: 0.9rem; animation: sparkle-pulse 3s ease-in-out infinite; }
+    .card-body { padding: 0 clamp(18px, 5%, 32px) clamp(18px, 4%, 28px); }
+    .community-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 18px; }
+    .leaf-sprig { display: flex; gap: 3px; align-items: center; }
+    .leaf-pip { width: 8px; height: 12px; background: #7c3aed; border-radius: 50% 50% 50% 0; opacity: 0.7; }
+    .leaf-pip:nth-child(2) { transform: rotate(30deg); opacity: 0.5; }
+    .leaf-pip:nth-child(3) { transform: rotate(60deg); opacity: 0.35; }
+    .leaf-sprig.right .leaf-pip { border-radius: 50% 50% 0 50%; }
+    .leaf-sprig.right .leaf-pip:nth-child(1) { transform: scaleX(-1); }
+    .leaf-sprig.right .leaf-pip:nth-child(2) { transform: rotate(-30deg) scaleX(-1); }
+    .leaf-sprig.right .leaf-pip:nth-child(3) { transform: rotate(-60deg) scaleX(-1); }
+    .community-label { font-family: var(--font-display); font-size: clamp(1rem, 2.5vw, 1.25rem); font-weight: 400; font-style: italic; color: var(--text); letter-spacing: 0.01em; white-space: nowrap; }
+    .tab-row { display: grid; grid-template-columns: 1fr 1fr; background: rgba(20, 10, 55, 0.7); border: 1px solid rgba(100, 60, 180, 0.3); border-radius: var(--radius-lg); padding: 4px; margin-bottom: 22px; }
+    .tab-btn { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; border-radius: 10px; font-size: 0.88rem; font-weight: 500; color: var(--text-muted); transition: background var(--trans), color var(--trans), box-shadow var(--trans); white-space: nowrap; }
+    .tab-btn.active { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; box-shadow: 0 2px 12px rgba(124, 58, 237, 0.45); }
+    .tab-btn:not(.active):hover { color: var(--text); background: rgba(100, 55, 180, 0.2); }
+    .tab-icon { width: 16px; height: 16px; position: relative; flex-shrink: 0; }
+    .icon-person::before { content: ''; width: 8px; height: 8px; border: 1.5px solid currentColor; border-radius: 50%; position: absolute; top: 0; left: 4px; }
+    .icon-person::after { content: ''; width: 14px; height: 7px; border: 1.5px solid currentColor; border-radius: 8px 8px 0 0; border-bottom: none; position: absolute; bottom: 0; left: 1px; }
+    .icon-person-plus::before { content: ''; width: 7px; height: 7px; border: 1.5px solid currentColor; border-radius: 50%; position: absolute; top: 0; left: 2px; }
+    .icon-person-plus::after { content: ''; width: 11px; height: 6px; border: 1.5px solid currentColor; border-radius: 6px 6px 0 0; border-bottom: none; position: absolute; bottom: 0; left: 0; }
+    .icon-plus-mark { position: absolute; top: -1px; right: -1px; width: 8px; height: 8px; display: flex; align-items: center; justify-content: center; }
+    .icon-plus-mark::before { content: '+'; font-size: 0.75rem; font-weight: 700; color: currentColor; line-height: 1; }
+    .field-group { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+    .field-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .field-label { font-size: 0.83rem; font-weight: 500; color: var(--text-muted); }
+    .forgot-link { font-size: 0.78rem; color: var(--text-muted); text-decoration: none; transition: color var(--trans); }
+    .forgot-link:hover { color: var(--violet-soft); }
+    .input-wrap { display: flex; align-items: center; background: rgba(18, 10, 52, 0.75); border: 1px solid rgba(100, 60, 180, 0.35); border-radius: var(--radius-md); transition: border-color var(--trans-slow), box-shadow var(--trans-slow); overflow: hidden; }
+    .input-wrap:focus-within { border-color: rgba(167, 139, 250, 0.65); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+    .input-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-faint); transition: color var(--trans); position: relative; }
+    .input-wrap:focus-within .input-icon { color: var(--violet-soft); }
+    .icon-mail::before { content: ''; width: 18px; height: 13px; border: 1.5px solid currentColor; border-radius: 3px; position: absolute; }
+    .icon-mail::after { content: ''; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 7px solid currentColor; position: absolute; top: 15px; }
+    .icon-lock::before { content: ''; width: 14px; height: 10px; border: 1.5px solid currentColor; border-radius: 2px; position: absolute; bottom: 12px; }
+    .icon-lock::after { content: ''; width: 8px; height: 7px; border: 1.5px solid currentColor; border-radius: 4px 4px 0 0; border-bottom: none; position: absolute; top: 10px; left: 18px; }
+    .field-input { flex: 1; height: 44px; padding: 0 14px 0 0; font-size: 0.9rem; color: var(--text); background: transparent; outline: none; }
+    .field-input::placeholder { color: var(--text-faint); }
+    .signin-btn { width: 100%; height: 50px; border-radius: var(--radius-lg); background: linear-gradient(135deg, #ec4899 0%, #a855f7 55%, #7c3aed 100%); font-size: 0.95rem; font-weight: 600; color: #fff; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 20px rgba(168, 85, 247, 0.45); transition: transform var(--trans), box-shadow var(--trans), filter var(--trans); position: relative; overflow: hidden; }
+    .signin-btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%); }
+    .signin-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(168, 85, 247, 0.6); filter: brightness(1.08); }
+    .signin-btn:active { transform: translateY(0); box-shadow: 0 2px 12px rgba(168, 85, 247, 0.4); }
+    .btn-sparkle { width: 14px; height: 14px; position: relative; flex-shrink: 0; }
+    .btn-sparkle::before, .btn-sparkle::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); border-radius: 2px; }
+    .btn-sparkle::before { width: 2px; height: 14px; top: 0; left: 6px; }
+    .btn-sparkle::after  { width: 14px; height: 2px; top: 6px; left: 0; }
+    .mid-divider { display: flex; align-items: center; justify-content: center; padding: 18px 0 16px; }
+    .mid-sparkle { color: rgba(167, 139, 250, 0.6); font-size: 0.85rem; animation: sparkle-pulse 3.5s 0.5s ease-in-out infinite; }
+    .card-footer { background: rgba(8, 4, 28, 0.6); border-top: 1px solid rgba(80, 40, 150, 0.2); padding: clamp(14px, 3%, 20px) clamp(18px, 5%, 32px); }
+    .values-text { text-align: center; font-family: var(--font-display); font-size: clamp(0.8rem, 1.8vw, 0.95rem); font-style: italic; line-height: 1.7; margin-bottom: 14px; }
+    .values-text span { background: linear-gradient(90deg, #f472b6 0%, #c084fc 50%, #818cf8 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .values-sparkle { color: rgba(167, 139, 250, 0.5); -webkit-text-fill-color: rgba(167, 139, 250, 0.5); font-size: 0.75rem; }
+    .values-icons { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 24px); margin-bottom: 16px; }
+    .vi-text { font-size: 1.4rem; line-height: 1; color: rgba(160, 130, 240, 0.65); display: flex; align-items: center; justify-content: center; }
+    .vi-plus-sep { font-size: 0.65rem; color: rgba(140, 110, 200, 0.45); }
+    .footer-links { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 3vw, 28px); }
+    .footer-link { font-size: 0.72rem; color: var(--text-faint); text-decoration: none; transition: color var(--trans); }
+    .footer-link:hover { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <canvas id="star-canvas"></canvas>
+  <div class="floral-panel floral-left"  aria-hidden="true"><img src="vv-floral-left.png"  alt="" /></div>
+  <div class="right-deco" aria-hidden="true"><img src="vv-signin-moon-crystal.png" alt="" /></div>
+  <div class="deco-heart" style="left:6%;top:38%;--hd:4s;--hdelay:0s"    aria-hidden="true">💜</div>
+  <div class="deco-heart" style="left:10%;top:58%;--hd:5.5s;--hdelay:1.4s" aria-hidden="true">💜</div>
+  <div class="sparkle-cross" style="top:10%;left:32%;--sp-dur:3.8s;--sp-delay:0s">+</div>
+  <div class="sparkle-cross" style="top:8%;right:34%;--sp-dur:4.5s;--sp-delay:1.2s">✦</div>
+  <div class="sparkle-cross" style="top:30%;left:26%;--sp-dur:5s;--sp-delay:0.5s">+</div>
+  <div class="sparkle-cross" style="bottom:22%;left:30%;--sp-dur:4.2s;--sp-delay:0.9s">✦</div>
+  <div class="sparkle-cross" style="bottom:15%;right:32%;--sp-dur:5.5s;--sp-delay:1.8s">+</div>
+  <div class="sparkle-cross" style="top:55%;right:28%;--sp-dur:3.6s;--sp-delay:2.2s">✦</div>
+  <main class="card" role="main" aria-label="Sign in to Violets and Vibes">
+    <div class="card-top">
+      <div class="avatar-wrap"><img src="vv-signin-avatar.png" alt="Violets and Vibes" /></div>
+      <div class="tagline"><p class="tagline-text">Friendship, dating, and community with intention</p></div>
+    </div>
+    <div class="top-divider" aria-hidden="true"><span class="sparkle-dot">✦</span></div>
+    <div class="card-body">
+      <div class="community-row">
+        <div class="leaf-sprig left" aria-hidden="true"><div class="leaf-pip"></div><div class="leaf-pip"></div><div class="leaf-pip"></div></div>
+        <h1 class="community-label">Join the Community</h1>
+        <div class="leaf-sprig right" aria-hidden="true"><div class="leaf-pip"></div><div class="leaf-pip"></div><div class="leaf-pip"></div></div>
+      </div>
+      <div class="tab-row" role="tablist" aria-label="Sign in or create account">
+        <button class="tab-btn active" role="tab" aria-selected="true" id="tab-signin" aria-controls="panel-signin">
+          <div class="tab-icon icon-person" aria-hidden="true"></div>Sign In
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false" id="tab-create" aria-controls="panel-create">
+          <div class="tab-icon icon-person-plus" aria-hidden="true"><div class="icon-plus-mark"></div></div>Create Account
+        </button>
+      </div>
+      <div id="panel-signin" role="tabpanel" aria-labelledby="tab-signin">
+        <div class="field-group">
+          <div>
+            <div class="field-label-row"><label class="field-label" for="email">Email</label></div>
+            <div class="input-wrap">
+              <div class="input-icon icon-mail" aria-hidden="true"></div>
+              <input class="field-input" id="email" type="email" placeholder="Enter your email" autocomplete="email" spellcheck="false" />
+            </div>
+          </div>
+          <div>
+            <div class="field-label-row">
+              <label class="field-label" for="password">Password</label>
+              <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+            <div class="input-wrap">
+              <div class="input-icon icon-lock" aria-hidden="true"></div>
+              <input class="field-input" id="password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+            </div>
+          </div>
+        </div>
+        <button class="signin-btn" type="submit" aria-label="Sign In">
+          <div class="btn-sparkle" aria-hidden="true"></div>Sign In
+        </button>
+      </div>
+      <div id="panel-create" role="tabpanel" aria-labelledby="tab-create" hidden>
+        <div class="field-group">
+          <div>
+            <div class="field-label-row"><label class="field-label" for="new-email">Email</label></div>
+            <div class="input-wrap">
+              <div class="input-icon icon-mail" aria-hidden="true"></div>
+              <input class="field-input" id="new-email" type="email" placeholder="Enter your email" autocomplete="email" />
+            </div>
+          </div>
+          <div>
+            <div class="field-label-row"><label class="field-label" for="new-password">Password</label></div>
+            <div class="input-wrap">
+              <div class="input-icon icon-lock" aria-hidden="true"></div>
+              <input class="field-input" id="new-password" type="password" placeholder="Create a password" autocomplete="new-password" />
+            </div>
+          </div>
+        </div>
+        <button class="signin-btn" type="submit" aria-label="Create Account">
+          <div class="btn-sparkle" aria-hidden="true"></div>Create Account
+        </button>
+      </div>
+      <div class="mid-divider" aria-hidden="true"><span class="mid-sparkle">✦</span></div>
+    </div>
+    <footer class="card-footer">
+      <p class="values-text">
+        <span class="values-sparkle">✦ </span><span>Women-centered · Inclusive · Safety-first</span><span class="values-sparkle"> ✦</span>
+      </p>
+      <div class="values-icons" aria-hidden="true">
+        <span class="vi-text">🛡️</span><span class="vi-plus-sep">+</span>
+        <span class="vi-text">🤝</span><span class="vi-plus-sep">+</span>
+        <span class="vi-text">🔥</span><span class="vi-plus-sep">+</span>
+        <span class="vi-text">🌸</span>
+      </div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Privacy Policy</a>
+        <a href="#" class="footer-link">Terms of Service</a>
+        <a href="#" class="footer-link">Data Deletion</a>
+      </div>
+    </footer>
+  </main>
+  <script>
+    (function () {
+      const canvas = document.getElementById('star-canvas');
+      const ctx = canvas.getContext('2d');
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      resize(); window.addEventListener('resize', resize);
+      const stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.8, maxOp: 0.25 + Math.random() * 0.65 }));
+      const crosses = Array.from({ length: 8 }, () => ({ x: 0.05 + Math.random() * 0.9, y: 0.05 + Math.random() * 0.85, size: 3 + Math.random() * 4, phase: Math.random() * Math.PI * 2, speed: 0.2 + Math.random() * 0.4, maxOp: 0.35 + Math.random() * 0.5 }));
+      let last = 0;
+      function draw(ts) {
+        const dt = Math.min((ts - last) / 1000, 0.05); last = ts;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        stars.forEach(s => { s.phase += s.speed * dt * Math.PI * 2; const op = s.maxOp * (0.5 + 0.5 * Math.sin(s.phase)); ctx.beginPath(); ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2); ctx.fillStyle = `rgba(220, 200, 255, ${op})`; ctx.fill(); });
+        crosses.forEach(c => { c.phase += c.speed * dt * Math.PI * 2; const op = c.maxOp * (0.5 + 0.5 * Math.sin(c.phase)); const cx = c.x * canvas.width, cy = c.y * canvas.height, sz = c.size; ctx.strokeStyle = `rgba(200, 180, 255, ${op})`; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx - sz, cy); ctx.lineTo(cx + sz, cy); ctx.moveTo(cx, cy - sz); ctx.lineTo(cx, cy + sz); ctx.stroke(); });
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    })();
+    const tabSignin = document.getElementById('tab-signin');
+    const tabCreate = document.getElementById('tab-create');
+    const panelSignin = document.getElementById('panel-signin');
+    const panelCreate = document.getElementById('panel-create');
+    tabSignin.addEventListener('click', () => { tabSignin.classList.add('active'); tabSignin.setAttribute('aria-selected', 'true'); tabCreate.classList.remove('active'); tabCreate.setAttribute('aria-selected', 'false'); panelSignin.hidden = false; panelCreate.hidden = true; });
+    tabCreate.addEventListener('click', () => { tabCreate.classList.add('active'); tabCreate.setAttribute('aria-selected', 'true'); tabSignin.classList.remove('active'); tabSignin.setAttribute('aria-selected', 'false'); panelCreate.hidden = false; panelSignin.hidden = true; });
+  </script>
+</body>
+</html>

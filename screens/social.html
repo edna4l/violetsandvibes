@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Violets &amp; Vibes — Social</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    html { -webkit-font-smoothing: antialiased; }
+    :root {
+      --bg: #07071a; --violet: #7c3aed; --violet-soft: #a78bfa;
+      --pink: #ec4899; --orange-title: #f97316; --teal-title: #2dd4bf;
+      --text: #ede9fe; --text-muted: #a29dc4; --text-faint: #4c4570;
+      --surface: rgba(14, 9, 42, 0.72); --border: rgba(100, 60, 180, 0.28);
+      --nav-bg: rgba(5, 4, 18, 0.97); --nav-border: rgba(90, 50, 160, 0.35);
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Sans', system-ui, sans-serif;
+      --trans: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --radius-full: 9999px; --radius-xl: 24px; --radius-lg: 14px; --radius-md: 10px;
+    }
+    body { font-family: var(--font-body); color: var(--text); background-color: var(--bg); background-image: radial-gradient(ellipse 70% 55% at 20% 65%, rgba(55, 10, 120, 0.6) 0%, transparent 65%), radial-gradient(ellipse 55% 45% at 80% 35%, rgba(70, 8, 130, 0.45) 0%, transparent 60%); display: flex; flex-direction: column; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; position: relative; }
+    button, a { font: inherit; color: inherit; cursor: pointer; text-decoration: none; }
+    button { background: none; border: none; }
+    img { display: block; max-width: 100%; }
+    #star-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .floral-panel { position: fixed; top: 0; bottom: 0; width: clamp(80px, 12vw, 160px); z-index: 1; pointer-events: none; }
+    .floral-panel img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .floral-left { left: 0; }
+    .floral-left::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, transparent 40%, #07071a 100%); }
+    .deco-heart { position: fixed; pointer-events: none; z-index: 2; font-size: 1.3rem; opacity: 0; animation: heart-idle var(--hd, 4.5s) var(--hdelay, 0s) ease-in-out infinite; }
+    @keyframes heart-idle { 0%, 100% { opacity: 0; transform: translateY(4px) scale(0.8); } 40%, 60% { opacity: 0.65; transform: translateY(-5px) scale(1); } }
+    .sparkle-cross { position: fixed; pointer-events: none; z-index: 2; color: rgba(200, 180, 255, 0.6); font-size: 1rem; font-weight: 700; animation: sparkle-pulse var(--sp-dur, 4s) var(--sp-delay, 0s) ease-in-out infinite; }
+    @keyframes sparkle-pulse { 0%, 100% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1); } }
+    .rainbow-bar { height: 3px; background: linear-gradient(90deg, #ff4d6d 0%, #ff7043 13%, #ffd600 26%, #69f0ae 39%, #00e5ff 52%, #7c4dff 65%, #ea80fc 78%, #ff4d6d 100%); position: relative; z-index: 10; flex-shrink: 0; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 8px; position: relative; z-index: 10; flex-shrink: 0; background: rgba(5, 3, 16, 0.55); backdrop-filter: blur(10px); }
+    .safety-badge { display: flex; align-items: center; gap: 6px; background: rgba(60, 30, 110, 0.5); border: 1px solid rgba(130, 80, 220, 0.35); border-radius: var(--radius-full); padding: 5px 12px 5px 9px; font-size: 0.76rem; font-weight: 500; color: var(--text-muted); }
+    .shield-icon { width: 14px; height: 16px; background: var(--violet-soft); clip-path: polygon(50% 0%, 100% 20%, 100% 60%, 50% 100%, 0% 60%, 0% 20%); flex-shrink: 0; opacity: 0.85; }
+    .brand-title { font-family: var(--font-display); font-size: clamp(1.45rem, 4.5vw, 2.1rem); font-weight: 700; font-style: italic; background: linear-gradient(100deg, var(--orange-title) 0%, #fbbf24 35%, var(--teal-title) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; white-space: nowrap; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.9); animation: pulse-dot 2.4s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%, 100% { box-shadow: 0 0 6px rgba(52, 211, 153, 0.8); } 50% { box-shadow: 0 0 16px rgba(52, 211, 153, 1); } }
+    .menu-btn { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
+    .menu-btn span { display: block; width: 20px; height: 2px; background: var(--text-muted); border-radius: 2px; }
+    .subnav { display: flex; align-items: center; gap: 8px; padding: 8px 16px; position: relative; z-index: 10; flex-shrink: 0; }
+    .nav-btn { display: flex; align-items: center; gap: 5px; background: rgba(50, 25, 100, 0.55); border: 1px solid rgba(110, 65, 190, 0.4); border-radius: var(--radius-full); padding: 6px 14px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted); transition: background var(--trans), color var(--trans); }
+    .nav-btn:hover { background: rgba(80, 45, 150, 0.7); color: var(--text); }
+    .chevron { display: inline-block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; opacity: 0.8; }
+    .chevron-left { transform: rotate(135deg); } .chevron-right { transform: rotate(-45deg); }
+    .page-content { flex: 1; position: relative; z-index: 5; padding: 12px clamp(14px, 3vw, 32px) 16px; display: grid; grid-template-columns: 1fr minmax(240px, 340px); gap: 18px; align-items: start; }
+    @media (max-width: 680px) { .page-content { grid-template-columns: 1fr; } .events-col { order: -1; } }
+    .feed-col { display: flex; flex-direction: column; gap: 14px; }
+    .events-col { display: flex; flex-direction: column; gap: 14px; }
+    .col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .col-title { font-family: var(--font-display); font-size: clamp(1.3rem, 3.5vw, 1.8rem); font-weight: 700; font-style: italic; background: linear-gradient(130deg, #f0abfc 0%, #c084fc 50%, var(--violet-soft) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .col-action { font-size: 0.82rem; color: var(--violet-soft); border: 1px solid rgba(167, 139, 250, 0.35); border-radius: var(--radius-full); padding: 5px 14px; transition: background var(--trans); }
+    .col-action:hover { background: rgba(124, 58, 237, 0.2); }
+    .vibe-composer { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; backdrop-filter: blur(14px); box-shadow: 0 3px 18px rgba(0,0,0,0.3); }
+    .composer-row { display: flex; align-items: center; gap: 12px; }
+    .composer-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, rgba(60,25,110,0.9), rgba(30,12,70,0.95)); border: 1.5px solid rgba(130, 80, 220, 0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: rgba(200,170,255,0.65); }
+    .composer-input { flex: 1; background: rgba(30, 15, 70, 0.5); border: 1px solid rgba(110, 65, 190, 0.3); border-radius: var(--radius-md); padding: 9px 14px; font-size: 0.88rem; color: var(--text-muted); outline: none; transition: border-color var(--trans), background var(--trans); }
+    .composer-input:focus { border-color: rgba(167, 139, 250, 0.55); background: rgba(40, 20, 90, 0.55); color: var(--text); }
+    .composer-input::placeholder { color: var(--text-faint); }
+    .composer-submit { background: linear-gradient(135deg, var(--violet) 0%, #9333ea 100%); border-radius: var(--radius-md); padding: 9px 16px; font-size: 0.84rem; font-weight: 600; color: white; border: none; flex-shrink: 0; box-shadow: 0 0 12px rgba(124, 58, 237, 0.4); transition: box-shadow var(--trans), transform var(--trans); }
+    .composer-submit:hover { box-shadow: 0 0 20px rgba(124, 58, 237, 0.65); transform: translateY(-1px); }
+    .post-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; backdrop-filter: blur(14px); box-shadow: 0 3px 18px rgba(0,0,0,0.3); }
+    .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .post-avatar { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; border: 1.5px solid rgba(130, 80, 220, 0.35); background: linear-gradient(135deg, rgba(60,25,110,0.9), rgba(30,12,70,0.95)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .post-avatar-initials { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; color: rgba(200,170,255,0.65); }
+    .post-meta { flex: 1; }
+    .post-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+    .post-time { font-size: 0.74rem; color: var(--text-faint); }
+    .post-body { font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 12px; }
+    .post-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .post-tag { padding: 3px 10px; background: rgba(80, 40, 150, 0.3); border: 1px solid rgba(130, 80, 220, 0.25); border-radius: var(--radius-full); font-size: 0.73rem; color: var(--text-muted); }
+    .post-actions { display: flex; align-items: center; gap: 14px; }
+    .post-action-btn { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-faint); transition: color var(--trans); padding: 2px 0; }
+    .post-action-btn:hover { color: var(--violet-soft); }
+    .post-action-btn.liked { color: var(--pink); }
+    .heart-sm { width: 14px; height: 13px; background: currentColor; clip-path: path('M7 11.5 C7 11.5 0.5 7.5 0.5 4 C0.5 1.8 2.2 0 4.5 0 C5.6 0 6.5 0.5 7 1.3 C7.5 0.5 8.4 0 9.5 0 C11.8 0 13.5 1.8 13.5 4 C13.5 7.5 7 11.5 7 11.5 Z'); }
+    .comment-sm { width: 14px; height: 13px; border: 1.5px solid currentColor; border-radius: 5px 5px 5px 1px; position: relative; }
+    .share-sm { width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%; position: relative; }
+    .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; backdrop-filter: blur(14px); box-shadow: 0 3px 18px rgba(0,0,0,0.3); transition: transform var(--trans), box-shadow var(--trans); }
+    .event-card:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(0,0,0,0.45); }
+    .event-banner { height: 72px; background: linear-gradient(135deg, rgba(80, 20, 160, 0.85) 0%, rgba(40, 10, 100, 0.9) 50%, rgba(180, 50, 120, 0.6) 100%); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .event-banner-text { font-family: var(--font-display); font-size: 0.95rem; font-style: italic; color: rgba(220, 200, 255, 0.55); letter-spacing: 0.05em; }
+    .event-date-chip { position: absolute; top: 10px; left: 12px; background: rgba(7, 7, 26, 0.75); border: 1px solid rgba(167, 139, 250, 0.4); border-radius: var(--radius-md); padding: 5px 10px; text-align: center; }
+    .event-date-month { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--violet-soft); }
+    .event-date-day { font-size: 1.2rem; font-weight: 700; line-height: 1; color: var(--text); }
+    .event-body { padding: 14px 14px 16px; }
+    .event-title { font-size: 0.98rem; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .event-details { font-size: 0.79rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+    .event-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .event-attendees { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-muted); }
+    .attendee-dots { display: flex; }
+    .attendee-dot { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--violet), var(--pink)); border: 2px solid var(--bg); margin-left: -6px; }
+    .attendee-dot:first-child { margin-left: 0; }
+    .rsvp-btn { padding: 7px 16px; background: rgba(124, 58, 237, 0.2); border: 1.5px solid rgba(167, 139, 250, 0.45); border-radius: var(--radius-full); font-size: 0.8rem; font-weight: 600; color: var(--violet-soft); transition: background var(--trans), box-shadow var(--trans); }
+    .rsvp-btn:hover { background: rgba(124, 58, 237, 0.35); box-shadow: 0 0 14px rgba(124, 58, 237, 0.4); }
+    .rsvp-btn.going { background: rgba(52, 211, 153, 0.15); border-color: rgba(52, 211, 153, 0.45); color: #34d399; }
+    .bottom-nav { display: flex; align-items: stretch; background: var(--nav-bg); border-top: 1px solid var(--nav-border); position: relative; z-index: 10; flex-shrink: 0; }
+    .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px 10px; font-size: 0.66rem; font-weight: 500; color: var(--text-faint); transition: color var(--trans); text-decoration: none; position: relative; }
+    .nav-tab:hover { color: var(--text-muted); }
+    .nav-tab.active { color: var(--violet-soft); }
+    .nav-tab.active::before { content: ''; position: absolute; top: 4px; width: 42px; height: 34px; background: rgba(124, 58, 237, 0.18); border-radius: var(--radius-md); }
+    .nav-icon { font-size: 1.25rem; line-height: 1; position: relative; z-index: 1; }
+    .icon-discover { width: 20px; height: 20px; border: 2px solid currentColor; border-radius: 50%; position: relative; }
+    .icon-discover::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); width: 7px; height: 7px; border-top: 2px solid var(--pink); border-right: 2px solid var(--pink); border-bottom: 2px solid currentColor; border-left: 2px solid currentColor; }
+    .icon-violets { width: 20px; height: 18px; position: relative; }
+    .icon-violets::before { content: ''; position: absolute; top: 2px; left: 0; width: 20px; height: 17px; background: currentColor; clip-path: path('M10 15.5 C10 15.5 1 10 1 5 C1 2.2 3.2 0 6 0 C7.7 0 9.2 0.9 10 2.2 C10.8 0.9 12.3 0 14 0 C16.8 0 19 2.2 19 5 C19 10 10 15.5 10 15.5 Z'); }
+    .icon-vibes { width: 18px; height: 20px; position: relative; }
+    .icon-vibes::before { content: ''; position: absolute; bottom: 0; left: 0; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .icon-vibes::after  { content: ''; position: absolute; bottom: 2px; left: 6px; width: 2px; height: 14px; background: currentColor; border-radius: 2px; box-shadow: 8px -4px 0 currentColor; }
+    .icon-chat { width: 20px; height: 19px; position: relative; }
+    .icon-chat::before { content: ''; position: absolute; top: 0; left: 0; width: 18px; height: 15px; border: 2px solid currentColor; border-radius: 8px 8px 8px 2px; }
+    .icon-chat::after  { content: ''; position: absolute; bottom: 0; left: 0; width: 3px; height: 3px; background: currentColor; border-radius: 0 0 3px 3px; box-shadow: 5px 0 0 currentColor, 10px 0 0 currentColor; }
+    .icon-social { width: 20px; height: 21px; position: relative; }
+    .icon-social::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+    .icon-social::after  { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 18px; height: 10px; border-radius: 9px 9px 0 0; background: currentColor; }
+    .icon-alerts { width: 19px; height: 21px; position: relative; }
+    .icon-alerts::before { content: ''; position: absolute; top: 2px; left: 0; width: 19px; height: 15px; background: currentColor; clip-path: path('M9.5 0 C9.5 0 5 1.5 5 7 L5 13 L0 13 L0 15 L19 15 L19 13 L14 13 L14 7 C14 1.5 9.5 0 9.5 0 Z'); }
+    .icon-alerts::after  { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 7px; height: 4px; border-radius: 0 0 4px 4px; background: currentColor; }
+    .icon-profile { width: 19px; height: 21px; position: relative; }
+    .icon-profile::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 9px; height: 9px; border-radius: 50%; border: 2px solid currentColor; }
+    .icon-profile::after  { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 17px; height: 9px; border-radius: 9px 9px 0 0; border: 2px solid currentColor; border-bottom: none; }
+  </style>
+</head>
+<body>
+  <canvas id="star-canvas"></canvas>
+  <div class="floral-panel floral-left" aria-hidden="true"><img src="vv-floral-left.png" alt="" /></div>
+  <div class="deco-heart" style="left:6%;  top:35%; --hd:5s;   --hdelay:0s;"   aria-hidden="true">💜</div>
+  <div class="deco-heart" style="left:7%;  top:58%; --hd:4.2s; --hdelay:1.6s;" aria-hidden="true">🤍</div>
+  <div class="deco-heart" style="right:5%; top:42%; --hd:5.5s; --hdelay:0.9s;" aria-hidden="true">💜</div>
+  <div class="sparkle-cross" style="top:20%; right:18%; --sp-dur:3.5s; --sp-delay:0s;"   aria-hidden="true">✦</div>
+  <div class="sparkle-cross" style="top:68%; left:14%; --sp-dur:4.8s; --sp-delay:2s;"   aria-hidden="true">+</div>
+  <div class="rainbow-bar" aria-hidden="true"></div>
+  <header class="header">
+    <button class="safety-badge">
+      <div class="shield-icon" aria-hidden="true"></div>Safety Standards
+    </button>
+    <h1 class="brand-title">Violets &amp; Vibes</h1>
+    <div class="header-right">
+      <div class="online-dot" aria-hidden="true"></div>
+      <button class="menu-btn" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+  <nav class="subnav" aria-label="Page navigation">
+    <button class="nav-btn" onclick="history.back()"><span class="chevron chevron-left" aria-hidden="true"></span>Back</button>
+    <button class="nav-btn">Next<span class="chevron chevron-right" aria-hidden="true"></span></button>
+  </nav>
+  <div class="page-content">
+    <div class="feed-col">
+      <div class="col-header">
+        <h2 class="col-title">Community</h2>
+        <button class="col-action">+ Post</button>
+      </div>
+      <div class="vibe-composer" aria-label="Write a post">
+        <div class="composer-row">
+          <div class="composer-avatar" aria-hidden="true">Y</div>
+          <input class="composer-input" type="text" placeholder="Share a vibe with the community…" aria-label="Post content" />
+          <button class="composer-submit">Post</button>
+        </div>
+      </div>
+      <article class="post-card">
+        <div class="post-header">
+          <div class="post-avatar"><span class="post-avatar-initials">SD</span></div>
+          <div class="post-meta">
+            <div class="post-name">Sage D.</div>
+            <div class="post-time">14 min ago</div>
+          </div>
+        </div>
+        <p class="post-body">Just got back from the queer hiking trail meetup — best two hours of my week. The energy was so warm and inclusive. If you haven't tried a V&amp;V outdoor event, please do! 🌿💜</p>
+        <div class="post-tags"><span class="post-tag">#OutdoorVibes</span><span class="post-tag">#Community</span></div>
+        <div class="post-actions">
+          <button class="post-action-btn liked" aria-label="Unlike post">
+            <div class="heart-sm" aria-hidden="true"></div>24
+          </button>
+          <button class="post-action-btn" aria-label="Comment on post">
+            <div class="comment-sm" aria-hidden="true"></div>6
+          </button>
+          <button class="post-action-btn" aria-label="Share post">
+            <div class="share-sm" aria-hidden="true"></div>Share
+          </button>
+        </div>
+      </article>
+      <article class="post-card">
+        <div class="post-header">
+          <div class="post-avatar"><span class="post-avatar-initials">MR</span></div>
+          <div class="post-meta">
+            <div class="post-name">Moon R.</div>
+            <div class="post-time">1 hr ago</div>
+          </div>
+        </div>
+        <p class="post-body">PSA: the book club this Saturday moved to 3 PM instead of 2 PM. We're reading "The Price of Salt" and I cannot wait. Come through! 📚</p>
+        <div class="post-tags"><span class="post-tag">#BookClub</span><span class="post-tag">#Events</span></div>
+        <div class="post-actions">
+          <button class="post-action-btn" aria-label="Like post">
+            <div class="heart-sm" aria-hidden="true"></div>11
+          </button>
+          <button class="post-action-btn" aria-label="Comment on post">
+            <div class="comment-sm" aria-hidden="true"></div>3
+          </button>
+          <button class="post-action-btn" aria-label="Share post">
+            <div class="share-sm" aria-hidden="true"></div>Share
+          </button>
+        </div>
+      </article>
+      <article class="post-card">
+        <div class="post-header">
+          <div class="post-avatar"><span class="post-avatar-initials">NV</span></div>
+          <div class="post-meta">
+            <div class="post-name">Nova V.</div>
+            <div class="post-time">3 hrs ago</div>
+          </div>
+        </div>
+        <p class="post-body">Does anyone have recommendations for queer-friendly therapists in Austin? Looking for someone who specializes in relationship dynamics. DM me if so! 💜</p>
+        <div class="post-tags"><span class="post-tag">#MentalHealth</span><span class="post-tag">#Austin</span></div>
+        <div class="post-actions">
+          <button class="post-action-btn" aria-label="Like post">
+            <div class="heart-sm" aria-hidden="true"></div>19
+          </button>
+          <button class="post-action-btn" aria-label="Comment on post">
+            <div class="comment-sm" aria-hidden="true"></div>14
+          </button>
+          <button class="post-action-btn" aria-label="Share post">
+            <div class="share-sm" aria-hidden="true"></div>Share
+          </button>
+        </div>
+      </article>
+    </div>
+    <div class="events-col">
+      <div class="col-header">
+        <h2 class="col-title">Events</h2>
+        <button class="col-action">See all</button>
+      </div>
+      <div class="event-card">
+        <div class="event-banner">
+          <div class="event-date-chip">
+            <div class="event-date-month">Jun</div>
+            <div class="event-date-day">21</div>
+          </div>
+          <span class="event-banner-text">Summer Solstice Soirée</span>
+        </div>
+        <div class="event-body">
+          <h3 class="event-title">Summer Solstice Soirée</h3>
+          <p class="event-details">Rooftop party with live music, tarot readings, and good vibes. Women & non-binary folk only. 7 PM – midnight · Austin, TX</p>
+          <div class="event-footer">
+            <div class="event-attendees">
+              <div class="attendee-dots" aria-hidden="true">
+                <div class="attendee-dot"></div>
+                <div class="attendee-dot"></div>
+                <div class="attendee-dot"></div>
+              </div>
+              <span>+34 going</span>
+            </div>
+            <button class="rsvp-btn going">Going ✓</button>
+          </div>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-banner">
+          <div class="event-date-chip">
+            <div class="event-date-month">Jun</div>
+            <div class="event-date-day">28</div>
+          </div>
+          <span class="event-banner-text">Book Club</span>
+        </div>
+        <div class="event-body">
+          <h3 class="event-title">Queer Lit Book Club</h3>
+          <p class="event-details">Reading "The Price of Salt" by Patricia Highsmith. Coffee &amp; conversation. 3 PM · Bookwoman, Austin</p>
+          <div class="event-footer">
+            <div class="event-attendees">
+              <div class="attendee-dots" aria-hidden="true">
+                <div class="attendee-dot"></div>
+                <div class="attendee-dot"></div>
+              </div>
+              <span>+12 going</span>
+            </div>
+            <button class="rsvp-btn">RSVP</button>
+          </div>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-banner">
+          <div class="event-date-chip">
+            <div class="event-date-month">Jul</div>
+            <div class="event-date-day">4</div>
+          </div>
+          <span class="event-banner-text">Hike &amp; Brunch</span>
+        </div>
+        <div class="event-body">
+          <h3 class="event-title">Pride Hike &amp; Brunch</h3>
+          <p class="event-details">Barton Creek Greenbelt trail walk followed by brunch. 8 AM start · All paces welcome</p>
+          <div class="event-footer">
+            <div class="event-attendees">
+              <div class="attendee-dots" aria-hidden="true">
+                <div class="attendee-dot"></div>
+                <div class="attendee-dot"></div>
+                <div class="attendee-dot"></div>
+              </div>
+              <span>+21 going</span>
+            </div>
+            <button class="rsvp-btn">RSVP</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="discover.html" class="nav-tab" aria-label="Discover"><div class="nav-icon icon-discover" aria-hidden="true"></div><span>Discover</span></a>
+    <a href="matches.html" class="nav-tab" aria-label="Violets"><div class="nav-icon icon-violets" aria-hidden="true"></div><span>Violets</span></a>
+    <a href="matches.html" class="nav-tab" aria-label="Vibes"><div class="nav-icon icon-vibes" aria-hidden="true"></div><span>Vibes</span></a>
+    <a href="chat.html" class="nav-tab" aria-label="Chat"><div class="nav-icon icon-chat" aria-hidden="true"></div><span>Chat</span></a>
+    <a href="social.html" class="nav-tab active" aria-label="Social" aria-current="page"><div class="nav-icon icon-social" aria-hidden="true"></div><span>Social</span></a>
+    <a href="alerts.html" class="nav-tab" aria-label="Alerts"><div class="nav-icon icon-alerts" aria-hidden="true"></div><span>Alerts</span></a>
+    <a href="profile.html" class="nav-tab" aria-label="Profile"><div class="nav-icon icon-profile" aria-hidden="true"></div><span>Profile</span></a>
+  </nav>
+  <script>
+    (function () {
+      const canvas = document.getElementById('star-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, stars = [];
+      function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+      window.addEventListener('resize', resize); resize();
+      for (let i = 0; i < 80; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, base: Math.random() * 0.5 + 0.1, speed: Math.random() * 0.4 + 0.15, phase: Math.random() * Math.PI * 2 });
+      function draw(t) {
+        ctx.clearRect(0, 0, W, H);
+        const ts = t * 0.001;
+        stars.forEach(s => { const a = s.base + Math.sin(ts * s.speed + s.phase) * (s.base * 0.7); ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.fillStyle = '#e9d5ff'; ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+      document.querySelectorAll('.rsvp-btn:not(.going)').forEach(btn => {
+        btn.addEventListener('click', () => { btn.textContent = 'Going ✓'; btn.classList.add('going'); });
+      });
+      document.querySelectorAll('.post-action-btn:not(.liked)').forEach(btn => {
+        if (btn.querySelector('.heart-sm')) {
+          btn.addEventListener('click', () => {
+            btn.classList.toggle('liked');
+            const count = parseInt(btn.textContent.trim()) || 0;
+            btn.innerHTML = btn.innerHTML.replace(/\d+/, btn.classList.contains('liked') ? count + 1 : count - 1);
+          });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

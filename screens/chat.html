@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Violets &amp; Vibes — Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+    :root {
+      --bg:           #07071a;
+      --violet:       #7c3aed;
+      --violet-soft:  #a78bfa;
+      --violet-faint: rgba(124, 58, 237, 0.15);
+      --pink:         #ec4899;
+      --orange-title: #f97316;
+      --teal-title:   #2dd4bf;
+      --text:         #ede9fe;
+      --text-muted:   #a29dc4;
+      --text-faint:   #4c4570;
+      --surface:      rgba(14, 9, 42, 0.72);
+      --surface-in:   rgba(10, 6, 32, 0.78);
+      --border:       rgba(100, 60, 180, 0.28);
+      --border-inner: rgba(80, 45, 150, 0.22);
+      --nav-bg:       rgba(5, 4, 18, 0.97);
+      --nav-border:   rgba(90, 50, 160, 0.35);
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+      --trans:        180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --radius-full:  9999px;
+      --radius-xl:    24px;
+      --radius-lg:    14px;
+      --radius-md:    10px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(ellipse 70% 55% at 20% 65%, rgba(55, 10, 120, 0.6) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 45% at 80% 35%, rgba(70, 8, 130, 0.45) 0%, transparent 60%),
+        radial-gradient(ellipse 90% 60% at 50% 100%, rgba(35, 8, 80, 0.55) 0%, transparent 65%);
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; background: none; border: none; }
+    img    { display: block; max-width: 100%; }
+
+    #star-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+    .floral-panel { position: fixed; top: 0; bottom: 0; width: clamp(80px, 12vw, 160px); z-index: 1; pointer-events: none; }
+    .floral-panel img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    .floral-left  { left: 0; }
+    .floral-right { right: 0; transform: scaleX(-1); }
+    .floral-left::after  { content: ''; position: absolute; inset: 0; background: linear-gradient(to right, transparent 40%, #07071a 100%); }
+    .floral-right::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to left,  transparent 40%, #07071a 100%); }
+
+    .header-deco-butterfly {
+      position: fixed; top: 12px;
+      left: 50%; transform: translateX(clamp(120px, 18vw, 200px));
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      z-index: 3; pointer-events: none; opacity: 0.85;
+      animation: butterfly-float 5s ease-in-out infinite;
+    }
+    @keyframes butterfly-float {
+      0%, 100% { transform: translateX(clamp(120px, 18vw, 200px)) translateY(0) rotate(-5deg); }
+      50%       { transform: translateX(clamp(120px, 18vw, 200px)) translateY(-5px) rotate(5deg); }
+    }
+
+    .deco-heart {
+      position: fixed; pointer-events: none; z-index: 2;
+      font-size: 1.3rem; opacity: 0;
+      animation: heart-idle var(--hd, 4.5s) var(--hdelay, 0s) ease-in-out infinite;
+    }
+    @keyframes heart-idle {
+      0%, 100% { opacity: 0;   transform: translateY(4px)  scale(0.8); }
+      40%, 60%  { opacity: 0.65; transform: translateY(-5px) scale(1); }
+    }
+
+    .sparkle-cross {
+      position: fixed; pointer-events: none; z-index: 2;
+      color: rgba(200, 180, 255, 0.6); font-size: 1rem; font-weight: 700;
+      animation: sparkle-pulse var(--sp-dur, 4s) var(--sp-delay, 0s) ease-in-out infinite;
+    }
+    @keyframes sparkle-pulse {
+      0%, 100% { opacity: 0; transform: scale(0.5); }
+      50%       { opacity: 1; transform: scale(1); }
+    }
+
+    .rainbow-bar {
+      height: 3px;
+      background: linear-gradient(90deg, #ff4d6d 0%, #ff7043 13%, #ffd600 26%, #69f0ae 39%, #00e5ff 52%, #7c4dff 65%, #ea80fc 78%, #ff4d6d 100%);
+      position: relative; z-index: 10; flex-shrink: 0;
+    }
+
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px 8px;
+      position: relative; z-index: 10; flex-shrink: 0;
+      background: rgba(5, 3, 16, 0.55); backdrop-filter: blur(10px);
+    }
+    .safety-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(60, 30, 110, 0.5); border: 1px solid rgba(130, 80, 220, 0.35);
+      border-radius: var(--radius-full); padding: 5px 12px 5px 9px;
+      font-size: 0.76rem; font-weight: 500; color: var(--text-muted);
+      transition: background var(--trans), border-color var(--trans);
+    }
+    .safety-badge:hover { background: rgba(90, 50, 160, 0.6); border-color: rgba(160, 110, 255, 0.55); }
+    .shield-icon { width: 14px; height: 16px; background: var(--violet-soft); clip-path: polygon(50% 0%, 100% 20%, 100% 60%, 50% 100%, 0% 60%, 0% 20%); flex-shrink: 0; opacity: 0.85; }
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 4.5vw, 2.1rem);
+      font-weight: 700; font-style: italic; letter-spacing: 0.01em;
+      background: linear-gradient(100deg, var(--orange-title) 0%, #fbbf24 35%, var(--teal-title) 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      line-height: 1; white-space: nowrap;
+    }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.9); animation: pulse-dot 2.4s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%, 100% { box-shadow: 0 0 6px rgba(52, 211, 153, 0.8); } 50% { box-shadow: 0 0 16px rgba(52, 211, 153, 1); } }
+    .menu-btn { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
+    .menu-btn span { display: block; width: 20px; height: 2px; background: var(--text-muted); border-radius: 2px; transition: background var(--trans); }
+    .menu-btn:hover span { background: var(--text); }
+
+    .subnav { display: flex; align-items: center; gap: 8px; padding: 8px 16px; position: relative; z-index: 10; flex-shrink: 0; }
+    .nav-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(50, 25, 100, 0.55); border: 1px solid rgba(110, 65, 190, 0.4);
+      border-radius: var(--radius-full); padding: 6px 14px;
+      font-size: 0.82rem; font-weight: 500; color: var(--text-muted);
+      transition: background var(--trans), color var(--trans), border-color var(--trans);
+    }
+    .nav-btn:hover { background: rgba(80, 45, 150, 0.7); color: var(--text); border-color: rgba(160, 100, 255, 0.6); }
+    .chevron { display: inline-block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; opacity: 0.8; }
+    .chevron-left  { transform: rotate(135deg); }
+    .chevron-right { transform: rotate(-45deg); }
+
+    .main {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: clamp(8px, 2vh, 20px) 16px clamp(8px, 2vh, 16px);
+      position: relative; z-index: 5; min-height: 0;
+    }
+
+    .chat-card {
+      width: min(1000px, 100%);
+      min-height: clamp(380px, 55vh, 480px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 0 0 1px rgba(110, 55, 200, 0.08), 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(180,140,255,0.05);
+      display: grid;
+      grid-template-columns: minmax(220px, 38%) 1fr;
+      overflow: hidden;
+    }
+
+    .panel-left { border-right: 1px solid var(--border-inner); display: flex; flex-direction: column; overflow: hidden; }
+
+    .panel-left-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 18px 14px; flex-shrink: 0;
+    }
+    .panel-left-title-row { display: flex; align-items: center; gap: 9px; }
+
+    .chat-bubble-icon { width: 26px; height: 26px; position: relative; color: var(--violet-soft); }
+    .chat-bubble-icon::before {
+      content: ''; width: 22px; height: 18px;
+      border: 2.5px solid currentColor; border-radius: 8px 8px 8px 0;
+      position: absolute; top: 0; left: 0;
+      box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
+    }
+    .chat-bubble-icon::after {
+      content: ''; width: 3px; height: 3px; background: currentColor;
+      border-radius: 50%; position: absolute; bottom: 3px; left: 0;
+      box-shadow: 6px 0 0 currentColor, 12px 0 0 currentColor;
+    }
+
+    .panel-left-title { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+
+    .left-divider { height: 1px; background: linear-gradient(90deg, rgba(100, 60, 180, 0.35) 0%, transparent 100%); margin: 0 18px; flex-shrink: 0; }
+
+    .refresh-btn {
+      background: rgba(25, 12, 65, 0.7); border: 1px solid var(--border-inner);
+      border-radius: var(--radius-md); padding: 6px 14px;
+      font-size: 0.78rem; font-weight: 500; color: var(--text-muted);
+      transition: background var(--trans), color var(--trans), border-color var(--trans);
+    }
+    .refresh-btn:hover { background: rgba(55, 28, 130, 0.7); color: var(--text); border-color: rgba(130, 80, 200, 0.5); }
+
+    .left-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px 20px 24px; text-align: center;
+    }
+    .left-empty-img { width: clamp(160px, 55%, 220px); aspect-ratio: 1; margin-bottom: 16px; position: relative; }
+    .left-empty-img img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+    .left-heart {
+      position: absolute; font-size: 1rem; opacity: 0; pointer-events: none;
+      animation: heart-idle var(--hd, 3.5s) var(--hdelay, 0s) ease-in-out infinite;
+    }
+    .left-heart.h1 { top: 14%; right: 4%; --hd: 3.2s; --hdelay: 0s; font-size: 1.1rem; }
+    .left-heart.h2 { top: 26%; right: 16%; --hd: 4.1s; --hdelay: 0.9s; font-size: 0.85rem; color: #f472b6; }
+
+    .left-empty-title { font-size: 0.92rem; font-weight: 600; color: var(--text); margin-bottom: 8px; line-height: 1.4; }
+    .left-empty-sub { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; max-width: 24ch; }
+
+    .panel-right { display: flex; flex-direction: column; padding: 18px 18px 16px; gap: 12px; }
+
+    .panel-right-header { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .panel-right-title { font-size: 1.05rem; font-weight: 600; color: var(--text); flex: 1; }
+    .sparkle-accent { color: rgba(180, 150, 255, 0.6); font-size: 0.85rem; animation: sparkle-pulse 3.5s ease-in-out infinite; }
+
+    .right-divider { height: 1px; background: linear-gradient(90deg, rgba(100, 60, 180, 0.4) 0%, transparent 100%); flex-shrink: 0; }
+
+    .select-sub { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    .convo-select-wrap { position: relative; flex-shrink: 0; }
+    .convo-select {
+      width: 100%;
+      background: rgba(12, 7, 40, 0.8); border: 1px solid var(--border-inner);
+      border-radius: var(--radius-md); padding: 13px 44px 13px 16px;
+      font-size: 0.88rem; color: var(--text-faint);
+      appearance: none; -webkit-appearance: none;
+      cursor: pointer; outline: none;
+      transition: border-color var(--trans), box-shadow var(--trans);
+    }
+    .convo-select:focus { border-color: rgba(167, 139, 250, 0.55); box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
+    .convo-select option { background: #12083a; color: var(--text); }
+    .select-chevron {
+      position: absolute; right: 14px; top: 50%;
+      width: 10px; height: 10px;
+      border-right: 2px solid var(--text-faint); border-bottom: 2px solid var(--text-faint);
+      transform: translateY(-65%) rotate(45deg); pointer-events: none;
+    }
+
+    .message-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+
+    .compose-wrap {
+      background: rgba(10, 6, 32, 0.78); border: 1px solid var(--border-inner);
+      border-radius: var(--radius-lg); overflow: hidden; flex-shrink: 0;
+    }
+    .compose-row { display: flex; align-items: flex-end; gap: 0; min-height: 54px; }
+
+    .compose-icon-btn {
+      width: 50px; min-height: 54px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: var(--text-faint);
+      transition: color var(--trans); position: relative;
+    }
+    .compose-icon-btn:hover { color: var(--violet-soft); }
+    .pencil-icon { width: 16px; height: 16px; position: relative; }
+    .pencil-icon::before {
+      content: ''; width: 10px; height: 14px;
+      border: 1.5px solid currentColor; border-radius: 2px 2px 0 0;
+      position: absolute; top: 0; left: 3px;
+      transform: rotate(-15deg); transform-origin: bottom center;
+    }
+    .pencil-icon::after {
+      content: ''; width: 0; height: 0;
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-top: 6px solid currentColor;
+      position: absolute; bottom: 0; left: 3px;
+    }
+
+    .compose-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      padding: 16px 12px; font-size: 0.88rem; color: var(--text);
+      resize: none; min-height: 54px; max-height: 120px; line-height: 1.5;
+    }
+    .compose-input::placeholder { color: var(--text-faint); }
+
+    .send-btn {
+      flex-shrink: 0; margin: 8px; height: 38px; padding: 0 20px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; color: #fff;
+      box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+      transition: transform var(--trans), box-shadow var(--trans), filter var(--trans);
+    }
+    .send-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(124, 58, 237, 0.55); filter: brightness(1.1); }
+    .send-btn:active { transform: translateY(0); }
+
+    .compose-hint {
+      padding: 7px 16px 8px; font-size: 0.72rem; color: var(--text-faint);
+      border-top: 1px solid rgba(80, 45, 140, 0.15);
+    }
+    .compose-hint span { margin: 0 3px; }
+
+    .bottom-nav {
+      background: var(--nav-bg); border-top: 1px solid var(--nav-border);
+      display: flex; align-items: stretch; justify-content: space-around;
+      padding: 8px 2px 14px;
+      position: relative; z-index: 10; flex-shrink: 0; backdrop-filter: blur(14px);
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 4px 5px; border-radius: var(--radius-lg);
+      cursor: pointer; min-width: 44px;
+      text-decoration: none; color: inherit; transition: background var(--trans);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-item:hover { background: rgba(100, 55, 180, 0.15); }
+    .nav-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .icon-discover::before { content: ''; width: 13px; height: 13px; border: 2px solid currentColor; border-radius: 50%; position: absolute; top: 1px; left: 1px; }
+    .icon-discover::after  { content: ''; width: 6px; height: 2px; background: currentColor; position: absolute; bottom: 2px; right: 1px; transform: rotate(-45deg); transform-origin: right center; }
+    .icon-violets  { font-size: 1.25rem; line-height: 1; }
+    .icon-vibes::before { content: ''; width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 12px solid currentColor; position: absolute; left: 5px; }
+    .icon-chat-nav { font-size: 1.15rem; line-height: 1; }
+    .icon-social::before { content: ''; width: 8px; height: 8px; border: 2px solid currentColor; border-radius: 50%; position: absolute; top: 0; left: 1px; }
+    .icon-social::after  { content: ''; width: 12px; height: 8px; border: 2px solid currentColor; border-radius: 6px 6px 0 0; border-bottom: none; position: absolute; bottom: 0; left: 0; }
+    .icon-alerts::before { content: ''; width: 14px; height: 13px; border: 2px solid currentColor; border-radius: 8px 8px 0 0; border-bottom: none; position: absolute; top: 1px; left: 4px; }
+    .icon-alerts::after  { content: ''; width: 6px; height: 2px; border-radius: 2px; background: currentColor; position: absolute; bottom: 3px; left: 8px; }
+    .icon-profile::before { content: ''; width: 9px; height: 9px; border: 2px solid currentColor; border-radius: 50%; position: absolute; top: 1px; left: 6px; }
+    .icon-profile::after  { content: ''; width: 16px; height: 9px; border: 2px solid currentColor; border-radius: 10px 10px 0 0; border-bottom: none; position: absolute; bottom: 1px; left: 3px; }
+    .nav-label { font-size: 0.67rem; font-weight: 500; color: var(--text-faint); transition: color var(--trans); }
+    .nav-icon, .nav-icon::before, .nav-icon::after { color: var(--text-faint); }
+    .nav-item.active .nav-icon-wrap {
+      background: rgba(124, 58, 237, 0.22); border-radius: 50%; width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-item.active .nav-label  { color: var(--violet-soft); }
+    .nav-item.active .icon-chat-nav { color: var(--violet-soft); }
+
+    @media (max-width: 600px) {
+      .chat-card { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border-inner); max-height: 280px; }
+      .left-empty { padding: 12px 16px 16px; flex-direction: row; gap: 14px; text-align: left; }
+      .left-empty-img { width: 90px; margin-bottom: 0; flex-shrink: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="star-canvas"></canvas>
+
+  <div class="floral-panel floral-left"  aria-hidden="true"><img src="vv-floral-left.png" alt="" /></div>
+  <div class="floral-panel floral-right" aria-hidden="true"><img src="vv-floral-left.png" alt="" /></div>
+
+  <div class="header-deco-butterfly" aria-hidden="true">🦋</div>
+
+  <div class="deco-heart" style="left:5%;top:40%;--hd:4s;--hdelay:0s"    aria-hidden="true">💜</div>
+  <div class="deco-heart" style="left:10%;top:65%;--hd:5s;--hdelay:1.5s" aria-hidden="true">💜</div>
+
+  <div class="sparkle-cross" style="top:14%;left:28%;--sp-dur:3.8s;--sp-delay:0s">+</div>
+  <div class="sparkle-cross" style="top:13%;right:26%;--sp-dur:4.5s;--sp-delay:1.2s">✦</div>
+  <div class="sparkle-cross" style="bottom:28%;right:22%;--sp-dur:5s;--sp-delay:0.4s">+</div>
+  <div class="sparkle-cross" style="bottom:22%;left:28%;--sp-dur:4.2s;--sp-delay:1.8s">✦</div>
+
+  <div class="rainbow-bar" role="presentation"></div>
+
+  <header class="header">
+    <button class="safety-badge" aria-label="Safety Standards">
+      <div class="shield-icon" aria-hidden="true"></div>
+      Safety Standards
+    </button>
+    <h1 class="brand-title">Violets &amp; Vibes</h1>
+    <div class="header-right">
+      <div class="online-dot" aria-label="Online"></div>
+      <button class="menu-btn" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="subnav" aria-label="Page navigation">
+    <button class="nav-btn" id="back-btn">
+      <span class="chevron chevron-left" aria-hidden="true"></span>Back
+    </button>
+    <button class="nav-btn" id="next-btn">
+      Next<span class="chevron chevron-right" aria-hidden="true"></span>
+    </button>
+  </nav>
+
+  <main class="main" aria-label="Chat">
+    <div class="chat-card">
+
+      <section class="panel-left" aria-label="Conversations">
+        <div class="panel-left-header">
+          <div class="panel-left-title-row">
+            <div class="chat-bubble-icon" aria-hidden="true"></div>
+            <h2 class="panel-left-title">Chat</h2>
+          </div>
+          <button class="refresh-btn" aria-label="Refresh conversations">Refresh</button>
+        </div>
+        <div class="left-divider" aria-hidden="true"></div>
+        <div class="left-empty" role="status" aria-live="polite">
+          <div class="left-empty-img">
+            <img src="vv-center-illustration.png" alt="No conversations" />
+            <div class="left-heart h1" aria-hidden="true">💜</div>
+            <div class="left-heart h2" aria-hidden="true">💗</div>
+          </div>
+          <div>
+            <p class="left-empty-title">No conversations yet.</p>
+            <p class="left-empty-sub">Go to a profile and tap "Message".</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-right" aria-label="Message composer">
+        <div class="panel-right-header">
+          <h2 class="panel-right-title">Select a conversation</h2>
+          <span class="sparkle-accent" aria-hidden="true">✦</span>
+        </div>
+        <div class="right-divider" aria-hidden="true"></div>
+        <p class="select-sub">
+          Choose someone to start chatting
+          <span aria-hidden="true">💜</span>
+        </p>
+        <div class="convo-select-wrap">
+          <select class="convo-select" aria-label="Select a conversation" id="convo-select">
+            <option value="" disabled selected>Select a conversation...</option>
+            <option value="luna">Luna · 26</option>
+            <option value="stella">Stella · 24</option>
+            <option value="violet">Violet · 28</option>
+          </select>
+          <div class="select-chevron" aria-hidden="true"></div>
+        </div>
+        <div class="message-area" id="message-area" aria-live="polite" aria-label="Messages"></div>
+        <div class="compose-wrap">
+          <div class="compose-row">
+            <button class="compose-icon-btn" aria-label="Edit message">
+              <div class="pencil-icon" aria-hidden="true"></div>
+            </button>
+            <textarea
+              class="compose-input"
+              id="compose-input"
+              placeholder="Message..."
+              rows="1"
+              aria-label="Type a message"
+            ></textarea>
+            <button class="send-btn" id="send-btn" aria-label="Send message">Send</button>
+          </div>
+          <p class="compose-hint">
+            Press Enter to send<span>•</span>Shift+Enter for a new line
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="discover.html" class="nav-item" aria-label="Discover">
+      <div class="nav-icon icon-discover"></div>
+      <span class="nav-label">Discover</span>
+    </a>
+    <a href="matches.html" class="nav-item" aria-label="Violets">
+      <div class="nav-icon icon-violets" aria-hidden="true">💜</div>
+      <span class="nav-label">Violets</span>
+    </a>
+    <a href="matches.html" class="nav-item" aria-label="Vibes">
+      <div class="nav-icon icon-vibes"></div>
+      <span class="nav-label">Vibes</span>
+    </a>
+    <a href="chat.html" class="nav-item active" aria-label="Chat" aria-current="page">
+      <div class="nav-icon-wrap">
+        <div class="nav-icon icon-chat-nav" aria-hidden="true">💬</div>
+      </div>
+      <span class="nav-label">Chat</span>
+    </a>
+    <a href="social.html" class="nav-item" aria-label="Social">
+      <div class="nav-icon icon-social"></div>
+      <span class="nav-label">Social</span>
+    </a>
+    <a href="alerts.html" class="nav-item" aria-label="Alerts">
+      <div class="nav-icon icon-alerts"></div>
+      <span class="nav-label">Alerts</span>
+    </a>
+    <a href="profile.html" class="nav-item" aria-label="Profile">
+      <div class="nav-icon icon-profile"></div>
+      <span class="nav-label">Profile</span>
+    </a>
+  </nav>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('star-canvas');
+      const ctx = canvas.getContext('2d');
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      resize(); window.addEventListener('resize', resize);
+      const stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.8, maxOp: 0.25 + Math.random() * 0.65 }));
+      const crosses = Array.from({ length: 8 }, () => ({ x: 0.05 + Math.random() * 0.9, y: 0.05 + Math.random() * 0.85, size: 3 + Math.random() * 4, phase: Math.random() * Math.PI * 2, speed: 0.2 + Math.random() * 0.4, maxOp: 0.35 + Math.random() * 0.5 }));
+      let last = 0;
+      function draw(ts) {
+        const dt = Math.min((ts - last) / 1000, 0.05); last = ts;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        stars.forEach(s => { s.phase += s.speed * dt * Math.PI * 2; const op = s.maxOp * (0.5 + 0.5 * Math.sin(s.phase)); ctx.beginPath(); ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2); ctx.fillStyle = `rgba(220, 200, 255, ${op})`; ctx.fill(); });
+        crosses.forEach(c => { c.phase += c.speed * dt * Math.PI * 2; const op = c.maxOp * (0.5 + 0.5 * Math.sin(c.phase)); const cx = c.x * canvas.width, cy = c.y * canvas.height, sz = c.size; ctx.strokeStyle = `rgba(200, 180, 255, ${op})`; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx - sz, cy); ctx.lineTo(cx + sz, cy); ctx.moveTo(cx, cy - sz); ctx.lineTo(cx, cy + sz); ctx.stroke(); });
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    })();
+
+    const textarea = document.getElementById('compose-input');
+    textarea.addEventListener('input', function () { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px'; });
+    textarea.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+    function sendMessage() { const val = textarea.value.trim(); if (!val) return; console.log('Send:', val); textarea.value = ''; textarea.style.height = 'auto'; }
+    document.getElementById('convo-select').addEventListener('change', function () { console.log('Selected conversation:', this.value); });
+    document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', function (e) { if (this.getAttribute('href') === '#') e.preventDefault(); document.querySelectorAll('.nav-item').forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); }); this.classList.add('active'); this.setAttribute('aria-current', 'page'); }); });
+    document.getElementById('back-btn').addEventListener('click', () => history.back());
+  </script>
+
+</body>
+</html>
