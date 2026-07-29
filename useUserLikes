@@ -1,0 +1,85 @@
+import { useEffect, useState, useCallback } from "react";
+
+type UserLike = {
+  id: string;
+  likedUserId: string;
+  createdAt: string;
+  // extend with other fields returned by your Edge Function if needed
+};
+
+type Mode = "liked" | "likedMe"; 
+// "liked" = users I liked, "likedMe" = users who liked me
+
+export default function useUserLikes(mode: Mode = "liked") {
+  const [likes, setLikes] = useState<UserLike[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLikes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const endpoint = mode === "liked" ? "/user-likes" : "/user-likes/liked-me";
+
+      const res = await fetch(endpoint, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch ${mode} (status ${res.status})`);
+
+      const data = await res.json();
+      setLikes(data ?? []);
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, [mode]);
+
+  // Fetch on mount + whenever mode changes
+  useEffect(() => {
+    fetchLikes();
+  }, [fetchLikes]);
+
+  // Like a user
+  const likeUser = useCallback(
+    async (likedUserId: string) => {
+      try {
+        const res = await fetch("/user-likes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ likedUserId }),
+        });
+
+        if (!res.ok) throw new Error(`Failed to like user (status ${res.status})`);
+
+        // Optimistic update: re-fetch list
+        await fetchLikes();
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+      }
+    },
+    [fetchLikes]
+  );
+
+  // Unlike a user
+  const unlikeUser = useCallback(
+    async (likedUserId: string) => {
+      try {
+        const res = await fetch(`/user-likes/${likedUserId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+
+        if (!res.ok) throw new Error(`Failed to unlike user (status ${res.status})`);
+
+        // Optimistic update: remove locally without full fetch
+        setLikes((prev) => prev.filter((like) => like.likedUserId !== likedUserId));
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+      }
+    },
+    []
+  );
+
+  return { likes, loading, error, likeUser, unlikeUser, refresh: fetchLikes };
+}
